@@ -1,0 +1,26 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+    <div class="alarm-table-wrap">
+        <table class="alarm-table">
+            <thead>
+                <tr>
+                    <th class="sortable" onclick="sortTable(0)">Day <span class="sort-icon"></span></th>
+                    <th class="sortable" onclick="sortTable(1)">Incident Count <span class="sort-icon"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in metrics %}
+                <tr>
+                    <td>{{ row.day }}</td>
+                    <td>{{ row.incident_count }}</td>
+                </tr>
+                {% else %}
+                <tr class="empty-row"><td colspan="2">No data available.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

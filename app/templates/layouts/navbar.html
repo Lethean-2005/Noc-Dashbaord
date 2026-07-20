@@ -1,0 +1,27 @@
+<header class="topbar">
+    <div class="topbar-left">
+        <button class="mobile-toggle-btn" onclick="toggleSidebar()">
+            <i class="ti ti-menu-2"></i>
+        </button>
+        <h1 class="topbar-title">{{ page_title }}</h1>
+        <div class="topbar-search">
+            <i class="ti ti-search search-icon"></i>
+            <input type="text" placeholder="Search…" class="search-field" id="global-search" autocomplete="off">
+            <div class="search-results" id="search-results"></div>
+        </div>
+    </div>
+    <div class="topbar-right">
+        <div class="topbar-clock" id="clock">--:--:--</div>
+
+        <button class="topbar-btn" title="Refresh" onclick="location.reload()"><i class="ti ti-refresh"></i></button>
+        <div class="topbar-theme">
+            <button class="topbar-btn" id="topbar-theme-btn" title="Theme"><i class="ti ti-sun"></i></button>
+            <div class="theme-dropdown" id="theme-dropdown">
+                <button class="theme-option" data-theme-choice="light"><i class="ti ti-sun"></i> Light</button>
+                <button class="theme-option" data-theme-choice="dark"><i class="ti ti-moon"></i> Dark</button>
+            </div>
+        </div>
+        <span class="topbar-divider"></span>
+        <button class="topbar-btn" title="Fullscreen" onclick="toggleFullscreen()"><i class="ti ti-maximize"></i></button>
+    </div>
+</header>

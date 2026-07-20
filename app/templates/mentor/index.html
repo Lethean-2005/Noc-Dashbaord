@@ -1,0 +1,222 @@
+{% extends "layouts/base.html" %} {% block title %}Mentor Site{% endblock %} {%
+block head %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/components/mentor-sites.css') }}"
+/>
+{% endblock %} {% block content %} {# Static replica of the reference Mentor
+Sites page — there is no mentor_sites database table or upload endpoint yet, so
+typing a code or dropping a file only updates the on-page preview
+(mentor-sites.js); nothing is persisted, and Upload/Add show a "not available"
+message. #}
+<div class="alarm-header">
+  <div>
+    <h1>{{ self.title() }}</h1>
+    <div class="alarm-subtitle">
+      Specific sites to monitor for Site Down &middot; Main Failure &middot; Low
+      DC Voltage &middot; DG On
+    </div>
+  </div>
+</div>
+
+<div class="mentor-template">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    class="icon icon-tabler icons-tabler-outline icon-tabler-cloud-download"
+  >
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path
+      d="M19 18a3.5 3.5 0 0 0 0 -7h-1a5 4.5 0 0 0 -11 -2a4.6 4.4 0 0 0 -2.1 8.4"
+    />
+    <path d="M12 13l0 9" />
+    <path d="M9 19l3 3l3 -3" />
+  </svg>
+  <span>Download template:</span>
+  <a href="#" onclick="return false;">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#2563eb"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="icon icon-tabler icons-tabler-outline icon-tabler-file-type-csv"
+    >
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4" />
+      <path d="M7 16.5a1.5 1.5 0 0 0 -3 0v3a1.5 1.5 0 0 0 3 0" />
+      <path
+        d="M10 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75"
+      />
+      <path d="M16 15l2 6l2 -6" />
+    </svg>
+  </a>
+</div>
+
+<div class="mentor-cards">
+  <div class="mentor-card-form">
+    <div class="mentor-composer" id="uploadCard">
+      <div class="nc-head">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="icon icon-tabler icons-tabler-outline icon-tabler-file-like"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path
+            d="M3 17a1 1 0 0 1 1 -1h1a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1l0 -3"
+          />
+          <path
+            d="M6 20a1 1 0 0 0 1 1h3.756a1 1 0 0 0 .958 -.713l1.2 -3c.09 -.303 .133 -.63 -.056 -.884c-.188 -.254 -.542 -.403 -.858 -.403h-2v-2.467a1.1 1.1 0 0 0 -2.015 -.61l-1.985 3.077v4"
+          />
+          <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+          <path d="M5 12.1v-7.1a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-2.3" />
+        </svg>
+        <span class="nc-title">Import File</span>
+      </div>
+      <div class="nc-body">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden />
+        <div class="nc-row">
+          <span class="nc-verb">FILE</span>
+          <button type="button" class="nc-field" id="fileBtn">
+            Drop file here or browse&hellip;
+          </button>
+        </div>
+        <div class="nc-row" id="fileChip" hidden>
+          <span class="mc-file-badge" id="fileBadge"
+            ><i class="ti ti-file-text"></i
+          ></span>
+          <span class="mc-file-meta">
+            <span class="mc-file-name" id="fileName"></span>
+            <span class="mc-file-size" id="fileSize"></span>
+          </span>
+          <button
+            type="button"
+            class="mc-chip-x"
+            id="fileClear"
+            title="Remove file"
+          >
+            <i class="ti ti-x"></i>
+          </button>
+        </div>
+      </div>
+      <div class="nc-foot">
+        <i class="ti ti-clock"></i>
+        <span>CSV / Excel &middot; <strong>site_code</strong> column</span>
+        <button type="button" class="nc-btn" id="uploadBtn" disabled>
+          Upload
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mentor-card-form">
+    <div class="mentor-composer" id="composer">
+      <div class="nc-head">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="icon icon-tabler icons-tabler-outline icon-tabler-codeblock"
+        >
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M5 4l-2 2l2 2" />
+          <path d="M12 4l2 2l-2 2" />
+          <path d="M8 8l1 -4" />
+          <path
+            d="M17 6a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-7"
+          />
+        </svg>
+        <span class="nc-title">Input Site Codes</span>
+      </div>
+      <div class="nc-body">
+        <div class="nc-row">
+          <span class="nc-verb">CODE</span>
+          <div class="nc-field nc-chips" id="chipArea">
+            <span id="chipList"></span>
+            <input
+              type="text"
+              id="codeInput"
+              class="mc-input"
+              placeholder="Site code or location..."
+              autocomplete="off"
+            />
+          </div>
+        </div>
+      </div>
+      <div class="nc-foot">
+        <i class="ti ti-clock"></i>
+        <span>Code or physical location &middot; Enter adds it</span>
+        <button type="button" class="nc-btn" id="importBtn" disabled>
+          Add
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alarm-header" style="margin-top: 18px">
+  <div><h2 style="font-size: 16px; margin: 0">Configured Mentor Sites</h2></div>
+  <div class="alarm-actions">
+    <span class="alarm-row-count">0 sites</span>
+    <a
+      class="btn-view"
+      href="{{ url_for('dashboard.drilldown', title='Mentor Alarms', label='Mentor Site', value=0, scope='Mentor sites') }}"
+      >View Alarms</a
+    >
+    <a class="btn-view btn-back" href="{{ url_for('dashboard.index') }}"
+      >Back</a
+    >
+  </div>
+</div>
+
+<div class="alarm-table-wrap">
+  <table class="alarm-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Site Code</th>
+        <th>Site Name</th>
+        <th>Province</th>
+        <th>Status</th>
+        <th>Source</th>
+        <th>Added</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="empty-row">
+        <td colspan="7">
+          No Mentor sites yet &mdash; upload a file or add one above.
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %} {% block scripts %}
+<script src="{{ url_for('static', filename='js/mentor-sites.js') }}"></script>
+{% endblock %}

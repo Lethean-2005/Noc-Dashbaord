@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cards.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tables.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <script>
+        // Apply the saved theme before first paint so there is no flash of light.
+        (function () {
+            try {
+                if (localStorage.getItem('dash-theme') === 'dark')
+                    document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (e) {}
+        })();
+    </script>
+    {% block head %}{% endblock %}
+</head>
+<body data-auto-refresh="{{ config.AUTO_REFRESH_SECONDS }}">
+    <!-- Notification modal -->
+    <div id="custom-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Notification</h2>
+                <span class="close-modal" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="modal-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn" onclick="closeModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm popup — replaces the browser's native confirm() dialog.
+         Any form with data-confirm="message" uses it (optional overrides:
+         data-confirm-title / data-confirm-yes / data-confirm-no). -->
+    <div class="confirm-overlay" id="confirmOverlay" hidden>
+        <div class="confirm-pop" role="alertdialog" aria-modal="true">
+            <div class="confirm-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v4"/><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z"/><path d="M12 16h.01"/></svg>
+            </div>
+            <h3 class="confirm-title" id="confirmTitle">Are you sure?</h3>
+            <p class="confirm-msg" id="confirmMsg"></p>
+            <div class="confirm-actions">
+                <button type="button" class="confirm-no" id="confirmNo">No, keep it.</button>
+                <button type="button" class="confirm-yes" id="confirmYes">Yes, Delete!</button>
+            </div>
+        </div>
+    </div>
+
+    {% include "layouts/sidebar.html" %}
+
+    <div class="main-wrapper sidebar-collapsed" id="main-wrapper">
+        <script>
+            if (localStorage.getItem('sidebar-collapsed') === 'false') {
+                document.getElementById('main-wrapper').classList.remove('sidebar-collapsed');
+            }
+        </script>
+
+        {% set page_title = self.title() %}
+        {% include "layouts/navbar.html" %}
+
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,188 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        <details class="date-filter">
+            <summary class="btn-export">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+                    <path d="M16 3v4" />
+                    <path d="M8 3v4" />
+                    <path d="M4 11h16" />
+                    <path d="M11 15h1" />
+                    <path d="M12 15v3" />
+                </svg>
+                <span>{{ date_range_label }}</span>
+                <i class="ti ti-chevron-down"></i>
+            </summary>
+            <form class="date-filter-form" method="get">
+                <input type="hidden" name="title" value="{{ title }}">
+                <input type="hidden" name="label" value="{{ label }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="type" value="{{ alarm_type }}">
+                <div class="dp-field" data-date-picker>
+                    <span class="dp-label">From</span>
+                    <button type="button" class="dp-trigger">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-code">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                            <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+                            <path d="M16 3v4" />
+                            <path d="M8 3v4" />
+                            <path d="M4 11h16" />
+                            <path d="M20 21l2 -2l-2 -2" />
+                            <path d="M17 17l-2 2l2 2" />
+                        </svg>
+                        <span class="dp-trigger-text">{{ date_from_display or 'Select date' }}</span>
+                    </button>
+                    <input type="hidden" name="from" value="{{ date_from }}">
+                </div>
+                <div class="dp-field" data-date-picker>
+                    <span class="dp-label">To</span>
+                    <button type="button" class="dp-trigger">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-code">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                            <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+                            <path d="M16 3v4" />
+                            <path d="M8 3v4" />
+                            <path d="M4 11h16" />
+                            <path d="M20 21l2 -2l-2 -2" />
+                            <path d="M17 17l-2 2l2 2" />
+                        </svg>
+                        <span class="dp-trigger-text">{{ date_to_display or 'Select date' }}</span>
+                    </button>
+                    <input type="hidden" name="to" value="{{ date_to }}">
+                </div>
+                <div class="date-filter-actions">
+                    <button type="submit" class="btn-export">Apply</button>
+                    {% if date_from or date_to %}
+                    <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=alarm_type) }}">Clear</a>
+                    {% endif %}
+                </div>
+            </form>
+        </details>
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=alarm_type, from=date_from, to=date_to) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                {% if source == 'eze' %}
+                <th>TT/INC-WOID</th>
+                <th>POP Name</th>
+                <th>POP Code</th>
+                <th>Device</th>
+                <th>IP</th>
+                <th>Alarm Name</th>
+                <th>Down Time</th>
+                <th>Outage(min)</th>
+                <th>Interface</th>
+                <th>Province</th>
+                <th>Note</th>
+                {% elif source == 'tct' %}
+                <th>POP Name</th>
+                <th>POP Code</th>
+                <th>Device</th>
+                <th>IP</th>
+                <th>Alarm Name</th>
+                <th>Down Time</th>
+                <th>Outage(min)</th>
+                <th>Interface</th>
+                <th>Province</th>
+                <th>Additional Info</th>
+                <th>Note</th>
+                {% elif source == 'it_node' %}
+                <th>TT/INC-WOID</th>
+                <th>Device</th>
+                <th>IP</th>
+                <th>Alarm Name</th>
+                <th>Down Time</th>
+                <th>Outage(min)</th>
+                <th>Interface</th>
+                <th>Root Cause</th>
+                <th>SourceGroup</th>
+                <th>Additional Info</th>
+                <th>Note</th>
+                {% else %}
+                <th>POP Name</th>
+                <th>POP Code</th>
+                <th>Device</th>
+                <th>IP</th>
+                <th>Alarm Name</th>
+                <th>Down Time</th>
+                <th>Outage(min)</th>
+                <th>Root Cause</th>
+                <th>Province</th>
+                <th>Note</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                {% if source == 'eze' %}
+                <td>{{ row.rtid }}</td>
+                <td>{{ row.pop_name }}</td>
+                <td>{{ row.pop_code }}</td>
+                <td>{{ row.device_name }}</td>
+                <td>{{ row.ip_address }}</td>
+                <td>{{ row.alarm_name }}</td>
+                <td>{{ row.down_time }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td class="ellipsis">{{ row.interface }}</td>
+                <td>{{ row.province }}</td>
+                <td class="ellipsis">{{ row.note }}</td>
+                {% elif source == 'tct' %}
+                <td>{{ row.pop_name }}</td>
+                <td>{{ row.pop_code }}</td>
+                <td>{{ row.device_name }}</td>
+                <td>{{ row.ip_address }}</td>
+                <td>{{ row.alarm_name }}</td>
+                <td>{{ row.down_time }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td class="ellipsis">{{ row.interface }}</td>
+                <td>{{ row.province }}</td>
+                <td class="ellipsis">{{ row.additional_info }}</td>
+                <td class="ellipsis">{{ row.note }}</td>
+                {% elif source == 'it_node' %}
+                <td>{{ row.rtid }}</td>
+                <td>{{ row.device_name }}</td>
+                <td>{{ row.ip_address }}</td>
+                <td>{{ row.alarm_name }}</td>
+                <td>{{ row.down_time }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td class="ellipsis">{{ row.interface }}</td>
+                <td class="ellipsis fault-desc">{{ row.root_cause }}</td>
+                <td>{{ row.source_group }}</td>
+                <td class="ellipsis">{{ row.additional_info }}</td>
+                <td class="ellipsis">{{ row.note }}</td>
+                {% else %}
+                <td>{{ row.pop_name }}</td>
+                <td>{{ row.pop_code }}</td>
+                <td>{{ row.device_name }}</td>
+                <td>{{ row.ip_address }}</td>
+                <td>{{ row.alarm_name }}</td>
+                <td>{{ row.down_time }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td class="ellipsis fault-desc">{{ row.root_cause }}</td>
+                <td>{{ row.province }}</td>
+                <td class="ellipsis">{{ row.note }}</td>
+                {% endif %}
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="{{ 11 if source in ('eze', 'tct', 'it_node') else 10 }}">No active alarms for {{ scope }}</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
+{% endblock %}

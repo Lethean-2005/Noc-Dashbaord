@@ -1,0 +1,74 @@
+{
+    // ==========================================
+    // 0. ACTIVATE EXTENSIONS
+    // ==========================================
+    "workbench.iconTheme": "material-icon-theme",
+    "python.useEnvsExtension": true,
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+    // ==========================================
+    // 1. MATERIAL ICON THEME ASSOCIATIONS
+    // ==========================================
+    "material-icon-theme.folders.associations": {
+        "scheduler": "update", // refreshes external data into the cache
+        "queries": "database", 
+        "dashboard": "views",
+        "drilldown": "custom", // drill-down table templates
+        "instance": "server", 
+        "mentor": "review", // user-managed watch list pages
+        "vvip": "admin", // VVIP site pages
+        "notifications": "messages", // Changed from hook to messages icon
+        "sync": "update", // refreshes external data into the cache
+        "services": "api", // business-logic / API layer
+        "webhook": "hook" // Teams / Power Automate webhooks
+    },
+
+    // ==========================================
+    // 2. MODERN TYPOGRAPHY & SPACING
+    // ==========================================
+    "editor.fontFamily": "'JetBrains Mono', Consolas, 'Courier New', monospace", // Clean, modern font with ligatures
+    "editor.fontSize": 17,
+    "editor.lineHeight": 24, // Perfect vertical spacing for clean layouts
+    "editor.fontLigatures": true, // Keeps code symbols looking slick and crisp
+    "emmet.triggerExpansionOnTab": true, // Tab key expands Emmet abbreviations
+    // ==========================================
+    // 3. ULTRA-SMOOTH ANIMATIONS
+    // ==========================================
+    "editor.cursorBlinking": "smooth", // Smoothly fades the cursor
+    "editor.cursorSmoothCaretAnimation": "on", // Cursor glides elegantly as you type
+    "editor.smoothScrolling": true, // Fluid code scrolling
+    "workbench.list.smoothScrolling": true, // Fluid file tree sidebar scrolling
+
+    // ==========================================
+    // 4. CLEAN FILE TREE (SIDEBAR)
+    // ==========================================
+    "workbench.tree.indent": 20, // Distinct spacing for nested files
+    "workbench.tree.renderIndentGuides": "none", // Strips distracting vertical grid lines
+    "explorer.compactFolders": false, // Prevents ugly folder bundling
+
+    // ==========================================
+    // 5. MINIMALIST EDITOR & NOISE REDUCTION
+    // ==========================================
+    "workbench.editor.showTabs": "single", // Ultra-clean look: shows only the active tab name
+    "workbench.editor.labelFormat": "short", // Keeps active tab titles short
+    "editor.minimap.enabled": true, // Shows code overview on the right side
+    "editor.minimap.renderCharacters": false, // Shows blocks instead of characters (cleaner)
+    "editor.minimap.maxColumn": 80, // Limits minimap width
+    "editor.renderLineHighlight": "gutter", // Highlights only the line number (clean)
+    "editor.guides.indentation": false, // Disables faint indent lines under your code
+    "editor.folding": false, // Hides code folding arrows unless hovered
+
+    // ==========================================
+    // 6. SILENCING POPUP CLUTTER & APP SETTINGS
+    // ==========================================
+    "editor.parameterHints.enabled": false, // Turns off loud signature hints while typing
+    "editor.lightbulb.enabled": "off", // Hides the disruptive quick-fix yellow lightbulb
+    "editor.selectionHighlight": false, // Stops highlighting all matching words on a click
+    "python.pythonPath": ".venv\\Scripts\\python.exe",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+}
+
+

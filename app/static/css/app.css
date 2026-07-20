@@ -1,0 +1,182 @@
+@font-face {
+  font-family: 'Exo 2';
+  src: url('../fonts/Exo2-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Exo 2';
+  src: url('../fonts/Exo2-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('../fonts/Poppins-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('../fonts/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-body);
+  color: var(--text-primary);
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color-scheme: light dark;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* Notification modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: var(--bg-modal);
+    padding: 0;
+    border-radius: 3px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: var(--shadow-modal);
+    border: 1px solid var(--border-card);
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: translate(-50%, -60%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+.modal-header {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close-modal {
+    color: var(--text-muted);
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.close-modal:hover { color: var(--text-primary); }
+
+.modal-body { padding: 8px 24px 24px 24px; }
+
+.modal-body p {
+    color: var(--text-modal);
+    line-height: 1.5;
+    font-size: 1rem;
+    margin: 0;
+}
+
+.modal-footer {
+    padding: 0 24px 24px 24px;
+    text-align: right;
+}
+
+.modal-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 3px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.modal-btn:hover { background: #2563eb; }
+
+/* Confirm popup — replaces the browser's native confirm() dialog.
+   Any form with data-confirm="message" uses it. */
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(15, 23, 42, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.confirm-overlay[hidden] { display: none; }
+.confirm-pop {
+    background: var(--bg-card, #fff);
+    color: var(--text-primary, #111827);
+    border: 1px solid var(--border-card, transparent);
+    border-radius: 16px;
+    padding: 22px 24px 20px;
+    width: min(340px, calc(100vw - 40px));
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    font-family: 'Exo 2', sans-serif;
+}
+.confirm-icon { display: flex; justify-content: center; margin-bottom: 10px; color: #ef4444; }
+.confirm-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+.confirm-msg { margin: 0 0 16px; font-size: 12.5px; color: var(--text-secondary, #6b7280); }
+.confirm-actions { display: flex; justify-content: center; gap: 10px; }
+.confirm-actions button {
+    border: none;
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 8px 15px;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: inherit;
+    transition: all 0.15s ease;
+}
+.confirm-no { background: var(--bg-table-header, #f3f4f6); color: var(--text-primary, #374151); }
+.confirm-no:hover { filter: brightness(0.95); }
+.confirm-yes { background: #ef4444; color: #fff; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4); }
+.confirm-yes:hover { background: #dc2626; }

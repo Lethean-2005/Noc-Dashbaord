@@ -1,0 +1,19 @@
+/*===================================================================
+/* Targets ONLY the text and labels inside the sidebar file tree */
+/* ===================================================================== */
+.sidebar-part .monaco-list-row,
+.sidebar-part .monaco-icon-label-container,
+.sidebar-part .label-name {
+    font-family: 'Exo 2', 'Kantumruy Pro', 'Segoe UI', sans-serif !important;
+    font-size: 15px !important;       /* Clean, highly readable size */
+    font-weight: 300 !important;       /* Beautiful, crisp light weight */
+    letter-spacing: 0.4px !important;  /* Elegant spacing for sans-serif text */
+}
+
+/* Optional: Clean up the section headers (like "EXPLORER", "OUTLINE") */
+.sidebar-part .pane-header h3 {
+    font-family: 'Exo 2', 'Kantumruy Pro', 'Segoe UI', sans-serif !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;       /* Bold for clean section titles */
+    letter-spacing: 1px !important;
+}

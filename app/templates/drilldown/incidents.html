@@ -1,0 +1,65 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="alarm-header">
+    <div class="alarm-subtitle">{{ label }} = {{ rows|length }}</div>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope='Incident', type=request.args.get('type', '')) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Incident Status</th>
+                <th>INC-WO ID</th>
+                <th>INC-WO Created At</th>
+                <th>INC-WO Status</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Occurred At</th>
+                <th>Outage(min)</th>
+                <th>Overdue</th>
+                <th>Category</th>
+                <th>L1 NOC Investigation Result</th>
+                <th>NMS</th>
+                <th>Hub Site</th>
+                <th>Site Grade</th>
+                <th>Province</th>
+                <th>District</th>
+                <th>Commune</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.incident_id }}</td>
+                <td><span class="status-badge status-{{ 'new' if row.incident_status == 'New' else 'in-progress' }}">{{ row.incident_status }}</span></td>
+                <td>{{ row.wo_id }}</td>
+                <td>{{ row.wo_created_at }}</td>
+                <td>{{ row.wo_status }}</td>
+                <td>{{ row.site_name }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td>{{ row.overdue }}</td>
+                <td>{{ row.category }}</td>
+                <td class="ellipsis">{{ row.l1_noc_investigation_result }}</td>
+                <td>{{ row.nms }}</td>
+                <td>{{ row.hub_site }}</td>
+                <td>{{ row.site_grade }}</td>
+                <td>{{ row.province }}</td>
+                <td>{{ row.district }}</td>
+                <td>{{ row.commune }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="18">No incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

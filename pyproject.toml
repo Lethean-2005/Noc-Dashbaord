@@ -1,0 +1,32 @@
+[project]
+name = "noc-dashboard"
+version = "0.1.0"
+description = "NOC dashboard, reporting, and mentor tracking application"
+requires-python = ">=3.11"
+dependencies = [
+    "Flask>=3.0",
+    "Flask-SQLAlchemy>=3.1",
+    "Flask-Login>=0.6",
+    "Flask-Caching>=2.3",
+    "Flask-WTF>=1.2",
+    "SQLAlchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "pymssql>=2.3",
+    "python-dotenv>=1.0",
+    "PyYAML>=6.0",
+    "colorama>=0.4",
+    "requests>=2.34",
+    "gunicorn>=22.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "black>=24.0", "ruff>=0.6"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100

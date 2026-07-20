@@ -1,0 +1,13 @@
+# Report metadata for the reports listing page.
+# Not read by any code yet — see app/database/reports/dashboard.yaml for
+# the schema this describes and why it's not wired in yet.
+#
+#   name                — unique report id
+#   description          — shown in the reports UI
+#   query                — "<domain>.<name>" of the .sql query it runs
+#   default_page_size    — rows per page when this report is listed
+
+name: reports_listing
+description: Paginated list of generated reports.
+query: reports.list
+default_page_size: 25

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>500 - Server Error | NOC Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/404.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/noc_dashboard.ico') }}">
+</head>
+<body class="nf3-page">
+    <div class="nf3-card">
+        <div class="nf3-left">
+            <p class="nf3-eyebrow">500 Internal Server Error</p>
+            <h1 class="nf3-title">Oops! Something went wrong on our end.</h1>
+            <p class="nf3-desc">We're experiencing an unexpected issue. Please try again in a moment or head back home.</p>
+            <a class="nf3-btn" href="{{ url_for('dashboard.index') }}">
+                Back to Home
+                <span class="nf3-btn-arrow"><i class="ti ti-arrow-right"></i></span>
+            </a>
+        </div>
+        <div class="nf3-right">500</div>
+    </div>
+</body>
+</html>

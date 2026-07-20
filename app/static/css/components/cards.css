@@ -1,0 +1,391 @@
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 0;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-card);
+  min-height: 120px;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Briefly pulses on the card a search result jumps to (app.js selectCard). */
+@keyframes cardSearchPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0); }
+  50%      { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.65); }
+}
+.card.search-highlight {
+  animation: cardSearchPulse 0.75s ease-in-out 2;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px dashed var(--border-strong);
+  user-select: none;
+  cursor: pointer;
+}
+
+.card-arrow {
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+}
+
+.card-collapsed { min-height: auto !important; padding-bottom: 24px; }
+.card-collapsed .card-header { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.card-collapsed .card-body,
+.card-collapsed .card-footer { display: none !important; }
+.card-collapsed .card-arrow { transform: rotate(-90deg); }
+
+.card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+  font-family: 'Exo 2', sans-serif;
+}
+
+.card-body { flex: 1; }
+
+/* RAN Status only: stretch its column grid to the card's full height so
+   the View buttons land on the same line even though the card gets
+   stretched taller to match its row sibling. */
+.card-ran-status .card-body { display: flex; flex-direction: column; }
+.card-ran-status .badge-three-columns { flex: 1; }
+
+.card-footer {
+  margin-top: auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  font-family: 'Exo 2', sans-serif;
+  cursor: pointer;
+}
+
+/* Alert light: a badge whose count just changed (see app.js) blinks until
+   clicked. Click acknowledges it — see the [data-badge-key] click handler. */
+@keyframes badgeAlertBlink {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245,158,11,.95), 0 0 10px 3px rgba(245,158,11,.85); }
+  50%      { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+}
+.badge.badge-alert {
+  animation: badgeAlertBlink 1.8s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.badge-green {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+.badge-green:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.badge-resolved {
+  background: rgba(0, 128, 0, 0.1);
+  border: 1px solid rgba(0, 128, 0, 0.35);
+  color: #008000;
+}
+.badge-resolved:hover {
+  background: rgba(0, 128, 0, 0.18);
+  border-color: rgba(0, 128, 0, 0.5);
+}
+
+.badge-red {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+.badge-red:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.badge-silver {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+.badge-silver:hover {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.badge-orange {
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #f97316;
+}
+.badge-orange:hover {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.5);
+}
+
+.badge-inprogress {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+.badge-inprogress:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.badge-purple {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  color: #c084fc;
+}
+.badge-purple:hover {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.badge-new {
+  background: rgba(4, 135, 226, 0.12);
+  border: 1px solid rgba(4, 135, 226, 0.35);
+  color: #0487e2;
+}
+.badge-new:hover {
+  background: rgba(4, 135, 226, 0.2);
+  border-color: rgba(4, 135, 226, 0.5);
+}
+
+.badge-sm { font-size: 10px; padding: 4px 8px; }
+
+.btn-view {
+  background: #23356e;
+  color: #d1d5db;
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  font-family: 'Exo 2', sans-serif;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.card-footer .btn-view {
+  height: 21px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  text-decoration: none;
+}
+
+.btn-view:hover {
+  background: #2a3e80;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-view:active {
+  transform: translateY(0);
+  background: #1c2b5c;
+}
+
+.btn-back {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-secondary {
+  background: #1a3a2a;
+  border-color: rgba(100, 200, 130, 0.15);
+  color: #86efac;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-secondary:hover {
+  background: #1f4a35;
+  border-color: rgba(100, 200, 130, 0.3);
+  color: #bbf7d0;
+}
+
+/* Badge Column Layout — compact list: [colored number box] [label] */
+.badge-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* A View button that belongs to one column instead of the shared
+   card-footer — sits directly under that column's badge list, and
+   lines up with buttons in sibling columns of different lengths since
+   grid stretches every .badge-column to the row's tallest height. */
+.badge-column-footer {
+  margin-top: auto;
+  align-self: flex-start;
+  height: 21px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+.badge-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.badge-item .badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 21px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 2px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.badge-item .badge-green,
+.badge-item .badge-resolved   { background: #16a34a !important; }
+.badge-item .badge-red        { background: #cd1c18 !important; }
+.badge-item .badge-orange     { background: #f97316 !important; }
+.badge-item .badge-inprogress { background: #f59e0b !important; }
+.badge-item .badge-new        { background: #0487e2 !important; }
+.badge-item .badge-purple     { background: #7c3aed !important; }
+.badge-item .badge-silver     { background: #6b7280 !important; }
+
+.badge-item .badge-label {
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 90px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-family: 'Exo 2', sans-serif;
+  transition: color 0.15s ease;
+}
+
+.badge-item:hover .badge-label { color: var(--text-primary); }
+
+/* small rounded icon chip before a card title */
+.card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--bg-table-header);
+  color: var(--text-muted);
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.badge-item .pill-icon { font-size: 16px; line-height: 1; color: inherit; }
+
+/* Wide card: spans two grid slots */
+.card-wide { grid-column: span 2; }
+@media (max-width: 600px) { .card-wide { grid-column: span 1; } }
+
+/* Three columns inside a wide merged card */
+.badge-three-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px 12px;
+  flex: 1;
+}
+.badge-three-columns .badge-column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+@media (max-width: 600px) {
+  .badge-three-columns { grid-template-columns: 1fr; }
+}
+
+/* Column headers inside a merged card */
+.card-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.card-section-title.title-accent { color: #f97316; }
+.card-section-title.title-accent-blue { color: #0ea5e9; }
+
+/* Badge Two Columns Grid Layout */
+.badge-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.badge-two-columns .badge-column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Card jump highlight (from search) */
+@keyframes cardJumpHighlight {
+  0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); }
+  50%  { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+.card-jump {
+  animation: cardJumpHighlight 3s ease-out;
+}

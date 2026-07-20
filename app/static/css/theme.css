@@ -1,0 +1,193 @@
+/* ================================================================
+   theme.css — Light / Dark Mode
+   ================================================================
+   Defines CSS custom properties for all themed colors.
+   Light mode is the default (:root).
+   Dark mode is activated by [data-theme="dark"] on <html>.
+   ================================================================ */
+
+:root {
+  /* ── Surface backgrounds ────────────────────────────────── */
+  --bg-body: #eef0f3;
+  --bg-sidebar: #ffffff;
+  --bg-topbar: #ffffff;
+  --bg-card: #ffffff;
+  --bg-table-wrap: #ffffff;
+  --bg-table-header: #f9fafb;
+  --bg-table-row-hover: #f9fafb;
+  --bg-promo: #f7f8fa;
+  --bg-clock: #f4f5f7;
+  --bg-search: #f4f5f7;
+  --bg-search-focus: #ffffff;
+  --bg-modal: #ffffff;
+  --bg-alarm-header: transparent;
+
+  /* ── Text colors ────────────────────────────────────────── */
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+  --text-nav: #3d4451;
+  --text-nav-active: #111827;
+  --text-nav-icon: #8b9099;
+  --text-table-header: #6b7280;
+  --text-table: #374151;
+  --text-topbar-title: #111827;
+  --text-clock: #374151;
+  --text-search: #111827;
+  --text-search-placeholder: #9ca3af;
+  --text-promo: #6b7280;
+  --text-modal: #374151;
+  --text-alarm-subtitle: #9ca3af;
+
+  /* ── Borders ────────────────────────────────────────────── */
+  --border-sidebar: #ececef;
+  --border-topbar: #ececef;
+  --border-card: #ececef;
+  --border-table: #e5e7eb;
+  --border-table-row: #f0f1f3;
+  --border-table-header: #e5e7eb;
+  --border-strong: #d7dade;
+  --border-input: #d1d5db;
+
+  /* ── Interactive states ─────────────────────────────────── */
+  --nav-hover-bg: #f4f5f7;
+  --nav-hover-text: #1f2430;
+  --nav-hover-icon: #4b5563;
+  --nav-active-bg: #f0f1f4;
+  --nav-active-icon: #111827;
+  --topbar-btn-hover-bg: #e5e7eb;
+  --topbar-btn-hover-text: #111827;
+  --input-focus-border: #3b82f6;
+  --input-focus-shadow: rgba(59, 130, 246, 0.1);
+
+  /* ── Scrollbar ──────────────────────────────────────────── */
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
+
+  /* ── Shadows ────────────────────────────────────────────── */
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.10);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Dark mode ────────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg-body: #111827;
+  --bg-sidebar: #0f172a;
+  --bg-topbar: #0f172a;
+  --bg-card: #1a1f2e;
+  --bg-table-wrap: #1a1f2e;
+  --bg-table-header: #1e293b;
+  --bg-table-row-hover: #1e293b;
+  --bg-promo: #1e293b;
+  --bg-clock: #1e293b;
+  --bg-search: #1e293b;
+  --bg-search-focus: #1a1f2e;
+  --bg-modal: #1a1f2e;
+  --bg-alarm-header: transparent;
+
+  /* Text */
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --text-nav: #94a3b8;
+  --text-nav-active: #e2e8f0;
+  --text-nav-icon: #64748b;
+  --text-table-header: rgba(255, 255, 255, 0.7);
+  --text-table: #cbd5e1;
+  --text-topbar-title: #e2e8f0;
+  --text-clock: #cbd5e1;
+  --text-search: #e2e8f0;
+  --text-search-placeholder: #64748b;
+  --text-promo: #94a3b8;
+  --text-modal: #cbd5e1;
+  --text-alarm-subtitle: rgba(255, 255, 255, 0.5);
+
+  /* Borders */
+  --border-sidebar: rgba(255, 255, 255, 0.06);
+  --border-topbar: rgba(255, 255, 255, 0.06);
+  --border-card: rgba(255, 255, 255, 0.06);
+  --border-table: rgba(255, 255, 255, 0.07);
+  --border-table-row: rgba(255, 255, 255, 0.06);
+  --border-table-header: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --border-input: #334155;
+
+  /* Interactive */
+  --nav-hover-bg: rgba(255, 255, 255, 0.06);
+  --nav-hover-text: #e2e8f0;
+  --nav-hover-icon: #94a3b8;
+  --nav-active-bg: rgba(99, 102, 241, 0.1);
+  --nav-active-icon: #e2e8f0;
+  --topbar-btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --topbar-btn-hover-text: #e2e8f0;
+  --input-focus-border: #6366f1;
+  --input-focus-shadow: rgba(99, 102, 241, 0.2);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
+
+  /* Shadows */
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Theme dropdown ────────────────────────────────────────── */
+.topbar-theme {
+  position: relative;
+}
+
+.theme-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow-card-hover);
+  z-index: 200;
+  min-width: 110px;
+  padding: 4px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-dropdown.open {
+  display: flex;
+}
+
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: 'Exo 2', sans-serif;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.theme-option:hover {
+  background: var(--nav-hover-bg);
+  color: var(--text-primary);
+}
+
+.theme-option.active {
+  background: var(--nav-active-bg);
+  color: var(--text-nav-active);
+  font-weight: 600;
+}
+
+.theme-option i {
+  font-size: 14px;
+}

@@ -1,0 +1,314 @@
+/* ================================================================
+   mentor-sites.css — Mentor Sites Page Styles
+   ================================================================ */
+
+/* ── Template Download Links ─────────────────────────────── */
+.mentor-template {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  margin: 8px 0 20px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.85;
+}
+
+.mentor-template i {
+  opacity: 0.6;
+}
+
+.mentor-template a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mentor-template a:hover {
+  background: var(--nav-hover-bg);
+  border-color: var(--input-focus-border);
+}
+
+.mt-sep {
+  opacity: 0.4;
+}
+
+/* ── Two Node-Style Cards ────────────────────────────────── */
+.mentor-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin-bottom: 24px;
+}
+
+.mentor-card-form {
+  flex: 1 1 250px;
+  max-width: 320px;
+  display: flex;
+}
+
+.mentor-composer {
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-family: 'Exo 2', sans-serif;
+}
+
+#uploadCard.drag {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+  border-color: #6366f1;
+}
+
+/* ── Card Head ───────────────────────────────────────────── */
+.nc-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-table-row);
+}
+
+.nc-head i {
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.nc-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Card Body ───────────────────────────────────────────── */
+.nc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 2px;
+  flex: 1;
+}
+
+.nc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nc-row[hidden] {
+  display: none;
+}
+
+.nc-verb {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  opacity: 0.65;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.nc-field {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  border: none;
+  border-radius: 3px;
+  background: var(--bg-search);
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nc-field:hover {
+  background: var(--bg-search-focus);
+}
+
+/* ── Chip Area ───────────────────────────────────────────── */
+.nc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  cursor: text;
+  white-space: normal;
+  min-height: 32px;
+}
+
+/* ── Card Footer ─────────────────────────────────────────── */
+.nc-foot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px 10px;
+  font-size: 10.5px;
+  opacity: 0.85;
+  color: var(--text-secondary);
+}
+
+.nc-foot i,
+.nc-foot span {
+  opacity: 0.6;
+}
+
+.nc-btn {
+  margin-left: auto;
+  cursor: pointer;
+  padding: 5px 13px;
+  border-radius: 3px;
+  border: none;
+  background: #111827;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-family: inherit;
+}
+
+.nc-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nc-btn:not(:disabled):hover {
+  background: #1f2937;
+}
+
+/* ── File Badge & Meta ───────────────────────────────────── */
+.mc-file-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.mc-file-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.mc-file-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  min-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.mc-file-size {
+  font-size: 10.5px;
+  opacity: 0.55;
+  color: var(--text-primary);
+}
+
+/* ── Chips ───────────────────────────────────────────────── */
+.mc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 3px 2px 8px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-family: 'Exo 2', sans-serif;
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+.mc-chip-x {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 6px;
+  font-family: inherit;
+  opacity: 0.55;
+}
+
+.mc-chip-x:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  opacity: 1;
+}
+
+/* ── Input Field ─────────────────────────────────────────── */
+.mc-input {
+  flex: 1 1 90px;
+  min-width: 100px;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  padding: 2px 2px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.mc-input::placeholder {
+  opacity: 0.5;
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .nc-btn {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .nc-btn:not(:disabled):hover {
+  background: #f1f5f9;
+}
+
+[data-theme="dark"] .mc-chip {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+[data-theme="dark"] .mentor-template a {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .mentor-template {
+  border-color: var(--border-card);
+  background: var(--bg-card);
+}

@@ -1,0 +1,125 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Custom Dashboard{% endblock %}
+
+{% block content %}
+{# Static visual replica of the reference /custom dashboard — "Incident
+   Site Down", "INC-WO Site Down", and "INC-WO Resolved" are live (see
+   app/services/incident_service.py and app/services/incwo_service.py);
+   the other five cards are still hardcoded placeholders. #}
+<div class="dashboard-grid">
+
+    <!-- Incident Site Down -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Incident Site Down</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge {{ incident_site_down_counts['hub']|badge_color }}" data-badge-key="incident_sd_hub" data-scope="Incident Site Down" data-type="hub">{{ incident_site_down_counts['hub'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ incident_site_down_counts['diamond']|badge_color }}" data-badge-key="incident_sd_diamond" data-scope="Incident Site Down" data-type="diamond">{{ incident_site_down_counts['diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ incident_site_down_counts['gold']|badge_color }}" data-badge-key="incident_sd_gold" data-scope="Incident Site Down" data-type="gold">{{ incident_site_down_counts['gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ incident_site_down_counts['silver']|badge_color }}" data-badge-key="incident_sd_silver" data-scope="Incident Site Down" data-type="silver">{{ incident_site_down_counts['silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ incident_site_down_counts['bronze']|badge_color }}" data-badge-key="incident_sd_bronze" data-scope="Incident Site Down" data-type="bronze">{{ incident_site_down_counts['bronze'] }}</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Incident Site Down', label='Incident Site Down', value=0, scope='Incident Site Down') }}">View</a></div>
+    </div>
+
+    <!-- Alarm Site Down -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Site Down</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge badge-red">4</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge badge-red">2</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge badge-red">9</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Site Down', label='Alarm Site Down', value=0, scope='Alarm Site Down') }}">View</a></div>
+    </div>
+
+    <!-- Alarm Completely Site Down -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Completely Site Down</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge badge-red">3</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Completely Site Down', label='Alarm Completely Site Down', value=0, scope='Alarm Completely Site Down') }}">View</a></div>
+    </div>
+
+    <!-- Alarm Main Failure -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Main Failure</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge badge-red">12</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge badge-red">6</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge badge-red">27</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge badge-red">2</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Main Failure', label='Alarm Main Failure', value=0, scope='Alarm Main Failure') }}">View</a></div>
+    </div>
+
+    <!-- INC-WO Site Down -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">INC-WO Site Down</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge {{ incwo_site_down_counts['hub_site']|badge_color }}" data-badge-key="incwo_sd_hub" data-scope="INC-WO Site Down" data-type="hub_site">{{ incwo_site_down_counts['hub_site'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ incwo_site_down_counts['diamond']|badge_color }}" data-badge-key="incwo_sd_diamond" data-scope="INC-WO Site Down" data-type="diamond">{{ incwo_site_down_counts['diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ incwo_site_down_counts['gold']|badge_color }}" data-badge-key="incwo_sd_gold" data-scope="INC-WO Site Down" data-type="gold">{{ incwo_site_down_counts['gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ incwo_site_down_counts['silver']|badge_color }}" data-badge-key="incwo_sd_silver" data-scope="INC-WO Site Down" data-type="silver">{{ incwo_site_down_counts['silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ incwo_site_down_counts['bronze']|badge_color }}" data-badge-key="incwo_sd_bronze" data-scope="INC-WO Site Down" data-type="bronze">{{ incwo_site_down_counts['bronze'] }}</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='INC-WO Site Down', label='INC-WO Site Down', value=0, scope='INC-WO Site Down') }}">View</a></div>
+    </div>
+
+    <!-- Alarm DG On -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm DG On</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge badge-red">4</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm DG On', label='Alarm DG On', value=0, scope='Alarm DG On') }}">View</a></div>
+    </div>
+
+    <!-- INC-WO Resolved -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">INC-WO Resolved</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge badge-green" data-badge-key="incwo_resolved_count" data-scope="INC-WO Resolved" data-type="">{{ incwo_resolved_count }}</span><span class="badge-label">INC-WO</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='INC-WO Resolved', label='INC-WO Resolved', value=incwo_resolved_count, scope='INC-WO Resolved') }}">View</a></div>
+    </div>
+
+    <!-- IT NODE -->
+    <div class="card">
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">IT NODE</h3></div>
+        <div class="card-body">
+            <div class="badge-column">
+                <div class="badge-item"><span class="badge {{ it_node_count|badge_color }}" data-badge-key="it_node" data-scope="IT NODE" data-type="">{{ it_node_count }}</span><span class="badge-label">IT_NODE</span></div>
+            </div>
+        </div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='IT NODE', label='IT NODE', value=it_node_count, scope='IT NODE') }}">View</a></div>
+    </div>
+
+</div>
+{% endblock %}

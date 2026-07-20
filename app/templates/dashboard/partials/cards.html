@@ -1,0 +1,216 @@
+{# ═══════════════════════════════════════════════════════════════
+   ISP POP / EZE and TCT Port Down/Up are live, backed by MSSQL
+   (noc.TBL_PPD via app/services/alarm_service.py). The remaining
+   cards (VVIP, Mentor, RAN, Incident/INC-WO) are still a static
+   visual replica of the reference dashboard — hardcoded badges,
+   no real query behind them yet.
+   ═══════════════════════════════════════════════════════════════ #}
+
+{# Row 1 — equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
+<div class="dashboard-grid">
+
+    <!-- VVIP Site -->
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">VVIP Site</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-two-columns">
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Site Down</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Main AC Failure</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Low DC Voltage</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">High DC Voltage</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">DG-On</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">RECT Failure</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Door Alarm</span></div>
+                    <div class="badge-item"><span class="badge badge-red">4</span><span class="badge-label">Other</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='VVIP Site', label='VVIP Site', value=0, scope='VVIP Site') }}">View</a>
+        </div>
+    </div>
+
+    <!-- Mentor Site -->
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">Mentor Site</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-two-columns">
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Site Down</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Main AC Failure</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Low DC Voltage</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">High DC Voltage</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">DG-On</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">RECT Failure</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Door Alarm</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Other</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn-view" href="{{ url_for('mentor.index') }}">Manage</a>
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Mentor Site', label='Mentor Site', value=0, scope='Mentor Site') }}">View</a>
+        </div>
+    </div>
+
+    <!-- ISP POP / EZE — live from MSSQL (noc.TBL_PPD) -->
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">ISP POP / EZE</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-two-columns">
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge {{ isp_pop_counts['POP/PON DOWN']|badge_color }}" data-badge-key="isp_pop_down" data-scope="ISP POP" data-type="POP/PON DOWN">{{ isp_pop_counts['POP/PON DOWN'] }}</span><span class="badge-label">POP/PON DOWN</span></div>
+                    <div class="badge-item"><span class="badge {{ isp_pop_counts['POP/PON POWER']|badge_color }}" data-badge-key="isp_pop_power" data-scope="ISP POP" data-type="POP/PON POWER">{{ isp_pop_counts['POP/PON POWER'] }}</span><span class="badge-label">POP/PON POWER</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['BANDWIDTH']|badge_color }}" data-badge-key="eze_bandwidth" data-scope="EZE" data-type="BANDWIDTH">{{ eze_counts['BANDWIDTH'] }}</span><span class="badge-label">BANDWIDTH</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['CPU']|badge_color }}" data-badge-key="eze_cpu" data-scope="EZE" data-type="CPU">{{ eze_counts['CPU'] }}</span><span class="badge-label">CPU</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['PORT']|badge_color }}" data-badge-key="eze_port" data-scope="EZE" data-type="PORT">{{ eze_counts['PORT'] }}</span><span class="badge-label">PORT</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['RECTIFIER_BATTERY_TEMPERATURE']|badge_color }}" data-badge-key="eze_rbt" data-scope="EZE" data-type="RECTIFIER_BATTERY_TEMPERATURE">{{ eze_counts['RECTIFIER_BATTERY_TEMPERATURE'] }}</span><span class="badge-label">R_B_TEMPERATURE</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge {{ eze_counts['TEMPERATURE']|badge_color }}" data-badge-key="eze_temperature" data-scope="EZE" data-type="TEMPERATURE">{{ eze_counts['TEMPERATURE'] }}</span><span class="badge-label">TEMPERATURE</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['CRC']|badge_color }}" data-badge-key="eze_crc" data-scope="EZE" data-type="CRC">{{ eze_counts['CRC'] }}</span><span class="badge-label">CRC</span></div>
+                    <div class="badge-item"><span class="badge {{ eze_counts['DOOR']|badge_color }}" data-badge-key="eze_door" data-scope="EZE" data-type="DOOR">{{ eze_counts['DOOR'] }}</span><span class="badge-label">DOOR</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='ISP POP', label='ISP POP', value=0, scope='ISP POP') }}">View POP</a>
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='EZE', label='EZE', value=0, scope='EZE') }}">View EZE</a>
+        </div>
+    </div>
+
+    <!-- TCT Port Down/Up — live from MSSQL (noc.TBL_PPD) -->
+    <div class="card">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">TCT Port Down/Up</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-two-columns">
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge {{ tct_counts['bandwidth']|badge_color }}" data-badge-key="tct_bandwidth" data-scope="TCT Port Down/Up" data-type="bandwidth">{{ tct_counts['bandwidth'] }}</span><span class="badge-label">BANDWIDTH</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['bgp']|badge_color }}" data-badge-key="tct_bgp" data-scope="TCT Port Down/Up" data-type="bgp">{{ tct_counts['bgp'] }}</span><span class="badge-label">BGP</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['congestion']|badge_color }}" data-badge-key="tct_congestion" data-scope="TCT Port Down/Up" data-type="congestion">{{ tct_counts['congestion'] }}</span><span class="badge-label">CONGESTION</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['cpu']|badge_color }}" data-badge-key="tct_cpu" data-scope="TCT Port Down/Up" data-type="cpu">{{ tct_counts['cpu'] }}</span><span class="badge-label">CPU</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['crc']|badge_color }}" data-badge-key="tct_crc" data-scope="TCT Port Down/Up" data-type="crc">{{ tct_counts['crc'] }}</span><span class="badge-label">CRC</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['dldp']|badge_color }}" data-badge-key="tct_dldp" data-scope="TCT Port Down/Up" data-type="dldp">{{ tct_counts['dldp'] }}</span><span class="badge-label">DLDP</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['memory']|badge_color }}" data-badge-key="tct_memory" data-scope="TCT Port Down/Up" data-type="memory">{{ tct_counts['memory'] }}</span><span class="badge-label">MEMORY</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['node']|badge_color }}" data-badge-key="tct_node" data-scope="TCT Port Down/Up" data-type="node">{{ tct_counts['node'] }}</span><span class="badge-label">NODE</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="badge-item"><span class="badge {{ tct_counts['port']|badge_color }}" data-badge-key="tct_port" data-scope="TCT Port Down/Up" data-type="port">{{ tct_counts['port'] }}</span><span class="badge-label">PORT</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['storm']|badge_color }}" data-badge-key="tct_storm" data-scope="TCT Port Down/Up" data-type="storm">{{ tct_counts['storm'] }}</span><span class="badge-label">STORM</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['switch_signal_low']|badge_color }}" data-badge-key="tct_switch_signal_low" data-scope="TCT Port Down/Up" data-type="switch_signal_low">{{ tct_counts['switch_signal_low'] }}</span><span class="badge-label">SWITCH_SIGNAL_LOW</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['tx_ofa_port']|badge_color }}" data-badge-key="tct_tx_ofa_port" data-scope="TCT Port Down/Up" data-type="tx_ofa_port">{{ tct_counts['tx_ofa_port'] }}</span><span class="badge-label">TX_OFA_PORT</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['tx_otu/eth']|badge_color }}" data-badge-key="tct_tx_otu_eth" data-scope="TCT Port Down/Up" data-type="tx_otu/eth">{{ tct_counts['tx_otu/eth'] }}</span><span class="badge-label">TX_OTU/ETH</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['tx_temperature']|badge_color }}" data-badge-key="tct_tx_temperature" data-scope="TCT Port Down/Up" data-type="tx_temperature">{{ tct_counts['tx_temperature'] }}</span><span class="badge-label">TX_TEMPERATURE</span></div>
+                    <div class="badge-item"><span class="badge {{ tct_counts['zero_traffic']|badge_color }}" data-badge-key="tct_zero_traffic" data-scope="TCT Port Down/Up" data-type="zero_traffic">{{ tct_counts['zero_traffic'] }}</span><span class="badge-label">ZERO_TRAFFIC</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='TCT Port Down/Up', label='TCT Port Down/Up', value=0, scope='TCT Port Down/Up') }}">View</a>
+        </div>
+    </div>
+
+</div>
+
+{# Row 2 — wide cards: RAN Status | Incident / INC-WO by Status #}
+<div class="dashboard-grid" style="margin-top: 12px;">
+
+    <!-- RAN Status -->
+    <div class="card card-wide card-ran-status">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">RAN Status</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-three-columns">
+                <div class="badge-column">
+                    <div class="card-section-title">RAN Site Down</div>
+                    <div class="badge-item"><span class="badge badge-red">188</span><span class="badge-label">Hub-Site</span></div>
+                    <div class="badge-item"><span class="badge badge-red">3</span><span class="badge-label">Diamond</span></div>
+                    <div class="badge-item"><span class="badge badge-red">11</span><span class="badge-label">Gold</span></div>
+                    <div class="badge-item"><span class="badge badge-red">493</span><span class="badge-label">Silver</span></div>
+                    <div class="badge-item"><span class="badge badge-red">3</span><span class="badge-label">Bronze</span></div>
+                    <a class="btn-view badge-column-footer" href="{{ url_for('dashboard.drilldown', title='RAN Site Down', label='RAN Site Down', value=0, scope='RAN Site Down') }}">View Site Down</a>
+                </div>
+                <div class="badge-column">
+                    <div class="card-section-title title-accent">RAN Main AC Alarm</div>
+                    <div class="badge-item"><span class="badge badge-red">573</span><span class="badge-label">Hub-Site</span></div>
+                    <div class="badge-item"><span class="badge badge-red">8</span><span class="badge-label">Diamond</span></div>
+                    <div class="badge-item"><span class="badge badge-red">47</span><span class="badge-label">Gold</span></div>
+                    <div class="badge-item"><span class="badge badge-red">829</span><span class="badge-label">Silver</span></div>
+                    <div class="badge-item"><span class="badge badge-red">18</span><span class="badge-label">Bronze</span></div>
+                    <a class="btn-view badge-column-footer" href="{{ url_for('dashboard.drilldown', title='RAN Main AC Alarm', label='RAN Main AC Alarm', value=0, scope='RAN Main AC Alarm') }}">View Main AC</a>
+                </div>
+                <div class="badge-column">
+                    <div class="card-section-title title-accent-blue">RAN Tech Down</div>
+                    <div class="badge-item"><span class="badge badge-red">215</span><span class="badge-label">Hub-Site</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
+                    <div class="badge-item"><span class="badge badge-red">39</span><span class="badge-label">Gold</span></div>
+                    <div class="badge-item"><span class="badge badge-red">272</span><span class="badge-label">Silver</span></div>
+                    <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+                    <a class="btn-view badge-column-footer" href="{{ url_for('dashboard.drilldown', title='RAN Tech Down', label='RAN Tech Down', value=0, scope='RAN Tech Down') }}">View Tech Down</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Incident / INC-WO by Status -->
+    <div class="card card-wide">
+        <div class="card-header">
+            <i class="ti ti-chevron-down card-arrow"></i>
+            <h3 class="card-title">Incident / INC-WO by Status</h3>
+        </div>
+        <div class="card-body">
+            <div class="badge-three-columns">
+                <div class="badge-column">
+                    <div class="card-section-title">Incident</div>
+                    <div class="badge-item"><span class="badge badge-new" data-badge-key="incident_new" data-scope="Incident" data-type="new">{{ incident_counts['new'] }}</span><span class="badge-label">New</span></div>
+                    <div class="badge-item"><span class="badge badge-new" data-badge-key="incident_new_site_down" data-scope="Incident" data-type="new_site_down">{{ incident_counts['new_site_down'] }}</span><span class="badge-label">New Site-Down</span></div>
+                    <div class="badge-item"><span class="badge badge-inprogress" data-badge-key="incident_in_progress" data-scope="Incident" data-type="in_progress">{{ incident_counts['in_progress'] }}</span><span class="badge-label">In-Progress</span></div>
+                    <div class="badge-item"><span class="badge badge-inprogress" data-badge-key="incident_in_progress_site_down" data-scope="Incident" data-type="in_progress_site_down">{{ incident_counts['in_progress_site_down'] }}</span><span class="badge-label">In-Progress Site-Down</span></div>
+                    <div class="badge-item"><span class="badge badge-red" data-badge-key="incident_overdue" data-scope="Incident" data-type="overdue">{{ incident_counts['overdue'] }}</span><span class="badge-label">Overdue</span></div>
+                    <div class="badge-item"><span class="badge badge-red" data-badge-key="incident_overdue_site_down" data-scope="Incident" data-type="overdue_site_down">{{ incident_counts['overdue_site_down'] }}</span><span class="badge-label">Overdue Site-Down</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="card-section-title title-accent">INC-WO</div>
+                    <div class="badge-item"><span class="badge badge-new" data-badge-key="incwo_new" data-scope="INC-WO" data-type="new">{{ incwo_counts['new'] }}</span><span class="badge-label">New</span></div>
+                    <div class="badge-item"><span class="badge badge-silver" data-badge-key="incwo_assigned" data-scope="INC-WO" data-type="assigned">{{ incwo_counts['assigned'] }}</span><span class="badge-label">Assigned</span></div>
+                    <div class="badge-item"><span class="badge badge-inprogress" data-badge-key="incwo_acknowledged" data-scope="INC-WO" data-type="acknowledged">{{ incwo_counts['acknowledged'] }}</span><span class="badge-label">Acknowledged</span></div>
+                    <div class="badge-item"><span class="badge badge-inprogress" data-badge-key="incwo_in_progress" data-scope="INC-WO" data-type="in_progress">{{ incwo_counts['in_progress'] }}</span><span class="badge-label">In-Progress</span></div>
+                    <div class="badge-item"><span class="badge badge-green" data-badge-key="incwo_resolved" data-scope="INC-WO" data-type="resolved">{{ incwo_counts['resolved'] }}</span><span class="badge-label">Resolved</span></div>
+                    <div class="badge-item"><span class="badge badge-green" data-badge-key="incwo_reopened" data-scope="INC-WO" data-type="reopened">{{ incwo_counts['reopened'] }}</span><span class="badge-label">Reopened</span></div>
+                </div>
+                <div class="badge-column">
+                    <div class="card-section-title">&nbsp;</div>
+                    <div class="badge-item"><span class="badge badge-green" data-badge-key="incwo_returned" data-scope="INC-WO" data-type="returned">{{ incwo_counts['returned'] }}</span><span class="badge-label">Returned</span></div>
+                    <div class="badge-item"><span class="badge badge-silver" data-badge-key="incwo_on_hold" data-scope="INC-WO" data-type="on_hold">{{ incwo_counts['on_hold'] }}</span><span class="badge-label">On-Hold</span></div>
+                    <div class="badge-item"><span class="badge badge-red" data-badge-key="incwo_overdue" data-scope="INC-WO" data-type="overdue">{{ incwo_counts['overdue'] }}</span><span class="badge-label">Overdue</span></div>
+                    <div class="badge-item"><span class="badge badge-red" data-badge-key="incwo_overdue_l2" data-scope="INC-WO" data-type="overdue_l2">{{ incwo_counts['overdue_l2'] }}</span><span class="badge-label">Overdue L2</span></div>
+                    <div class="badge-item"><span class="badge badge-red" data-badge-key="incwo_overdue_l3" data-scope="INC-WO" data-type="overdue_l3">{{ incwo_counts['overdue_l3'] }}</span><span class="badge-label">Overdue L3</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Incident', label='Incident', value=0, scope='Incident') }}">View Incidents</a>
+            <a class="btn-view" href="{{ url_for('dashboard.drilldown', title='INC-WO', label='INC-WO', value=0, scope='INC-WO') }}">View INC-WO</a>
+        </div>
+    </div>
+
+</div>
