@@ -20,6 +20,12 @@ function toggleSidebar() {
     const mainWrapper = document.getElementById('main-wrapper');
 
     if (window.innerWidth <= 900) {
+        // .collapsed (the desktop icon-only width) is unrelated to the
+        // mobile slide-out drawer, but the sidebar carries it by default
+        // (or from a saved desktop preference) — always clear it here so
+        // the mobile drawer shows the full sidebar (logo, nav labels)
+        // instead of the narrow 60px collapsed strip.
+        sidebar.classList.remove('collapsed');
         sidebar.classList.toggle('open');
         backdrop.classList.toggle('open');
     } else {
@@ -225,6 +231,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+// Action icon tooltips (.app-tooltip, see layout.css) — CSS
+// :hover/:focus-visible already show the bubble on desktop; this only
+// handles touch devices, which have no real hover state. One tap reveals
+// the tooltip; a second tap (or a tap elsewhere) follows the link/submits
+// the button as normal, and any previously-shown tooltip closes first so
+// only one is ever visible at a time.
+(function () {
+    let openTooltip = null;
+
+    document.addEventListener('touchstart', function (e) {
+        const target = e.target.closest('.app-tooltip');
+        if (openTooltip && openTooltip !== target) {
+            openTooltip.classList.remove('is-touched');
+            openTooltip = null;
+        }
+        if (!target) return;
+        if (!target.classList.contains('is-touched')) {
+            e.preventDefault();
+            target.classList.add('is-touched');
+            openTooltip = target;
+        }
+    }, { passive: false });
+})();
+
 // Notification modal — call showModal(title, message) from anywhere.
 function showModal(title, message) {
     document.getElementById('modal-title').textContent = title;
@@ -245,9 +275,13 @@ window.addEventListener('click', function (event) {
 // page. Live badges (data-badge-key, see cards.html) carry their own
 // data-scope/data-type — the ISP POP/EZE card holds two different scopes
 // under one card title, so the card title alone can't tell them apart.
-// Every other card is still a static placeholder, so its badges fall back
-// to the old card-title-based scope and the drill-down page renders an
-// empty table rather than real per-badge data.
+// Any still-static-placeholder card's badges fall back to the card's own
+// title as scope — that scope won't match a real drilldown, so it renders
+// an empty table rather than real per-badge data. The fallback's page
+// title used to truncate the card title to its first word before this fix
+// (e.g. "Alarm Completely Site Down" + "Diamond" -> "Alarm Diamond") —
+// harmless-looking but silently lossy for any multi-word title; now uses
+// the full card title instead.
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.badge-item').forEach(function (item) {
         item.addEventListener('click', function () {
@@ -264,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const card = item.closest('.card');
                 const cardTitle = card ? card.querySelector('.card-title').textContent.trim() : '';
                 scope = cardTitle;
-                pageTitle = (cardTitle.split(' ')[0] + ' ' + labelText).trim();
+                pageTitle = (cardTitle + ' ' + labelText).trim();
             }
 
             const params = new URLSearchParams({
@@ -286,8 +320,10 @@ document.addEventListener('DOMContentLoaded', function () {
 // blinks whenever its count changes to a new non-zero value — server-
 // rendered on each page load/reload, so no client-side fetch is needed
 // here, only a before/after comparison. State (last-seen value + whether
-// an alert is pending) survives the auto-refresh reload via
-// sessionStorage. A count dropping to 0 clears the alert instead of
+// an alert is pending) survives a page reload via sessionStorage, so the
+// blink still shows up correctly on the next manual reload/navigation
+// even though the page no longer reloads itself automatically. A count
+// dropping to 0 clears the alert instead of
 // blinking — that's good news, never a reason to blink. Clicking a
 // blinking badge acknowledges it (turns the light off) without blocking
 // the existing drill-down click handler above — this listener never
@@ -321,11 +357,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         saveObj(BADGE_VALS, vals);
         saveObj(BADGE_ALERTS, alerts);
-
-        // Auto-refresh: reload so the next render re-runs this comparison.
-        // Only pages with live badges reload automatically.
-        const seconds = parseInt(document.body.getAttribute('data-auto-refresh'), 10);
-        if (seconds > 0) setTimeout(() => location.reload(), seconds * 1000);
     });
 
     document.addEventListener('click', function (e) {

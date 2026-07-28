@@ -1,0 +1,68 @@
+{# Shared "Occurred At" date-range filter, included by every drilldown
+whose rows have an occurred_at field (see dashboard.py's
+_DATE_FILTERABLE_SCOPES) — ISP POP/EZE/TCT/IT NODE filter Down Time
+instead via their own copy in drilldown/alarms.html, kept separate since
+that page's scope/alarm_type come from different template variables.
+Caller must {% set scope = '<literal scope string>' %} immediately before
+including this. #}
+<details class="date-filter">
+    <summary class="btn-export">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+            <path d="M16 3v4" />
+            <path d="M8 3v4" />
+            <path d="M4 11h16" />
+            <path d="M11 15h1" />
+            <path d="M12 15v3" />
+        </svg>
+        <span>{{ date_range_label }}</span>
+        <i class="ti ti-chevron-down"></i>
+    </summary>
+    <form class="date-filter-form" method="get">
+        <input type="hidden" name="title" value="{{ title }}">
+        <input type="hidden" name="label" value="{{ label }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="type" value="{{ request.args.get('type', '') }}">
+        <input type="hidden" name="site_code" value="{{ request.args.get('site_code', '') }}">
+        <div class="date-filter-field-label">Filter by Occurred At</div>
+        <div class="dp-field" data-date-picker>
+            <span class="dp-label">From</span>
+            <button type="button" class="dp-trigger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-code">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+                    <path d="M16 3v4" />
+                    <path d="M8 3v4" />
+                    <path d="M4 11h16" />
+                    <path d="M20 21l2 -2l-2 -2" />
+                    <path d="M17 17l-2 2l2 2" />
+                </svg>
+                <span class="dp-trigger-text">{{ date_from_display or 'Select date' }}</span>
+            </button>
+            <input type="hidden" name="from" value="{{ date_from }}">
+        </div>
+        <div class="dp-field" data-date-picker>
+            <span class="dp-label">To</span>
+            <button type="button" class="dp-trigger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar-code">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+                    <path d="M16 3v4" />
+                    <path d="M8 3v4" />
+                    <path d="M4 11h16" />
+                    <path d="M20 21l2 -2l-2 -2" />
+                    <path d="M17 17l-2 2l2 2" />
+                </svg>
+                <span class="dp-trigger-text">{{ date_to_display or 'Select date' }}</span>
+            </button>
+            <input type="hidden" name="to" value="{{ date_to }}">
+        </div>
+        <div class="date-filter-actions">
+            <button type="submit" class="btn-export">Apply</button>
+            {% if date_from or date_to %}
+            <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=request.args.get('type', ''), site_code=request.args.get('site_code', '')) }}">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</details>

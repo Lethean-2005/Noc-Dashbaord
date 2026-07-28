@@ -1,5 +1,6 @@
 """Application factory."""
 import os
+from importlib import import_module
 
 from dotenv import load_dotenv
 
@@ -10,13 +11,18 @@ load_dotenv()
 from flask import Flask  # noqa: E402 — must come after load_dotenv() above
 
 from app.config import config_map  # noqa: E402
-from app.extensions import cache, csrf, db, login_manager  # noqa: E402
+from app.extensions import csrf, db, login_manager  # noqa: E402
 
 
-def create_app(env=None):
+def create_app(env=None, instance_path=None):
+    """`instance_path`, if given, overrides Flask's default instance folder
+    (where instance/localstorage.db lives — see app/database/cache.py). Only
+    tests pass this, so each test run gets its own empty SQLite cache
+    instead of reading whatever real data happens to be synced into the
+    dev machine's instance/localstorage.db."""
     env = env or os.environ.get("APP_ENV", "default")
 
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(__name__, instance_relative_config=True, instance_path=instance_path)
     app.config.from_object(config_map[env])
 
     os.makedirs(app.instance_path, exist_ok=True)
@@ -25,9 +31,9 @@ def create_app(env=None):
     _register_blueprints(app)
     _register_error_handlers(app)
     _register_template_filters(app)
-    _init_alarm_cache(app)
-    _init_site_cache(app)
-    _init_incident_cache(app)
+    _register_context_processors(app)
+    _init_cache_db(app)
+    _start_background_jobs(app)
     _init_telegram_alert(app)
 
     return app
@@ -35,13 +41,11 @@ def create_app(env=None):
 
 def _register_extensions(app):
     db.init_app(app)
-    cache.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
 
 
 def _register_blueprints(app):
-    from app.routes.api import api_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.mentor import mentor_bp
     from app.routes.reports import reports_bp
@@ -49,7 +53,6 @@ def _register_blueprints(app):
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(mentor_bp, url_prefix="/mentor")
-    app.register_blueprint(api_bp, url_prefix="/api")
 
 
 def _register_template_filters(app):
@@ -58,68 +61,100 @@ def _register_template_filters(app):
     app.jinja_env.filters["badge_color"] = badge_color
 
 
-def _init_alarm_cache(app):
-    """Create the local alarm cache tables (instance/localstorage.db) —
-    always, so routes can query them even before the first sync — then start
-    the background MSSQL sync. The sync thread itself is skipped in tests (no
-    real MSSQL to hit) and, under the Werkzeug debug reloader, skipped in
-    the watcher parent process so it doesn't run twice."""
+def _register_context_processors(app):
+    @app.context_processor
+    def inject_feature_flags():
+        from app.config import get_feature_flags
+
+        return {"features": get_feature_flags()}
+
+
+def _init_cache_db(app):
+    """Create every local cache table (instance/localstorage.db) up front,
+    always, so routes can query them even before the first sync lands."""
     from app.database.cache import init_cache_db
 
     with app.app_context():
         init_cache_db()
+
+
+# (scheduler module, config key holding its interval in seconds) — every
+# entry here used to be its own near-identical _init_*_cache() function
+# (~100 lines total) repeating the same testing/debug-reloader skip-guard
+# by hand. Collapsed into _start_background_jobs() below; add a domain's
+# background sync here instead of writing a new function for it.
+_BACKGROUND_JOBS = (
+    ("app.services.alarm.alarm_scheduler", "MSSQL_SYNC_INTERVAL_SECONDS"),
+    ("app.services.site.site_scheduler", "SITE_SYNC_INTERVAL_SECONDS"),
+    ("app.services.site.site_lookup_scheduler", "SITE_LOOKUP_SYNC_INTERVAL_SECONDS"),
+    ("app.services.incident.incident_scheduler", "INCIDENT_SYNC_INTERVAL_SECONDS"),
+    ("app.services.ape_alarm.ape_alarm_scheduler", "APE_ALARM_SYNC_INTERVAL_SECONDS"),
+    ("app.services.vip.vip_alarm_scheduler", "VIP_ALARM_SYNC_INTERVAL_SECONDS"),
+    ("app.services.vip.vip_incident_alarm_scheduler", "VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS"),
+    ("app.services.vip.vip_site_scheduler", "VIP_SITE_SYNC_INTERVAL_SECONDS"),
+    ("app.services.all_tasks_scheduler", "ALL_TASKS_SUMMARY_INTERVAL_SECONDS"),
+)
+
+
+def _start_background_jobs(app):
+    """Starts every scheduler in _BACKGROUND_JOBS. Skipped in tests (no real
+    MSSQL/Postgres to hit), under the Werkzeug debug reloader skipped in the
+    watcher parent process so nothing starts twice, and skipped for now in
+    any process that isn't this machine's leader (see leader_lock.py) — so
+    an externally-duplicated `run.py` process still serves HTTP normally but
+    never runs its own duplicate set of schedulers. A follower doesn't stay
+    a follower forever: wait_for_leadership() keeps retrying in the
+    background and starts these same jobs automatically the moment the
+    leader disappears, instead of needing every process manually restarted."""
     if app.testing:
         return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.alarm_scheduler import start
-
-        start(app, app.config["MSSQL_SYNC_INTERVAL_SECONDS"])
-
-
-def _init_site_cache(app):
-    """Start the background Postgres Site sync. The site_cache table itself
-    is already created by _init_alarm_cache()'s call to init_cache_db()
-    (that one function creates every cache table, alarm and site alike), so
-    this only needs to start the scheduler thread — same skip conditions as
-    _init_alarm_cache (no real Postgres to hit in tests; only the debug
-    reloader's live child process, not its watcher parent)."""
-    if app.testing:
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.site_scheduler import start
 
-        start(app, app.config["SITE_SYNC_INTERVAL_SECONDS"])
+    def _start_all():
+        for module_path, config_key in _BACKGROUND_JOBS:
+            import_module(module_path).start(app, app.config[config_key])
 
+    from app.services.leader_lock import is_leader, wait_for_leadership
 
-def _init_incident_cache(app):
-    """Start the background Postgres Incident/INC-WO sync. Both cache tables
-    (incident_by_status, inc_wo_by_status) are already created by
-    _init_alarm_cache()'s call to init_cache_db() (that one function creates
-    every cache table), so this only needs to start the scheduler thread —
-    same skip conditions as _init_site_cache."""
-    if app.testing:
+    if is_leader():
+        _start_all()
         return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.incident_scheduler import start
 
-        start(app, app.config["INCIDENT_SYNC_INTERVAL_SECONDS"])
+    from app.utils.logger import get_logger
+
+    get_logger(__name__).info(
+        "Another process already owns background sync — this process will serve HTTP "
+        "requests only for now, and take over automatically if that process stops."
+    )
+    wait_for_leadership(_start_all)
 
 
 def _init_telegram_alert(app):
     """Start the background Telegram Site Down alert loop (every
-    ALERT_INTERVAL_SECONDS). Reads the incident_by_status cache that
-    _init_incident_cache() already keeps in sync — no new cache table needed
-    here. Same skip conditions as the other _init_* functions; additionally
-    a no-op whenever TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS aren't set, so a
-    dev machine without those in .env just never starts this thread."""
+    ALERT_INTERVAL_SECONDS). Reads the incident_by_status cache that the
+    incident scheduler (see _BACKGROUND_JOBS above) already keeps in sync —
+    no new cache table needed here. Same skip conditions as
+    _start_background_jobs() (including the leader_lock check with the same
+    automatic-takeover-on-leader-loss behavior — a follower process must
+    not send duplicate Telegram alerts either); additionally a no-op
+    whenever TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS aren't set, so a dev
+    machine without those in .env just never starts this thread."""
     if app.testing:
         return
     if not app.config.get("TELEGRAM_BOT_TOKEN") or not app.config.get("TELEGRAM_CHAT_IDS"):
         return
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.telegram_alert import start
+        from app.services.leader_lock import is_leader, wait_for_leadership
+        from app.services.telegram.telegram_alert import start
 
-        start(app, app.config["ALERT_INTERVAL_SECONDS"])
+        def _start_telegram():
+            start(app, app.config["ALERT_INTERVAL_SECONDS"])
+
+        if is_leader():
+            _start_telegram()
+        else:
+            wait_for_leadership(_start_telegram)
 
 
 def _register_error_handlers(app):

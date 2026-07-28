@@ -1,0 +1,361 @@
+/* ================================================================
+   card_layout.css — "Card Layout" modal (navbar icon) + drag-and-drop
+   card reordering on .dashboard-grid pages (Overall "/" and Custom
+   "/reports/"). See app/static/js/card-layout.js.
+   ================================================================ */
+
+.card-layout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-layout-overlay[hidden] { display: none; }
+
+.card-layout-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  padding: 20px 22px;
+  width: min(440px, calc(100vw - 40px));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  font-family: 'Exo 2', sans-serif;
+}
+
+.card-layout-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-layout-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card-layout-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.card-layout-close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.card-layout-close:hover { background: var(--bg-search); }
+
+.card-layout-page-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.card-layout-page-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Page picker — same compact trigger-button + .theme-dropdown/.theme-option
+   pattern and size as the navbar's Theme picker (see layout.css/theme.css),
+   not stretched to fill the row. */
+.card-layout-page-picker {
+  position: relative;
+}
+.card-layout-page-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-search);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.card-layout-page-btn:hover { background: var(--bg-search-focus); }
+.card-layout-page-btn i { font-size: 12px; opacity: 0.7; }
+.card-layout-page-dropdown {
+  left: 0;
+  right: auto;
+  width: auto;
+  min-width: 110px;
+}
+
+.card-layout-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.card-layout-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 2px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-search);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease;
+}
+.card-layout-option:hover { border-color: var(--input-focus-border); }
+.card-layout-option.is-selected { border-color: #6366f1; }
+
+.card-layout-thumb {
+  position: relative;
+  width: 100%;
+  height: 70px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  padding: 6px;
+}
+.card-layout-thumb span {
+  background: var(--border-table-row);
+  border-radius: 3px;
+}
+
+.card-layout-thumb-custom .card-layout-thumb-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  color: #6366f1;
+  background: var(--bg-card);
+  border-radius: 50%;
+  padding: 5px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.card-layout-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-layout-option-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.card-layout-option-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.card-layout-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.card-layout-option.is-selected .card-layout-check { display: flex; }
+
+.card-layout-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.card-layout-cancel,
+.card-layout-save {
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+.card-layout-cancel { background: var(--bg-table-header); color: var(--text-primary); }
+.card-layout-cancel:hover { filter: brightness(0.95); }
+.card-layout-save { background: #6366f1; color: #fff; }
+.card-layout-save:hover { background: #4f46e5; }
+
+/* ── Arrange Cards overlay (bigger — the actual drag-to-reorder UI) ──
+   Opened when Custom is saved in the small modal above. Shows every
+   real card on the page as a skeleton placeholder (title + shimmer
+   body) in a grid mirroring the real .dashboard-grid's own 4-column /
+   card-wide-spans-2 layout, so the arrangement previewed here matches
+   what the real page will look like. */
+.card-arrange-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.card-arrange-overlay[hidden] { display: none; }
+
+.card-arrange-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  padding: 20px 22px;
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  font-family: 'Exo 2', sans-serif;
+}
+
+.card-arrange-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-arrange-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.card-arrange-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.card-arrange-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  overflow-y: auto;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 700px) {
+  .card-arrange-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.card-arrange-item {
+  grid-column: span 1;
+  border: 2px solid var(--border-card);
+  border-radius: 10px;
+  background: var(--bg-search);
+  padding: 10px;
+  cursor: grab;
+  user-select: none;
+}
+.card-arrange-item.is-wide { grid-column: span 2; }
+.card-arrange-item:active { cursor: grabbing; }
+.card-arrange-item.is-dragging { opacity: 0.4; }
+.card-arrange-item.drag-over { outline: 2px dashed #6366f1; outline-offset: 2px; }
+
+/* A card toggled off here isn't saved/hidden yet (same as a reordered
+   drag position) — just dimmed so it's clear what Save will hide. */
+.card-arrange-item.is-hidden-choice { opacity: 0.45; }
+
+.card-arrange-item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.card-arrange-item-title i { opacity: 0.6; font-size: 13px; }
+
+.card-arrange-hide-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.card-arrange-hide-toggle:hover { background: var(--bg-card); color: var(--text-primary); }
+.card-arrange-hide-toggle i { opacity: 1; font-size: 14px; }
+.card-arrange-item.is-hidden-choice .card-arrange-hide-toggle { color: #6366f1; }
+.card-arrange-item.is-hidden-choice .card-arrange-hide-toggle:hover { background: rgba(99, 102, 241, 0.15); }
+
+.card-arrange-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.card-arrange-skeleton span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--border-table-row) 0%,
+    var(--bg-card) 50%,
+    var(--border-table-row) 100%
+  );
+  background-size: 160px 100%;
+  animation: cardArrangeShimmer 1.2s linear infinite;
+}
+.card-arrange-skeleton span:nth-child(1) { width: 70%; }
+.card-arrange-skeleton span:nth-child(2) { width: 90%; }
+.card-arrange-skeleton span:nth-child(3) { width: 50%; }
+
+@keyframes cardArrangeShimmer {
+  0%   { background-position: -80px 0; }
+  100% { background-position: 80px 0; }
+}
+
+/* A card hidden via the Arrange overlay above, on the real .dashboard-grid
+   — separate from .card-collapsed (cards.css), which still shows the
+   header and just collapses the body; this removes the whole card. */
+.card-hidden-by-user { display: none !important; }

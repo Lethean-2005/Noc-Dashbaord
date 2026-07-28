@@ -26,14 +26,21 @@ WITH single_ne AS (
 )
 SELECT
   COALESCE(inc.incident_id, wo.parent_incident::TEXT) AS "Incident ID",
+  COALESCE(inc.id, wo.parent_incident) AS "Incident Numeric ID",
+  CASE inc.status
+    WHEN 'in_progress' THEN 'In Progress'
+    ELSE INITCAP(REPLACE(inc.status, '_', ' '))
+  END AS "Incident Status",
   wo.wo_id AS "INC-WO ID",
+  wo.id AS "INC-WO Numeric ID",
   wo.created_at AS "INC-WO Created At",
   CASE wo.status
     WHEN 'in_progress' THEN 'In Progress'
     WHEN 'on_hold' THEN 'On Hold'
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
-  sites.fra_site_name AS "Site Name",
+  wo.resolved_at AS "Resolved At",
+  ploc.fra_site_name AS "Site Name",
   sites.standard_code AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level
@@ -42,12 +49,7 @@ SELECT
     ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
   END AS "Support Level",
   wo.fault_description AS "Fault Description",
-  CASE sne.nms_name
-    WHEN 3 THEN 'ZTE'
-    WHEN 5 THEN 'Huawei'
-    WHEN 7 THEN 'Nokia'
-    ELSE NULL
-  END AS "NMS",
+  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -60,5 +62,7 @@ LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE wo.status != 'closed'
+AND inc.status != 'closed'
 ORDER BY wo.created_at DESC NULLS FIRST;

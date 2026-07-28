@@ -3,7 +3,14 @@
 The app queries hand-written SQL against tables that, in a real deployment, already
 exist in Postgres. For tests we stand up the same tables in the in-memory SQLite
 database so routes can be exercised end-to-end without a live Postgres instance.
+
+create_app() is also given a fresh temp instance_path per test, so the
+sqlite3-backed local cache (instance/localstorage.db — see
+app/database/cache.py) starts out empty instead of reading whatever real
+data happens to be synced into the dev machine's actual cache file.
 """
+import tempfile
+
 import pytest
 from sqlalchemy import text
 
@@ -36,15 +43,16 @@ CREATE TABLE mentor_sessions (
 
 @pytest.fixture
 def app():
-    flask_app = create_app("testing")
-    with flask_app.app_context():
-        db.create_all()
-        for statement in SCHEMA.strip().split(";"):
-            if statement.strip():
-                db.session.execute(text(statement))
-        db.session.commit()
-        yield flask_app
-        db.drop_all()
+    with tempfile.TemporaryDirectory() as tmp_instance_path:
+        flask_app = create_app("testing", instance_path=tmp_instance_path)
+        with flask_app.app_context():
+            db.create_all()
+            for statement in SCHEMA.strip().split(";"):
+                if statement.strip():
+                    db.session.execute(text(statement))
+            db.session.commit()
+            yield flask_app
+            db.drop_all()
 
 
 @pytest.fixture

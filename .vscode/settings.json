@@ -21,7 +21,14 @@
         "notifications": "messages", // Changed from hook to messages icon
         "sync": "update", // refreshes external data into the cache
         "services": "api", // business-logic / API layer
-        "webhook": "hook" // Teams / Power Automate webhooks
+        "webhook": "hook", // Teams / Power Automate webhooks
+        "alarm"  : "event", // alarm / event pages
+        "ape_alarm"  : "event", // alarm / event pages
+        "incident": "error", // Incident tracking pages
+        "incwo": "job", // INC-WO (work order) pages
+        "telegram": "mail", // Telegram alert notifications
+        "vip": "admin", // VIP/VVIP site pages, same icon as vvip above
+        "postgres" : "database", // Postgres database pages
     },
 
     // ==========================================

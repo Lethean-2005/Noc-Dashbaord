@@ -1,0 +1,13 @@
+/* Dashboard card visibility (see app/config.py's FEATURE_* flags,
+   app/__init__.py's `features` context processor).
+
+   .dashboard-grid is a fixed 4-column grid (see cards.css). Hiding a card
+   with {% if features.FEATURE_X %} removes it from the DOM entirely, which
+   would otherwise leave its grid column empty rather than closing the gap.
+   grid-auto-flow: dense fixes that: the browser back-fills the first open
+   slot a later card fits in, so a wide card (.card-wide, spans 2 columns)
+   pulls up to sit beside the remaining single-width cards instead of
+   leaving blank space where a hidden card used to be. */
+.dashboard-grid {
+  grid-auto-flow: dense;
+}

@@ -15,7 +15,7 @@ repositories (data access, one method per query), which either run a named
 ```
 Noc-Dashboard/
 ├── app/
-│   ├── routes/         # Blueprints: dashboard, reports, mentor, api
+│   ├── routes/         # Blueprints: dashboard, reports, mentor
 │   ├── services/       # Business logic — never imports flask or touches SQL directly
 │   ├── repositories/   # Data access, one per domain
 │   ├── database/       # connection.py (Postgres), mssql.py (MSSQL),
@@ -23,7 +23,7 @@ Noc-Dashboard/
 │   ├── templates/       # Jinja2 templates (layouts, per-blueprint views, partials)
 │   ├── static/          # CSS/JS/images
 │   └── utils/           # Logging, formatting, date, validation helpers
-├── scripts/             # scheduler.py (report jobs), seed.py (Postgres models — currently unused)
+├── scripts/             # start_dashboard.bat, configure.bat, create_shortcuts.bat
 ├── instance/            # localstorage.db — the local alarm cache (gitignored)
 └── tests/
 ```
@@ -79,9 +79,10 @@ Every request/background-thread log line goes to stdout and to
 `logs/error.log` as well, so failures (e.g. a failed MSSQL sync) are easy to
 find without grepping the full log.
 
-## Scheduled report jobs
+## Running it
 
-`scripts/scheduler.py` is a separate, standalone entry point for
-Postgres-backed report jobs (wire it up to cron / Windows Task Scheduler /
-a job runner) — unrelated to the MSSQL alarm sync above, which runs
-automatically inside the app itself and needs no external scheduler.
+`scripts/start_dashboard.bat` starts the app via the project's venv and
+opens the browser once it's up. `scripts/create_shortcuts.bat` adds Desktop
+shortcuts for that and for `scripts/configure.bat`, which opens a small
+PySide6 window (`configurator.py`) to toggle dashboard cards on/off and
+edit sync/alert intervals without hand-editing `.env`.

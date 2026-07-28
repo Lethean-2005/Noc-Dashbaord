@@ -15,9 +15,11 @@
 -- standard_code (its numeric code) — site_ref/site_code on Incident itself
 -- are essentially never populated for alarm-raised incidents.
 --
--- NMS comes from object_227 (NE - Logical Technology), deduplicated to one
--- row per site (oldest by id) via ROW_NUMBER, then nms_name mapped to a
--- vendor name (3=ZTE, 5=Huawei, 7=Nokia).
+-- NMS Code comes from object_227 (NE - Logical Technology), deduplicated to
+-- one row per site (oldest by id) via ROW_NUMBER — the raw code is mapped
+-- to a vendor name in Python (app/utils/nms.py's NMS_NAMES), not here, so
+-- that mapping lives in one place instead of being copy-pasted into every
+-- query that needs it.
 --
 -- Only the latest INC-WO per incident is kept (LATERAL ... ORDER BY
 -- created_at DESC LIMIT 1) so this stays one row per incident, matching
@@ -35,29 +37,35 @@ WITH single_ne AS (
 )
 SELECT
   inc.incident_id AS "Incident ID",
+  inc.id AS "Incident Numeric ID",
   CASE inc.status
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
   wo.wo_id AS "INC-WO ID",
+  wo.id AS "INC-WO Numeric ID",
   wo.created_at AS "INC-WO Created At",
   CASE wo.status
     WHEN 'in_progress' THEN 'In Progress'
     WHEN 'on_hold' THEN 'On Hold'
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
-  sites.fra_site_name AS "Site Name",
+  wo.resolved_at AS "Resolved At",
+  ploc.fra_site_name AS "Site Name",
   sites.standard_code AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
   CASE WHEN inc.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
-  INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS Category,
+  CASE inc.incident_category
+    WHEN 'bss_hardware' THEN 'BSS Hardware'
+    WHEN 'bss_software' THEN 'BSS Software'
+    WHEN 'oss_platform' THEN 'OSS Platform'
+    WHEN 'ip_core' THEN 'IP Core'
+    WHEN 'cs_core' THEN 'CS Core'
+    WHEN 'ps_core' THEN 'PS Core'
+    ELSE INITCAP(REPLACE(inc.incident_category, '_', ' '))
+  END AS Category,
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
-  CASE sne.nms_name
-    WHEN 3 THEN 'ZTE'
-    WHEN 5 THEN 'Huawei'
-    WHEN 7 THEN 'Nokia'
-    ELSE NULL
-  END AS "NMS",
+  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -79,6 +87,7 @@ LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 LEFT JOIN LATERAL (
   SELECT wo.*
   FROM object_324 wo

@@ -9,9 +9,10 @@
    the other five cards are still hardcoded placeholders. #}
 <div class="dashboard-grid">
 
+    {% if features.FEATURE_INCIDENT_SITEDOWN %}
     <!-- Incident Site Down -->
     <div class="card">
-        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Incident Site Down</h3></div>
+        <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Current Site Down</h3></div>
         <div class="card-body">
             <div class="badge-column">
                 <div class="badge-item"><span class="badge {{ incident_site_down_counts['hub']|badge_color }}" data-badge-key="incident_sd_hub" data-scope="Incident Site Down" data-type="hub">{{ incident_site_down_counts['hub'] }}</span><span class="badge-label">Hub</span></div>
@@ -21,54 +22,62 @@
                 <div class="badge-item"><span class="badge {{ incident_site_down_counts['bronze']|badge_color }}" data-badge-key="incident_sd_bronze" data-scope="Incident Site Down" data-type="bronze">{{ incident_site_down_counts['bronze'] }}</span><span class="badge-label">Bronze</span></div>
             </div>
         </div>
-        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Incident Site Down', label='Incident Site Down', value=0, scope='Incident Site Down') }}">View</a></div>
+        <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Current Site Down', label='Current Site Down', value=0, scope='Incident Site Down') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_ALARM_SITE_DOWN %}
     <!-- Alarm Site Down -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Site Down</h3></div>
         <div class="card-body">
             <div class="badge-column">
-                <div class="badge-item"><span class="badge badge-red">4</span><span class="badge-label">Hub</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
-                <div class="badge-item"><span class="badge badge-red">2</span><span class="badge-label">Gold</span></div>
-                <div class="badge-item"><span class="badge badge-red">9</span><span class="badge-label">Silver</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_site_down_counts['Hub']|badge_color }}" data-badge-key="alarm_sd_hub" data-scope="Alarm Site Down" data-type="Hub">{{ alarm_site_down_counts['Hub'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_site_down_counts['Diamond']|badge_color }}" data-badge-key="alarm_sd_diamond" data-scope="Alarm Site Down" data-type="Diamond">{{ alarm_site_down_counts['Diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_site_down_counts['Gold']|badge_color }}" data-badge-key="alarm_sd_gold" data-scope="Alarm Site Down" data-type="Gold">{{ alarm_site_down_counts['Gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_site_down_counts['Silver']|badge_color }}" data-badge-key="alarm_sd_silver" data-scope="Alarm Site Down" data-type="Silver">{{ alarm_site_down_counts['Silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_site_down_counts['Bronze']|badge_color }}" data-badge-key="alarm_sd_bronze" data-scope="Alarm Site Down" data-type="Bronze">{{ alarm_site_down_counts['Bronze'] }}</span><span class="badge-label">Bronze</span></div>
             </div>
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Site Down', label='Alarm Site Down', value=0, scope='Alarm Site Down') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_ALARM_COMPLETELY_SITE_DOWN %}
     <!-- Alarm Completely Site Down -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Completely Site Down</h3></div>
         <div class="card-body">
             <div class="badge-column">
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Hub</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
-                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Gold</span></div>
-                <div class="badge-item"><span class="badge badge-red">3</span><span class="badge-label">Silver</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_completely_site_down_counts['Hub']|badge_color }}" data-badge-key="alarm_csd_hub" data-scope="Alarm Completely Site Down" data-type="Hub">{{ alarm_completely_site_down_counts['Hub'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_completely_site_down_counts['Diamond']|badge_color }}" data-badge-key="alarm_csd_diamond" data-scope="Alarm Completely Site Down" data-type="Diamond">{{ alarm_completely_site_down_counts['Diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_completely_site_down_counts['Gold']|badge_color }}" data-badge-key="alarm_csd_gold" data-scope="Alarm Completely Site Down" data-type="Gold">{{ alarm_completely_site_down_counts['Gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_completely_site_down_counts['Silver']|badge_color }}" data-badge-key="alarm_csd_silver" data-scope="Alarm Completely Site Down" data-type="Silver">{{ alarm_completely_site_down_counts['Silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_completely_site_down_counts['Bronze']|badge_color }}" data-badge-key="alarm_csd_bronze" data-scope="Alarm Completely Site Down" data-type="Bronze">{{ alarm_completely_site_down_counts['Bronze'] }}</span><span class="badge-label">Bronze</span></div>
             </div>
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Completely Site Down', label='Alarm Completely Site Down', value=0, scope='Alarm Completely Site Down') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_ALARM_MAIN_FAILURE %}
     <!-- Alarm Main Failure -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm Main Failure</h3></div>
         <div class="card-body">
             <div class="badge-column">
-                <div class="badge-item"><span class="badge badge-red">12</span><span class="badge-label">Hub</span></div>
-                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Diamond</span></div>
-                <div class="badge-item"><span class="badge badge-red">6</span><span class="badge-label">Gold</span></div>
-                <div class="badge-item"><span class="badge badge-red">27</span><span class="badge-label">Silver</span></div>
-                <div class="badge-item"><span class="badge badge-red">2</span><span class="badge-label">Bronze</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_main_failure_counts['Hub']|badge_color }}" data-badge-key="alarm_mf_hub" data-scope="Alarm Main Failure" data-type="Hub">{{ alarm_main_failure_counts['Hub'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_main_failure_counts['Diamond']|badge_color }}" data-badge-key="alarm_mf_diamond" data-scope="Alarm Main Failure" data-type="Diamond">{{ alarm_main_failure_counts['Diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_main_failure_counts['Gold']|badge_color }}" data-badge-key="alarm_mf_gold" data-scope="Alarm Main Failure" data-type="Gold">{{ alarm_main_failure_counts['Gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_main_failure_counts['Silver']|badge_color }}" data-badge-key="alarm_mf_silver" data-scope="Alarm Main Failure" data-type="Silver">{{ alarm_main_failure_counts['Silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ alarm_main_failure_counts['Bronze']|badge_color }}" data-badge-key="alarm_mf_bronze" data-scope="Alarm Main Failure" data-type="Bronze">{{ alarm_main_failure_counts['Bronze'] }}</span><span class="badge-label">Bronze</span></div>
             </div>
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm Main Failure', label='Alarm Main Failure', value=0, scope='Alarm Main Failure') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_INCWO_SITE_DOWN %}
     <!-- INC-WO Site Down -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">INC-WO Site Down</h3></div>
@@ -83,22 +92,26 @@
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='INC-WO Site Down', label='INC-WO Site Down', value=0, scope='INC-WO Site Down') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_ALARM_DG_ON %}
     <!-- Alarm DG On -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">Alarm DG On</h3></div>
         <div class="card-body">
             <div class="badge-column">
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Hub</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Diamond</span></div>
-                <div class="badge-item"><span class="badge badge-red">1</span><span class="badge-label">Gold</span></div>
-                <div class="badge-item"><span class="badge badge-red">4</span><span class="badge-label">Silver</span></div>
-                <div class="badge-item"><span class="badge badge-green">0</span><span class="badge-label">Bronze</span></div>
+                <div class="badge-item"><span class="badge {{ dg_on_alarm_counts['Hub']|badge_color }}" data-badge-key="dg_on_hub" data-scope="Alarm DG On" data-type="Hub">{{ dg_on_alarm_counts['Hub'] }}</span><span class="badge-label">Hub</span></div>
+                <div class="badge-item"><span class="badge {{ dg_on_alarm_counts['Diamond']|badge_color }}" data-badge-key="dg_on_diamond" data-scope="Alarm DG On" data-type="Diamond">{{ dg_on_alarm_counts['Diamond'] }}</span><span class="badge-label">Diamond</span></div>
+                <div class="badge-item"><span class="badge {{ dg_on_alarm_counts['Gold']|badge_color }}" data-badge-key="dg_on_gold" data-scope="Alarm DG On" data-type="Gold">{{ dg_on_alarm_counts['Gold'] }}</span><span class="badge-label">Gold</span></div>
+                <div class="badge-item"><span class="badge {{ dg_on_alarm_counts['Silver']|badge_color }}" data-badge-key="dg_on_silver" data-scope="Alarm DG On" data-type="Silver">{{ dg_on_alarm_counts['Silver'] }}</span><span class="badge-label">Silver</span></div>
+                <div class="badge-item"><span class="badge {{ dg_on_alarm_counts['Bronze']|badge_color }}" data-badge-key="dg_on_bronze" data-scope="Alarm DG On" data-type="Bronze">{{ dg_on_alarm_counts['Bronze'] }}</span><span class="badge-label">Bronze</span></div>
             </div>
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='Alarm DG On', label='Alarm DG On', value=0, scope='Alarm DG On') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_INCWO_RESOLVED %}
     <!-- INC-WO Resolved -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">INC-WO Resolved</h3></div>
@@ -109,7 +122,9 @@
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='INC-WO Resolved', label='INC-WO Resolved', value=incwo_resolved_count, scope='INC-WO Resolved') }}">View</a></div>
     </div>
+    {% endif %}
 
+    {% if features.FEATURE_IT_NODE %}
     <!-- IT NODE -->
     <div class="card">
         <div class="card-header"><i class="ti ti-chevron-down card-arrow"></i><h3 class="card-title">IT NODE</h3></div>
@@ -120,6 +135,7 @@
         </div>
         <div class="card-footer"><a class="btn-view" href="{{ url_for('dashboard.drilldown', title='IT NODE', label='IT NODE', value=it_node_count, scope='IT NODE') }}">View</a></div>
     </div>
+    {% endif %}
 
 </div>
 {% endblock %}

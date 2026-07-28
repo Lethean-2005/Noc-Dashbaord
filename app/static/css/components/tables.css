@@ -1,7 +1,8 @@
 .alarm-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   margin-bottom: 2px;
   position: sticky;
   top: 0;
@@ -28,6 +29,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
+  margin-left: auto;
 }
 
 .alarm-row-count {
@@ -35,6 +37,26 @@
   color: var(--text-primary);
   align-self: center;
   font-family: 'Exo 2', sans-serif;
+}
+
+.alarm-search {
+  font-size: 12px;
+  font-family: 'Exo 2', sans-serif;
+  padding: 6px 10px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  outline: none;
+  min-width: 160px;
+}
+
+.alarm-search::placeholder {
+  color: var(--text-muted);
+}
+
+.alarm-search:focus {
+  border-color: var(--border-strong);
 }
 
 .btn-export {
@@ -117,6 +139,15 @@
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.date-filter-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'Exo 2', sans-serif;
 }
 
 /* ── Calendar date-picker (app/static/js/date-picker.js) ─────────
@@ -446,38 +477,5 @@ th.sort-desc .sort-icon::after { content: ' \25BC'; }
   .search-input { width: 100%; }
 }
 
-/* ── Status badge (Incident Status / INC-WO Status columns —
-   drilldown/incidents.html + drilldown/incwo.html) ── */
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.status-badge.status-new {
-  background: rgba(4, 135, 226, 0.12);
-  border: 1px solid rgba(4, 135, 226, 0.35);
-  color: #0487e2;
-}
-
-.status-badge.status-in-progress {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  color: #f59e0b;
-}
-
-.status-badge.status-assigned {
-  background: rgba(148, 163, 184, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  color: #94a3b8;
-}
-
-.status-badge.status-resolved {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  color: #10b981;
-}
+/* Status badges + Streamline links moved to
+   app/static/css/components/status_links.css */

@@ -3,6 +3,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% set incident_status_class = {'New': 'status-new', 'In Progress': 'status-in-progress'} %}
 {% set wo_status_class = {
     'New': 'status-new',
     'Assigned': 'status-assigned',
@@ -14,7 +15,7 @@
     'On Hold': 'status-assigned',
 } %}
 <div class="alarm-header">
-    <div class="alarm-subtitle">{{ label }} = {{ rows|length }}</div>
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }} ({{ rows|map(attribute='site_code')|unique|list|length }} site{{ 's' if rows|map(attribute='site_code')|unique|list|length != 1 else '' }})</button>
     <div class="alarm-actions">
         <span class="alarm-row-count">{{ rows|length }} records</span>
         <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=export_scope or 'INC-WO', type=export_type or request.args.get('type', '')) }}"><i class="ti ti-download"></i> Export</a>
@@ -25,6 +26,7 @@
         <thead>
             <tr>
                 <th>Incident ID</th>
+                <th>Incident Status</th>
                 <th>INC-WO ID</th>
                 <th>INC-WO Created At</th>
                 <th>INC-WO Status</th>
@@ -44,10 +46,11 @@
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>{{ row.incident_id }}</td>
-                <td>{{ row.wo_id }}</td>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.incident_status %}<span class="status-badge {{ incident_status_class.get(row.incident_status, 'status-assigned') }}">{{ row.incident_status }}</span>{% endif %}</td>
+                <td>{% if row.wo_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/inc_wo/form/{{ row.wo_numeric_id }}" target="_blank" rel="noopener">{{ row.wo_id }}</a>{% else %}{{ row.wo_id }}{% endif %}</td>
                 <td>{{ row.wo_created_at }}</td>
-                <td><span class="status-badge {{ wo_status_class.get(row.wo_status, 'status-assigned') }}">{{ row.wo_status }}</span></td>
+                <td>{% if row.wo_status %}<span class="status-badge {{ wo_status_class.get(row.wo_status, 'status-assigned') }}">{{ row.wo_status }}</span>{% endif %}</td>
                 <td>{{ row.site_name }}</td>
                 <td>{{ row.site_code }}</td>
                 <td>{{ row.overdue }}</td>
@@ -61,7 +64,7 @@
                 <td>{{ row.commune }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="15">No INC-WO found</td></tr>
+            <tr class="empty-row"><td colspan="16">No INC-WO found</td></tr>
             {% endfor %}
         </tbody>
     </table>

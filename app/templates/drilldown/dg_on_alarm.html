@@ -1,0 +1,61 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'Alarm DG On' %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }} ({{ rows|map(attribute='site_code')|unique|list|length }} site{{ 's' if rows|map(attribute='site_code')|unique|list|length != 1 else '' }})</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        {% include "drilldown/_date_filter.html" %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), from=date_from, to=date_to) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>INC-WO ID</th>
+                <th>INC-WO Created At</th>
+                <th>INC-WO Status</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Occurred At</th>
+                <th>Outage(min)</th>
+                <th>Event Name</th>
+                <th>NMS</th>
+                <th>Hub Site</th>
+                <th>Site Grade</th>
+                <th>Province</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.wo_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/inc_wo/form/{{ row.wo_numeric_id }}" target="_blank" rel="noopener">{{ row.wo_id }}</a>{% else %}{{ row.wo_id }}{% endif %}</td>
+                <td>{{ row.wo_created_at }}</td>
+                <td>{{ row.wo_status }}</td>
+                <td>{{ row.site_name }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td class="right">{{ row.outage_min }}</td>
+                <td>{{ row.event_name }}</td>
+                <td>{{ row.nms }}</td>
+                <td>{{ row.hub_site }}</td>
+                <td>{{ row.site_grade }}</td>
+                <td>{{ row.province }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="13">No Alarm DG On found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
+{% endblock %}

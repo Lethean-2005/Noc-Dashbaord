@@ -4,20 +4,65 @@ block head %}
   rel="stylesheet"
   href="{{ url_for('static', filename='css/components/mentor-sites.css') }}"
 />
-{% endblock %} {% block content %} {# Static replica of the reference Mentor
-Sites page — there is no mentor_sites database table or upload endpoint yet, so
-typing a code or dropping a file only updates the on-page preview
-(mentor-sites.js); nothing is persisted, and Upload/Add show a "not available"
-message. #}
-<div class="alarm-header">
+{% endblock %} {% block content %} {# Site codes are typed in or uploaded via
+CSV (app/routes/mentor.py), persisted to the mentor_sites table, then checked
+against the already-synced ape_alarm/incident_by_status/site_cache caches —
+see app/services/mentor/mentor_site_service.py. #}
+<div class="alarm-header" id="mentorPageHeader">
   <div>
     <h1>{{ self.title() }}</h1>
     <div class="alarm-subtitle">
-      Specific sites to monitor for Site Down &middot; Main Failure &middot; Low
-      DC Voltage &middot; DG On
+      Specific sites to monitor for Site Down &middot; Main AC Failure
+      &middot; Low DC Voltage &middot; High DC Voltage &middot; DG-On
+      &middot; RECT Failure &middot; Door Alarm &middot; Other
     </div>
   </div>
 </div>
+{% if added %}
+<div class="mentor-alert mentor-alert-success">
+  <div class="mentor-alert-content">
+    <span class="mentor-alert-icon"></span>
+    <div class="mentor-alert-text">
+      <span class="mentor-alert-title">Success</span>
+      <span class="mentor-alert-desc">Added {{ added }} site{{ 's' if added|int != 1 else '' }}.</span>
+    </div>
+  </div>
+  <a class="mentor-alert-action" href="{{ url_for('mentor.index') }}">Dismiss</a>
+</div>
+{% endif %} {% if duplicate %}
+<div class="mentor-alert mentor-alert-warning">
+  <div class="mentor-alert-content">
+    <span class="mentor-alert-icon"></span>
+    <div class="mentor-alert-text">
+      <span class="mentor-alert-title">Warning</span>
+      <span class="mentor-alert-desc">Already added: {{ duplicate }}</span>
+    </div>
+  </div>
+  <a class="mentor-alert-action" href="{{ url_for('mentor.index') }}">Dismiss</a>
+</div>
+{% endif %} {% if invalid %}
+<div class="mentor-alert mentor-alert-warning">
+  <div class="mentor-alert-content">
+    <span class="mentor-alert-icon"></span>
+    <div class="mentor-alert-text">
+      <span class="mentor-alert-title">Warning</span>
+      <span class="mentor-alert-desc">Not found, not added: {{ invalid }}</span>
+    </div>
+  </div>
+  <a class="mentor-alert-action" href="{{ url_for('mentor.index') }}">Dismiss</a>
+</div>
+{% endif %} {% if error %}
+<div class="mentor-alert mentor-alert-warning">
+  <div class="mentor-alert-content">
+    <span class="mentor-alert-icon"></span>
+    <div class="mentor-alert-text">
+      <span class="mentor-alert-title">Warning</span>
+      <span class="mentor-alert-desc">{{ error }}</span>
+    </div>
+  </div>
+  <a class="mentor-alert-action" href="{{ url_for('mentor.index') }}">Dismiss</a>
+</div>
+{% endif %}
 
 <div class="mentor-template">
   <svg
@@ -40,7 +85,7 @@ message. #}
     <path d="M9 19l3 3l3 -3" />
   </svg>
   <span>Download template:</span>
-  <a href="#" onclick="return false;">
+  <a class="app-tooltip" data-tooltip="Download CSV template" aria-label="Download CSV template" href="{{ url_for('mentor.template') }}">
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="14"
@@ -67,7 +112,14 @@ message. #}
 
 <div class="mentor-cards">
   <div class="mentor-card-form">
-    <div class="mentor-composer" id="uploadCard">
+    <form
+      class="mentor-composer"
+      id="uploadCard"
+      method="post"
+      action="{{ url_for('mentor.upload') }}"
+      enctype="multipart/form-data"
+    >
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
       <div class="nc-head">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -94,7 +146,7 @@ message. #}
         <span class="nc-title">Import File</span>
       </div>
       <div class="nc-body">
-        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden />
+        <input type="file" id="fileInput" name="file" accept=".csv" hidden />
         <div class="nc-row">
           <span class="nc-verb">FILE</span>
           <button type="button" class="nc-field" id="fileBtn">
@@ -121,16 +173,18 @@ message. #}
       </div>
       <div class="nc-foot">
         <i class="ti ti-clock"></i>
-        <span>CSV / Excel &middot; <strong>site_code</strong> column</span>
+        <span>CSV &middot; <strong>site_code</strong> column</span>
         <button type="button" class="nc-btn" id="uploadBtn" disabled>
           Upload
         </button>
       </div>
-    </div>
+    </form>
   </div>
 
   <div class="mentor-card-form">
-    <div class="mentor-composer" id="composer">
+    <form class="mentor-composer" id="composer" method="post" action="{{ url_for('mentor.add') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="hidden" name="site_codes" id="siteCodesInput" />
       <div class="nc-head">
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -163,7 +217,7 @@ message. #}
               type="text"
               id="codeInput"
               class="mc-input"
-              placeholder="Site code or location..."
+              placeholder="Site code..."
               autocomplete="off"
             />
           </div>
@@ -171,24 +225,47 @@ message. #}
       </div>
       <div class="nc-foot">
         <i class="ti ti-clock"></i>
-        <span>Code or physical location &middot; Enter adds it</span>
+        <span>Site code only &middot; Enter adds it</span>
         <button type="button" class="nc-btn" id="importBtn" disabled>
           Add
         </button>
       </div>
-    </div>
+    </form>
   </div>
 </div>
 
 <div class="alarm-header" style="margin-top: 18px">
   <div><h2 style="font-size: 16px; margin: 0">Configured Mentor Sites</h2></div>
   <div class="alarm-actions">
-    <span class="alarm-row-count">0 sites</span>
+    <span class="alarm-row-count">{{ configured_sites|length }} site{{ 's' if configured_sites|length != 1 else '' }}</span>
     <a
       class="btn-view"
       href="{{ url_for('dashboard.drilldown', title='Mentor Alarms', label='Mentor Site', value=0, scope='Mentor sites') }}"
       >View Alarms</a
     >
+    {% if configured_sites %}
+    <form method="post" action="{{ url_for('mentor.clear') }}" style="display:inline" id="clear-all-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <button
+        type="button"
+        class="btn-view"
+        style="display:inline-flex;align-items:center;gap:4px;"
+        data-confirm-form="clear-all-form"
+        data-confirm-title="Clear All"
+        data-confirm-desc="You're going to delete all {{ configured_sites|length }} configured site{{ 's' if configured_sites|length != 1 else '' }}."
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-trash">
+          <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+          <path d="M4 7l16 0" />
+          <path d="M10 11l0 6" />
+          <path d="M14 11l0 6" />
+          <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+          <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+        </svg>
+        Clear All
+      </button>
+    </form>
+    {% endif %}
     <a class="btn-view btn-back" href="{{ url_for('dashboard.index') }}"
       >Back</a
     >
@@ -206,16 +283,81 @@ message. #}
         <th>Status</th>
         <th>Source</th>
         <th>Added</th>
+        <th>Action</th>
       </tr>
     </thead>
     <tbody>
+      {% for site in configured_sites %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ site.site_code }}</td>
+        <td>{{ site.site_name }}</td>
+        <td>{{ site.province }}</td>
+        <td><span class="mentor-status-badge {{ 'badge-green' if site.status == 'OK' else 'badge-red' }}">{{ site.status }}</span></td>
+        <td>{{ site.source }}</td>
+        <td>{{ site.added_at }}</td>
+        <td>
+          <a
+            class="mc-chip-x app-tooltip"
+            data-tooltip="View alarms for {{ site.site_code }}"
+            aria-label="View alarms for {{ site.site_code }}"
+            href="{{ url_for('dashboard.drilldown', title='Mentor Site - ' + site.site_code, label='Mentor Site', value=0, scope='Mentor Site', site_code=site.site_code) }}"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-eye">
+              <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+              <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+              <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6" />
+            </svg>
+          </a>
+          <form method="post" action="{{ url_for('mentor.remove', site_code=site.site_code) }}" style="display:inline" id="remove-form-{{ site.site_code }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button
+              type="button"
+              class="mc-chip-x app-tooltip"
+              data-tooltip="Remove {{ site.site_code }}"
+              aria-label="Remove {{ site.site_code }}"
+              data-confirm-form="remove-form-{{ site.site_code }}"
+              data-confirm-title="Delete Site"
+              data-confirm-desc="You're going to delete &quot;{{ site.site_code }}&quot;."
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-trash">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M4 7l16 0" />
+                <path d="M10 11l0 6" />
+                <path d="M14 11l0 6" />
+                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+                <path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+              </svg>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
       <tr class="empty-row">
-        <td colspan="7">
+        <td colspan="8">
           No Mentor sites yet &mdash; upload a file or add one above.
         </td>
       </tr>
+      {% endfor %}
     </tbody>
   </table>
+</div>
+
+<div id="mentorConfirmOverlay" class="mentor-confirm-overlay" hidden>
+  <div class="mentor-confirm-card">
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-alert-triangle mentor-confirm-icon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 9v4" />
+      <path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.535a1.914 1.914 0 0 0 -3.274 0z" />
+      <path d="M12 16h.01" />
+    </svg>
+    <h3 class="mentor-confirm-title" id="mentorConfirmTitle">Delete Site</h3>
+    <p class="mentor-confirm-desc" id="mentorConfirmDesc"></p>
+    <div class="mentor-confirm-actions">
+      <button type="button" class="mentor-confirm-cancel" id="mentorConfirmCancel">No, keep it.</button>
+      <button type="button" class="mentor-confirm-ok" id="mentorConfirmOk">Yes, Delete!</button>
+    </div>
+  </div>
 </div>
 {% endblock %} {% block scripts %}
 <script src="{{ url_for('static', filename='js/mentor-sites.js') }}"></script>

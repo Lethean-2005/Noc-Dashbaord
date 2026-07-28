@@ -1,0 +1,100 @@
+"""Tests for VipAlarmService.get_details()'s event_name display cleanup —
+vip_alarm is derived from ape_alarm (see vip_alarm_sync_service.py), so it
+carries the same noisy vendor prefix on some rows
+("BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure"). Categorization
+(_categorize(), badge_type) must keep matching the full raw text — only the
+displayed event_name should be cleaned, and only after categorization runs.
+"""
+from app.services.vip.vip_alarm_service import VipAlarmService
+
+
+class FakeCacheRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+class FakeIncidentStatusRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+class FakeSiteRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+def _vip_alarm_row(**overrides):
+    row = {
+        "occurred_at": "2026-01-01 00:00:00",
+        "event_name": "BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure",
+        "additional_info": "",
+        "nms": "7",
+        "technology": "Power",
+        "site_code": "S1",
+        "site_name": "Site S1",
+        "site_strategic_type": "VIP",
+        "occurrence_count": 1,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_get_details_strips_noisy_prefix_from_displayed_event_name():
+    svc = VipAlarmService(FakeCacheRepo([_vip_alarm_row()]), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+
+    row = svc.get_details()[0]
+
+    assert row["event_name"] == "Main Failure"
+
+
+def test_get_details_categorizes_using_the_full_raw_event_name():
+    svc = VipAlarmService(FakeCacheRepo([_vip_alarm_row()]), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+
+    row = svc.get_details()[0]
+
+    # "main failure" substring still matches inside the un-cleaned raw text,
+    # so badge_type categorization is unaffected by the prefix.
+    assert row["badge_type"] == "Main AC Failure"
+
+
+def test_get_details_leaves_clean_event_names_unchanged():
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row(event_name="Door Alarm")]), FakeIncidentStatusRepo([]), FakeSiteRepo([]),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["event_name"] == "Door Alarm"
+    assert row["badge_type"] == "Door Alarm"
+
+
+def test_get_counts_counts_distinct_sites_not_alarm_rows():
+    rows = [
+        _vip_alarm_row(site_code="S1", event_name="Main Failure Alarm"),
+        _vip_alarm_row(site_code="S1", event_name="Main Failure Alarm again"),
+        _vip_alarm_row(site_code="S2", event_name="Main Failure Alarm"),
+    ]
+    svc = VipAlarmService(FakeCacheRepo(rows), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+
+    counts = svc.get_counts()
+
+    # S1 has 2 Main Failure alarm rows but counts once; S2 adds a second site.
+    assert counts["Main AC Failure"] == 2
+
+
+def test_get_counts_ignores_rows_with_no_site_code():
+    rows = [_vip_alarm_row(site_code="", event_name="Main Failure Alarm")]
+    svc = VipAlarmService(FakeCacheRepo(rows), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+
+    counts = svc.get_counts()
+
+    assert counts["Main AC Failure"] == 0

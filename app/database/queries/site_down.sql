@@ -1,9 +1,11 @@
 -- ==============================================================
--- Site Down incidents — shared by two consumers:
---   - app/services/telegram_alert.py       (queried live, every 4h)
---   - app/services/incident_sync_service.py (cached as incident_site_down,
---                                            behind the "Incident Site Down"
---                                            card on the Custom Dashboard)
+-- Site Down incidents — for app/services/incident/incident_sync_service.py, cached
+-- as incident_site_down behind the "Incident Site Down" card on the
+-- Custom Dashboard. The Telegram Site Down alert
+-- (app/services/telegram/telegram_alert.py) reads this same cache table
+-- directly instead of querying Postgres a second time — Last Comments is
+-- included here (rather than only on a separate copy) specifically so the
+-- alert can read it from here.
 --
 -- Not the incident_by_status cache, because that cache is deliberately
 -- scoped to status IN ('new', 'in_progress') for the dashboard's Incident
@@ -30,27 +32,25 @@ WITH single_ne AS (
 )
 SELECT
   inc.incident_id AS "Incident ID",
+  inc.id AS "Incident Numeric ID",
   CASE inc.status
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
   wo.wo_id AS "INC-WO ID",
+  wo.id AS "INC-WO Numeric ID",
   wo.created_at AS "INC-WO Created At",
   CASE wo.status
     WHEN 'in_progress' THEN 'In Progress'
     WHEN 'on_hold' THEN 'On Hold'
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
-  sites.fra_site_name AS "Site Name",
+  ploc.fra_site_name AS "Site Name",
   sites.standard_code AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
-  CASE sne.nms_name
-    WHEN 3 THEN 'ZTE'
-    WHEN 5 THEN 'Huawei'
-    WHEN 7 THEN 'Nokia'
-    ELSE NULL
-  END AS "NMS",
+  inc.last_comments AS "Last Comments",
+  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -72,6 +72,7 @@ LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 LEFT JOIN LATERAL (
   SELECT wo.*
   FROM object_324 wo

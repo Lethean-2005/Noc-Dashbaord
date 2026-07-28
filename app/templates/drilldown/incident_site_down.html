@@ -13,11 +13,13 @@
     'Returned': 'status-resolved',
     'On Hold': 'status-assigned',
 } %}
+{% set scope = 'Incident Site Down' %}
 <div class="alarm-header">
-    <div class="alarm-subtitle">{{ label }} = {{ rows|length }}</div>
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }} ({{ rows|map(attribute='site_code')|unique|list|length }} site{{ 's' if rows|map(attribute='site_code')|unique|list|length != 1 else '' }})</button>
     <div class="alarm-actions">
         <span class="alarm-row-count">{{ rows|length }} records</span>
-        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope='Incident Site Down', type=request.args.get('type', '')) }}"><i class="ti ti-download"></i> Export</a>
+        {% include "drilldown/_date_filter.html" %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), from=date_from, to=date_to) }}"><i class="ti ti-download"></i> Export</a>
     </div>
 </div>
 <div class="alarm-table-wrap">
@@ -44,8 +46,8 @@
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>{{ row.incident_id }}</td>
-                <td>{{ row.wo_id }}</td>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.wo_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/inc_wo/form/{{ row.wo_numeric_id }}" target="_blank" rel="noopener">{{ row.wo_id }}</a>{% else %}{{ row.wo_id }}{% endif %}</td>
                 <td>{{ row.wo_created_at }}</td>
                 <td>{% if row.wo_status %}<span class="status-badge {{ wo_status_class.get(row.wo_status, 'status-assigned') }}">{{ row.wo_status }}</span>{% endif %}</td>
                 <td>{{ row.site_name }}</td>
@@ -66,4 +68,8 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
 {% endblock %}

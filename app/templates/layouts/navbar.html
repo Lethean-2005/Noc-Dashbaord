@@ -6,22 +6,33 @@
         <h1 class="topbar-title">{{ page_title }}</h1>
         <div class="topbar-search">
             <i class="ti ti-search search-icon"></i>
-            <input type="text" placeholder="Search…" class="search-field" id="global-search" autocomplete="off">
+            <input type="text" placeholder="Search Cards…" class="search-field" id="global-search" autocomplete="off">
             <div class="search-results" id="search-results"></div>
         </div>
     </div>
     <div class="topbar-right">
         <div class="topbar-clock" id="clock">--:--:--</div>
 
-        <button class="topbar-btn" title="Refresh" onclick="location.reload()"><i class="ti ti-refresh"></i></button>
+        <button class="topbar-btn app-tooltip" data-tooltip="Refresh" aria-label="Refresh" onclick="location.reload()"><i class="ti ti-refresh"></i></button>
         <div class="topbar-theme">
-            <button class="topbar-btn" id="topbar-theme-btn" title="Theme"><i class="ti ti-sun"></i></button>
+            <button class="topbar-btn app-tooltip" id="topbar-theme-btn" data-tooltip="Theme" aria-label="Theme"><i class="ti ti-sun"></i></button>
             <div class="theme-dropdown" id="theme-dropdown">
                 <button class="theme-option" data-theme-choice="light"><i class="ti ti-sun"></i> Light</button>
                 <button class="theme-option" data-theme-choice="dark"><i class="ti ti-moon"></i> Dark</button>
             </div>
         </div>
         <span class="topbar-divider"></span>
-        <button class="topbar-btn" title="Fullscreen" onclick="toggleFullscreen()"><i class="ti ti-maximize"></i></button>
+        <button class="topbar-btn app-tooltip" data-tooltip="Card Layout" aria-label="Card Layout" onclick="openCardLayoutModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-template">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M4 5a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1l0 -2" />
+                <path d="M4 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1l0 -6" />
+                <path d="M14 12l6 0" />
+                <path d="M14 16l6 0" />
+                <path d="M14 20l6 0" />
+            </svg>
+        </button>
+        <span class="topbar-divider"></span>
+        <button class="topbar-btn app-tooltip" data-tooltip="Fullscreen" aria-label="Fullscreen" onclick="toggleFullscreen()"><i class="ti ti-maximize"></i></button>
     </div>
 </header>

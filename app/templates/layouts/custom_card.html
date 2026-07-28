@@ -1,0 +1,80 @@
+{# Card Layout modal — Default (fixed order) vs Custom (drag-and-drop
+   reorder, saved per page) — plus the bigger Arrange Your Cards overlay.
+   Opened from the navbar's "Card Layout" icon (see navbar.html); logic
+   lives in app/static/js/card-layout.js, styles in
+   app/static/css/components/card_layout.css. #}
+<div class="card-layout-overlay" id="cardLayoutOverlay" hidden>
+    <div class="card-layout-modal">
+        <div class="card-layout-header">
+            <div>
+                <h3 class="card-layout-title">Card Layout</h3>
+                <p class="card-layout-desc">Change how dashboard cards are arranged.</p>
+            </div>
+            <button type="button" class="card-layout-close" id="cardLayoutClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="card-layout-page-field">
+            <span class="card-layout-page-label">Page</span>
+            <div class="card-layout-page-picker">
+                <button type="button" class="card-layout-page-btn" id="cardLayoutPageBtn">
+                    <span id="cardLayoutPageBtnText">Overall</span>
+                    <i class="ti ti-chevron-down"></i>
+                </button>
+                <div class="theme-dropdown card-layout-page-dropdown" id="cardLayoutPageDropdown">
+                    <button type="button" class="theme-option" data-page-choice="/" data-page-label="Overall">
+                        <i class="ti ti-layout-dashboard"></i> Overall
+                    </button>
+                    <button type="button" class="theme-option" data-page-choice="/reports/" data-page-label="Custom">
+                        <i class="ti ti-adjustments-minus"></i> Custom
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="card-layout-options">
+            <button type="button" class="card-layout-option" id="cardLayoutOptDefault" data-layout-option="default">
+                <span class="card-layout-thumb card-layout-thumb-default">
+                    <span></span><span></span><span></span><span></span>
+                </span>
+                <span class="card-layout-option-text">
+                    <span class="card-layout-option-title">Default</span>
+                    <span class="card-layout-option-desc">Fixed order, same for everyone.</span>
+                </span>
+                <span class="card-layout-check"><i class="ti ti-check"></i></span>
+            </button>
+            <button type="button" class="card-layout-option" id="cardLayoutOptCustom" data-layout-option="custom">
+                <span class="card-layout-thumb card-layout-thumb-custom">
+                    <span></span><span></span><span></span><span></span>
+                    <i class="ti ti-arrows-move card-layout-thumb-icon"></i>
+                </span>
+                <span class="card-layout-option-text">
+                    <span class="card-layout-option-title">Custom</span>
+                    <span class="card-layout-option-desc">Double click for custom page.</span>
+                </span>
+                <span class="card-layout-check"><i class="ti ti-check"></i></span>
+            </button>
+        </div>
+        <div class="card-layout-footer">
+            <button type="button" class="card-layout-cancel" id="cardLayoutCancel">Cancel</button>
+            <button type="button" class="card-layout-save" id="cardLayoutSave">Save changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Arrange Cards overlay — every real card on the chosen page shown as a
+     skeleton placeholder (title + shimmer body), drag to reorder, Save
+     applies the new order back to the real .dashboard-grid. -->
+<div class="card-arrange-overlay" id="cardArrangeOverlay" hidden>
+    <div class="card-arrange-modal">
+        <div class="card-arrange-header">
+            <div>
+                <h3 class="card-arrange-title">Arrange Your Cards</h3>
+                <p class="card-arrange-desc">Drag a card to move it to a new position.</p>
+            </div>
+            <button type="button" class="card-layout-close" id="cardArrangeClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="card-arrange-grid" id="cardArrangeGrid"></div>
+        <div class="card-layout-footer">
+            <button type="button" class="card-layout-cancel" id="cardArrangeCancel">Cancel</button>
+            <button type="button" class="card-layout-save" id="cardArrangeSave">Save changes</button>
+        </div>
+    </div>
+</div>

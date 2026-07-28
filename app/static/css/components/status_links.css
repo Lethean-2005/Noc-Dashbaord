@@ -1,0 +1,60 @@
+/* ==============================================================
+   Status badges + external (Streamline) links used in the drilldown
+   tables — drilldown/incidents.html, incwo.html, incwo_resolved.html,
+   incident_site_down.html.
+   ============================================================== */
+
+/* ── Status badge (Incident Status / INC-WO Status columns) ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.status-badge.status-new {
+  background: rgba(4, 135, 226, 0.12);
+  border: 1px solid rgba(4, 135, 226, 0.35);
+  color: #0487e2;
+}
+
+.status-badge.status-in-progress {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+
+.status-badge.status-assigned {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #94a3b8;
+}
+
+.status-badge.status-resolved {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+/* ── Streamline links (Incident ID / INC-WO ID columns) ── */
+.alarm-table a {
+  color: #2563eb;
+  font-weight: normal;
+  text-decoration: none;
+}
+
+.alarm-table a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+[data-theme="dark"] .alarm-table a {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .alarm-table a:hover {
+  color: #93c5fd;
+}

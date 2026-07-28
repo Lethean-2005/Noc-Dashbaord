@@ -17,7 +17,7 @@ def run_query(domain, name, **params):
     subsequent query on the same session with "current transaction is
     aborted" even though that next query is perfectly valid on its own.
     This matters here because the background sync loops
-    (app/services/incident_scheduler.py) run several unrelated queries
+    (app/services/incident/incident_scheduler.py) run several unrelated queries
     back-to-back inside one app_context — one slow query getting killed
     (e.g. by a Postgres replica-conflict cancellation) must not break the
     ones that run after it.

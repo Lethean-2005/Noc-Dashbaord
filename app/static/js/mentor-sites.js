@@ -1,7 +1,7 @@
-// Mentor Sites composer cards — cosmetic only. There's no mentor_sites
-// table or upload endpoint yet, so typing/dropping just updates the
-// on-page preview; Upload/Add explain that via the notification modal
-// instead of silently doing nothing.
+// Mentor Sites composer cards. Both cards are real <form> elements
+// (app/templates/mentor/index.html) posting to app/routes/mentor.py;
+// this script only handles the client-side preview (file chip, code
+// chips) and triggers the actual form submit on Upload/Add.
 (function () {
     // ── Card 1: import file (dropzone + file row + Upload) ─────
     const uploadCard = document.getElementById('uploadCard');
@@ -44,9 +44,7 @@
         });
 
         uploadBtn.addEventListener('click', () => {
-            if (typeof showModal === 'function') {
-                showModal('Not Available', 'File import is not wired up to a backend yet — this is a style-only preview.');
-            }
+            if (fi.files.length) uploadCard.requestSubmit();
         });
     }
 
@@ -108,8 +106,84 @@
 
     submitBtn.addEventListener('click', () => {
         if (input.value.trim()) commitInput(input.value);
-        if (typeof showModal === 'function') {
-            showModal('Not Available', 'Adding sites is not wired up to a backend yet — this is a style-only preview.');
-        }
+        if (!codes.length) return;
+        document.getElementById('siteCodesInput').value = codes.join(',');
+        composer.requestSubmit();
     });
+})();
+
+// ── Delete confirmation modal (per-row Remove + Clear All) ─────────
+// Both buttons carry data-confirm-form/-title/-desc instead of submitting
+// directly (Remove) or using a native confirm() popup (Clear All was
+// previously onsubmit="return confirm(...)"). One shared modal is reused
+// for every row instead of one per site, since only one can ever be open
+// at a time.
+(function () {
+    const overlay = document.getElementById('mentorConfirmOverlay');
+    if (!overlay) return;
+    const titleEl = document.getElementById('mentorConfirmTitle');
+    const descEl = document.getElementById('mentorConfirmDesc');
+    const cancelBtn = document.getElementById('mentorConfirmCancel');
+    const okBtn = document.getElementById('mentorConfirmOk');
+    let targetForm = null;
+
+    function openModal(trigger) {
+        targetForm = document.getElementById(trigger.dataset.confirmForm);
+        if (!targetForm) return;
+        titleEl.textContent = trigger.dataset.confirmTitle || 'Confirm';
+        descEl.textContent = trigger.dataset.confirmDesc || '';
+        overlay.hidden = false;
+    }
+
+    function closeModal() {
+        overlay.hidden = true;
+        targetForm = null;
+    }
+
+    document.querySelectorAll('[data-confirm-form]').forEach(function (trigger) {
+        trigger.addEventListener('click', function () { openModal(trigger); });
+    });
+
+    cancelBtn.addEventListener('click', closeModal);
+    okBtn.addEventListener('click', function () {
+        if (targetForm) targetForm.requestSubmit();
+        closeModal();
+    });
+    overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeModal();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !overlay.hidden) closeModal();
+    });
+})();
+
+// ── Auto-dismiss any notice banner (Success/Warning) after 10s ─────
+// Two real bugs fixed here: (1) .mentor-alert has its own `display: flex`
+// rule at the same specificity as the browser's default [hidden] {
+// display: none } — the author rule wins (loads after the UA
+// stylesheet), so setting .hidden alone left an invisible box still
+// taking up its full layout space. Set display:none directly instead.
+// (2) the notice is rendered server-side from query params
+// (?added=/?duplicate=/etc.) — hiding it client-side never touched
+// those, so refreshing re-requested the same URL and the server drew it
+// right back. Strip them via history.replaceState() (same pattern
+// app.js already uses for its own ?highlight= param) once dismissed.
+(function () {
+    const alerts = document.querySelectorAll('.mentor-alert');
+    if (!alerts.length) return;
+
+    alerts.forEach(function (alertEl) {
+        setTimeout(function () {
+            alertEl.style.transition = 'opacity 0.3s ease';
+            alertEl.style.opacity = '0';
+            setTimeout(function () { alertEl.style.display = 'none'; }, 300);
+        }, 10000);
+    });
+
+    setTimeout(function () {
+        const params = new URLSearchParams(window.location.search);
+        ['added', 'duplicate', 'invalid', 'error'].forEach((key) => params.delete(key));
+        const query = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (query ? '?' + query : ''));
+    }, 10300);
 })();
