@@ -12,7 +12,7 @@
 }
 
 .alarm-header h1 {
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
@@ -22,7 +22,7 @@
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .alarm-actions {
@@ -36,12 +36,12 @@
   font-size: 12px;
   color: var(--text-primary);
   align-self: center;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .alarm-search {
   font-size: 12px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   padding: 6px 10px;
   color: var(--text-primary);
   background: var(--bg-card);
@@ -66,7 +66,7 @@
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   color: var(--text-secondary);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -147,7 +147,7 @@
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 /* ── Calendar date-picker (app/static/js/date-picker.js) ─────────
@@ -164,7 +164,7 @@
 .dp-label {
   font-size: 11px;
   color: var(--text-muted);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .dp-trigger {
@@ -203,7 +203,7 @@
   border: 1px solid var(--border-card);
   border-radius: 16px;
   box-shadow: var(--shadow-card-hover);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .dp-header {
@@ -309,7 +309,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .alarm-table th {
@@ -352,6 +352,146 @@
   color: var(--text-muted);
 }
 
+/* Acknowledge/Modify icon button — EZE/TCT/ISP POP drilldown tables only,
+   see drilldown/_ack_button.html + app/static/js/acknowledge.js. */
+.alarm-table td.ack-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ack-icon-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ack-icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-table-row-hover);
+}
+
+/* Acknowledge popup form fields — reuses .modal/.modal-content/.modal-header
+   (app.css) for the overlay/card/header, just adds the form-specific bits. */
+.ack-modal-content { width: 420px; }
+
+.ack-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.ack-field:last-child { margin-bottom: 0; }
+
+.ack-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ack-field input,
+.ack-field textarea {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-card, #d1d5db);
+  border-radius: 4px;
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+/* "Your Name" locked read-only after this browser's first Acknowledge
+   (see acknowledge.js's openAckModal()) — visually distinct from a normal
+   editable field so it's clear why it can't be typed into. */
+.ack-field input[readonly] {
+  background: var(--bg-table-header, #f9fafb);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.ack-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ack-cancel-btn {
+  background: none;
+  border: 1px solid var(--border-card, #d1d5db);
+  color: var(--text-primary);
+  padding: 8px 20px;
+  border-radius: 3px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Three-dot Action menu (Acknowledge/Modify Note + Clear Alarm) — replaces
+   the old single .ack-icon-btn, see drilldown/_alarm_action_menu.html +
+   app/static/js/alarm_actions.js. .alarm-action-menu reuses .theme-dropdown
+   (theme.css) for the open/closed + card/shadow styling, just positioned
+   relative to its own row's trigger instead of the topbar. */
+.alarm-action-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.alarm-action-trigger {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.alarm-action-trigger:hover {
+  color: var(--text-primary);
+  background: var(--bg-table-row-hover);
+}
+
+/* position: fixed (not the inherited absolute from .theme-dropdown) — the
+   table's own scroll container (.alarm-table-wrap) has overflow: auto with
+   a max-height, which clips an absolutely-positioned dropdown the moment
+   its row is near the bottom of that scrollable area (confirmed live —
+   the menu was rendering half cut-off under the table's own scrollbar).
+   top/right get set in JS (alarm_actions.js's toggleAlarmActionMenu) from
+   the trigger button's real on-screen position, since position: fixed no
+   longer has anything to anchor to via CSS alone. */
+.alarm-action-menu {
+  position: fixed;
+  min-width: 160px;
+}
+
+.alarm-action-menu .theme-option {
+  font-size: 13px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.alarm-action-clear:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+/* Clear Alarm confirmation popup */
+.clear-confirm-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0 0 14px 0;
+}
+
+.modal-btn-danger { background: #dc2626; }
+.modal-btn-danger:hover { background: #b91c1c; }
+
 .severity-disaster {
   background: #fee2e2;
   border: 1px solid #fecaca;
@@ -360,7 +500,7 @@
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .severity-high {
@@ -371,7 +511,7 @@
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .severity-average {
@@ -382,7 +522,7 @@
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .severity-warning {
@@ -393,7 +533,7 @@
   border-radius: 3px;
   font-size: 11px;
   font-weight: 600;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .outage-critical { color: #dc2626; font-weight: 700; }
@@ -413,7 +553,7 @@
 .link-blue {
   color: #2563eb;
   text-decoration: none;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-weight: 500;
 }
 .link-blue:hover {
@@ -423,26 +563,8 @@
 .link-white {
   color: var(--text-table);
   text-decoration: none;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
-
-.search-input {
-  padding: 8px 12px;
-  background: var(--bg-search-focus);
-  border: 1px solid var(--border-input);
-  border-radius: 6px;
-  color: var(--text-search);
-  font-size: 13px;
-  font-family: 'Inter', sans-serif;
-  outline: none;
-  width: 220px;
-  transition: all 0.2s;
-}
-.search-input:focus {
-  border-color: var(--input-focus-border);
-  box-shadow: 0 0 0 3px var(--input-focus-shadow);
-}
-.search-input::placeholder { color: var(--text-search-placeholder); }
 
 /* Sortable column headers (shared by every table with clickable headers) */
 th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
@@ -451,17 +573,39 @@ th.sort-asc  .sort-icon::after { content: ' \25B2'; }
 th.sort-desc .sort-icon::after { content: ' \25BC'; }
 .sort-icon { font-size: 0.75em; opacity: 0.5; }
 
+/* Tablet tier — a gentler step down from desktop spacing before the
+   sharper 640px phone drop below, instead of jumping straight from full
+   desktop padding to the phone-tight one. */
+@media (max-width: 900px) {
+  .alarm-table th,
+  .alarm-table td { padding: 8px 8px; }
+}
+
 @media (max-width: 640px) {
   .content { padding-left: 12px; padding-right: 12px; }
 
   .alarm-header {
     flex-wrap: wrap;
-    gap: 10px;
-    align-items: flex-start;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .alarm-search {
+    width: 100%;
+    min-width: 0;
+    order: -1;
+  }
+  .alarm-subtitle-btn {
+    width: 100%;
+    justify-content: flex-start;
   }
   .alarm-actions {
     width: 100%;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: 0;
+  }
+  .alarm-row-count {
+    flex: 1 0 auto;
   }
   .alarm-table-wrap {
     margin-left: -12px;
@@ -474,7 +618,6 @@ th.sort-desc .sort-icon::after { content: ' \25BC'; }
   .alarm-table { font-size: 10px; }
   .alarm-table th,
   .alarm-table td { padding: 8px 6px; }
-  .search-input { width: 100%; }
 }
 
 /* Status badges + Streamline links moved to

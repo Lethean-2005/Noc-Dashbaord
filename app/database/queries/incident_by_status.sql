@@ -10,31 +10,40 @@
 -- Incident badge on the dashboard; resolved/closed incidents aren't shown
 -- on any badge, so there's no reason to sync/store them here.
 --
--- Site is matched by stripping the 2-letter province prefix off the first
+-- Site is matched by stripping the 2-letter province prefix off each
 -- comma-separated part of site_text, then matching that against Site's
 -- standard_code (its numeric code) — site_ref/site_code on Incident itself
--- are essentially never populated for alarm-raised incidents.
+-- are essentially never populated for alarm-raised incidents. A multi-site
+-- incident (site_text has more than one entry, e.g. "SV7210,SV7032") fans
+-- out to one row per site here, each carrying that incident's own status/
+-- category/etc — confirmed live: taking only the first site (the old
+-- behavior) silently dropped every other site of a multi-site incident
+-- from every Incident-column badge and from "Incident Site Down".
 --
--- NMS Code comes from object_227 (NE - Logical Technology), deduplicated to
--- one row per site (oldest by id) via ROW_NUMBER — the raw code is mapped
--- to a vendor name in Python (app/utils/nms.py's NMS_NAMES), not here, so
--- that mapping lives in one place instead of being copy-pasted into every
--- query that needs it.
+-- NMS Code is resolved locally in Python against the ne_nms_lookup_cache
+-- table (site -> oldest-by-id NE's nms_name), not joined here — see
+-- app/database/queries/ne_nms_lookup.sql and IncidentSyncService's
+-- _normalize_status_row(). Kept out of this query specifically so the same
+-- object_227 window function isn't recomputed independently across the 6
+-- query files that need it.
 --
--- Only the latest INC-WO per incident is kept (LATERAL ... ORDER BY
--- created_at DESC LIMIT 1) so this stays one row per incident, matching
--- primary key incident_id — an incident can have several INC-WO over its
--- lifetime, but the drilldown only needs the current one.
+-- The "latest INC-WO per (incident, site)" is NOT resolved here anymore —
+-- it used to be a LATERAL subquery (ORDER BY created_at DESC LIMIT 1) that
+-- ran once per outer row. object_322/object_324 are foreign tables (FDW),
+-- so a per-row correlated subquery means one separate remote round-trip
+-- per row — confirmed live via EXPLAIN ANALYZE: 356 rows meant 356 remote
+-- calls, ~21ms each, ~7.5s of the query's ~8.5s total. IncidentSyncService
+-- now does this in two cheap steps instead: this query returns the plain
+-- incident/site rows (with Site Numeric ID so a row can be matched back to
+-- its WOs), then ONE separate batched query
+-- (app/database/queries/inc_wo_by_incident_ids.sql, scoped to just this
+-- batch's incident ids) fetches every candidate WO in a single round-trip,
+-- and Python picks the latest per (incident, site) itself — verified
+-- against live data to produce byte-identical results to the old LATERAL
+-- version, just ~100x faster on that piece.
 -- ==============================================================
 
 -- name: incident_by_status
-WITH single_ne AS (
-  SELECT
-    ne.*,
-    ROW_NUMBER() OVER (PARTITION BY ne.site_name ORDER BY ne.id) as rn
-  FROM
-    object_227 ne
-)
 SELECT
   inc.incident_id AS "Incident ID",
   inc.id AS "Incident Numeric ID",
@@ -42,16 +51,8 @@ SELECT
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
-  wo.wo_id AS "INC-WO ID",
-  wo.id AS "INC-WO Numeric ID",
-  wo.created_at AS "INC-WO Created At",
-  CASE wo.status
-    WHEN 'in_progress' THEN 'In Progress'
-    WHEN 'on_hold' THEN 'On Hold'
-    ELSE INITCAP(REPLACE(wo.status, '_', ' '))
-  END AS "INC-WO Status",
-  wo.resolved_at AS "Resolved At",
   ploc.fra_site_name AS "Site Name",
+  sites.id AS "Site Numeric ID",
   sites.standard_code AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
   CASE WHEN inc.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
@@ -65,7 +66,6 @@ SELECT
     ELSE INITCAP(REPLACE(inc.incident_category, '_', ' '))
   END AS Category,
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
-  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -73,27 +73,20 @@ SELECT
   commune.name AS "Commune"
 FROM object_322 inc
 LEFT JOIN LATERAL (
-  SELECT
+  SELECT DISTINCT
     TRIM(
       REGEXP_REPLACE(
-        NULLIF(TRIM(SPLIT_PART(inc.site_text, ',', 1)), ''),
+        NULLIF(TRIM(site_part), ''),
         '^[A-Za-z]{2}',
         ''
       )
     ) AS site_code
+  FROM UNNEST(STRING_TO_ARRAY(inc.site_text, ',')) AS site_part
 ) site ON TRUE
 LEFT JOIN object_160 sites ON site.site_code = sites.standard_code
-LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
-LEFT JOIN LATERAL (
-  SELECT wo.*
-  FROM object_324 wo
-  WHERE wo.parent_incident = inc.id
-  ORDER BY wo.created_at DESC NULLS LAST
-  LIMIT 1
-) wo ON TRUE
 WHERE inc.status IN ('new', 'in_progress')
 ORDER BY inc.issue_occurred_at DESC NULLS FIRST;

@@ -17,6 +17,11 @@ _SITE_DOWN_TABLE = "incident_site_down"
 # field/value pairs to match in incident_by_status (already formatted by
 # incident_by_status.sql, e.g. 'site_down' -> 'Site Down', overdue -> 'Yes').
 # Add the next badge here the same way.
+#
+# Counts here are per (incident, site) pair, not per distinct incident_id —
+# a multi-site incident (e.g. one incident covering 2 sites) is 2 rows in
+# incident_by_status, one per site, and counts toward a badge twice. See
+# incident_by_status.sql's header comment for why.
 BADGE_FILTERS = {
     "new": {"incident_status": "New"},
     "new_site_down": {"incident_status": "New", "category": "Site Down"},
@@ -27,7 +32,7 @@ BADGE_FILTERS = {
 }
 
 # "Incident Site Down" card badge `type` -> site_grade value to match in
-# incident_site_down (already INITCAP'd by site_down.sql). "hub" checks for
+# incident_site_down (already INITCAP'd by incident_site_down.sql). "hub" checks for
 # "any kind of hub" (Hub-Router or Hub-MW), not an exact match — see
 # get_incident_site_down_counts().
 _SITE_GRADE_BADGES = {

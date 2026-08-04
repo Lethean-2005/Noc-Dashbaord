@@ -9,6 +9,12 @@
 -- Only wo.status != 'closed' is cached — closed work orders aren't shown
 -- on any badge.
 --
+-- "Incident Category" is included so the "Overdue"/"Overdue L2"/"Overdue L3"
+-- badges (see app/services/incwo/incwo_service.py's BADGE_FILTERS) can drop
+-- just the Customer Complaint-originated INC-WOs whose parent Incident is
+-- already Resolved — every other category is kept regardless of resolved
+-- status.
+--
 -- Unlike incident_by_status.sql, no site_text parsing is needed here —
 -- INC-WO's own `site` column is a direct integer FK to Site (object_160.id).
 -- NMS/Province/District/Commune resolve the same way (through the joined
@@ -16,14 +22,7 @@
 -- object_324 directly (no LATERAL "latest one" needed).
 -- ==============================================================
 
--- name: incwo_by_status
-WITH single_ne AS (
-  SELECT
-    ne.*,
-    ROW_NUMBER() OVER (PARTITION BY ne.site_name ORDER BY ne.id) as rn
-  FROM
-    object_227 ne
-)
+-- name: inc_wo_by_status
 SELECT
   COALESCE(inc.incident_id, wo.parent_incident::TEXT) AS "Incident ID",
   COALESCE(inc.id, wo.parent_incident) AS "Incident Numeric ID",
@@ -40,6 +39,7 @@ SELECT
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
   wo.resolved_at AS "Resolved At",
+  INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS "Incident Category",
   ploc.fra_site_name AS "Site Name",
   sites.standard_code AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
@@ -49,7 +49,6 @@ SELECT
     ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
   END AS "Support Level",
   wo.fault_description AS "Fault Description",
-  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -58,7 +57,6 @@ SELECT
 FROM object_324 wo
 LEFT JOIN object_322 inc ON wo.parent_incident = inc.id
 LEFT JOIN object_160 sites ON wo.site = sites.id
-LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id

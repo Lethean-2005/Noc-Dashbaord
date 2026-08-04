@@ -1,8 +1,8 @@
 -- ==============================================================
 -- Per-site radio technology inventory (object_227, the same NE table
--- site_down.sql/incident_by_status.sql join as "single_ne"/"sne" — but
--- those only keep the first NE row per site, rn = 1, for the NMS code.
--- This query keeps every distinct (site, technology) pair instead, since
+-- ne_nms_lookup.sql resolves down to one row per site (oldest by id) for
+-- the NMS code. This query keeps every distinct (site, technology) pair
+-- instead, since
 -- app/services/alarm_site_down/alarm_completely_site_down_service.py needs
 -- the site's FULL technology footprint (which of 2g/3g/4g/5g it actually
 -- has), not just one representative NE.
@@ -22,7 +22,7 @@
 -- SRAN alarms and a technology inventory row here.
 -- ==============================================================
 
--- name: site_technology
+-- name: site_technology_cache
 SELECT DISTINCT
   sites.standard_code AS "Site Code",
   ne.technology AS "Technology"

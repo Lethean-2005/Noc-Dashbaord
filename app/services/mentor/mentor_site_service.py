@@ -155,6 +155,14 @@ class MentorSiteService:
                 added.append(code)
         return added, duplicate, invalid, None
 
+    def has_configured_sites(self):
+        """True once at least one site has been added on the Mentor Site
+        page — used to hide the Overall Dashboard's Mentor Site card
+        (app/templates/dashboard/partials/cards.html) until there's
+        actually something configured to show, instead of displaying an
+        all-zero card with nothing behind it."""
+        return bool(self.mentor_site_repository.fetch_all())
+
     def remove_site(self, site_code):
         self.mentor_site_repository.remove(site_code)
 

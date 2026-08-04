@@ -109,9 +109,10 @@ document.addEventListener('DOMContentLoaded', function () {
         { label: 'VVIP Site', page: '/', pageName: 'Overall Dashboard' },
         { label: 'Mentor Site', page: '/', pageName: 'Overall Dashboard' },
         { label: 'ISP POP / EZE', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'TCT Port Down/Up', page: '/', pageName: 'Overall Dashboard' },
+        { label: 'IP Telcotech/Cellcard', page: '/', pageName: 'Overall Dashboard' },
         { label: 'RAN Site Down', page: '/', pageName: 'Overall Dashboard' },
         { label: 'RAN Main AC Alarm', page: '/', pageName: 'Overall Dashboard' },
+        { label: 'DC Low/High', page: '/', pageName: 'Overall Dashboard' },
         { label: 'RAN Tech Down', page: '/', pageName: 'Overall Dashboard' },
         { label: 'Incident', page: '/', pageName: 'Overall Dashboard' },
         { label: 'INC-WO', page: '/', pageName: 'Overall Dashboard' },
@@ -282,6 +283,15 @@ window.addEventListener('click', function (event) {
 // (e.g. "Alarm Completely Site Down" + "Diamond" -> "Alarm Diamond") —
 // harmless-looking but silently lossy for any multi-word title; now uses
 // the full card title instead.
+//
+// The data-scope branch had the exact same truncation bug independently:
+// `scope.split(' ')[0]` kept only scope's first word, so every RAN Status
+// sub-card (data-scope "RAN Site Down" / "RAN Main AC Alarm" / "DC
+// Low/High" / "RAN Tech Down") collapsed to the same first-word + label
+// page title when a grade badge was clicked directly (e.g. "RAN Diamond"
+// for both RAN sub-cards, losing which one) — confirmed live once the 4th
+// sub-card made the ambiguity between all of them obvious. Uses the full
+// scope now, same fix as the fallback branch above.
 document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.badge-item').forEach(function (item) {
         item.addEventListener('click', function () {
@@ -293,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let scope, pageTitle;
             if (badge && badge.hasAttribute('data-scope')) {
                 scope = badge.getAttribute('data-scope');
-                pageTitle = (scope.split(' ')[0] + ' ' + labelText).trim();
+                pageTitle = (scope + ' ' + labelText).trim();
             } else {
                 const card = item.closest('.card');
                 const cardTitle = card ? card.querySelector('.card-title').textContent.trim() : '';
@@ -444,4 +454,29 @@ document.addEventListener('DOMContentLoaded', function () {
         }));
         document.addEventListener('click', () => dd.classList.remove('open'));
     });
+})();
+
+// Row 2 (RAN Status / Incident-INC-WO) height synced to match row 1
+// (VVIP/Mentor/IP Ezecom/IP Telcotech) on the Overall Dashboard. CSS Grid
+// only stretches cards to equal height within the same row — row 1 and
+// row 2 are separate implicit grid rows, so no CSS rule alone can make one
+// match the other; this is the one part of that ask that needs a small JS
+// height sync instead. No-ops on any page without .card-wide cards (e.g.
+// the Reports page, which reuses .dashboard-grid but has no wide cards).
+(function () {
+    function syncWideCardHeight() {
+        const grid = document.querySelector('.dashboard-grid');
+        if (!grid) return;
+        const wideCards = grid.querySelectorAll(':scope > .card-wide');
+        const normalCards = grid.querySelectorAll(':scope > .card:not(.card-wide)');
+        if (!wideCards.length || !normalCards.length) return;
+
+        wideCards.forEach((c) => { c.style.minHeight = ''; });
+        let rowOneHeight = 0;
+        normalCards.forEach((c) => { rowOneHeight = Math.max(rowOneHeight, c.getBoundingClientRect().height); });
+        wideCards.forEach((c) => { c.style.minHeight = rowOneHeight + 'px'; });
+    }
+
+    document.addEventListener('DOMContentLoaded', syncWideCardHeight);
+    window.addEventListener('resize', syncWideCardHeight);
 })();

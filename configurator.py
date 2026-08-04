@@ -28,7 +28,7 @@ CARD_TOGGLES = [
     ("FEATURE_VVIP_SITE", "VVIP Site"),
     ("FEATURE_MENTOR_SITE", "Mentor Site"),
     ("FEATURE_ISP_POP", "ISP POP / EZE"),
-    ("FEATURE_TCT_PORT", "TCT Port Down/Up"),
+    ("FEATURE_TCT_PORT", "IP Telcotech/Cellcard"),
     ("FEATURE_RAN_STATUS", "RAN Status"),
     ("FEATURE_INCIDENT_INCWO_STATUS", "Incident / INC-WO by Status"),
     ("FEATURE_INCIDENT_SITEDOWN", "Incident Site Down"),

@@ -13,13 +13,15 @@ use for their own "Site Down" category) — confirmed against real Postgres
 data before adding the newer variants (gNodeB Out of Service, gNodeB DU
 out-of-service, etc.) to that set.
 
-Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) are two independent
-dimensions from site_cache (hub_site / site_grade) — a site can be both a
-hub site and graded, so a Site Down alarm there counts toward BOTH badges
-(same explicit choice as dg_on_alarm_service.py).
+Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) both come from
+site_cache (hub_site / site_grade), and a site can technically be both a
+hub site and graded — but Hub takes priority: a hub site's Site Down
+alarm counts only toward "Hub", never also toward its grade badge, so the
+same site never double-counts across two badges (same convention as
+dg_on_alarm_service.py).
 
 get_details() enriches each row with its site's current Incident/INC-WO
-from the incident_site_down cache (app/database/queries/site_down.sql) —
+from the incident_site_down cache (app/database/queries/incident_site_down.sql) —
 not incident_by_status, which the sync deliberately narrows to
 'new'/'in_progress' only (see incident_sync_service.py). incident_site_down
 is already scoped to exactly the right definition for this card's own
@@ -98,12 +100,12 @@ class AlarmSiteDownService:
     @ttl_cache(15)
     def get_counts(self):
         """{'Hub': n, 'Diamond': n, 'Gold': n, 'Silver': n, 'Bronze': n} —
-        Hub and grade are independent dimensions, so a site can count
-        toward both (see module docstring)."""
+        Hub takes priority over grade (see module docstring)."""
         counts = {t: 0 for t in BADGE_TYPES}
         for _, site in self._site_down_rows_with_site():
             if (site.get("hub_site") or "").lower() in _HUB_SITE_VALUES:
                 counts["Hub"] += 1
+                continue
             badge = _GRADE_BADGES.get((site.get("site_grade") or "").lower())
             if badge:
                 counts[badge] += 1
@@ -141,5 +143,8 @@ class AlarmSiteDownService:
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
-            rows = [r for r in rows if r["site_grade"] == badge_type]
+            rows = [
+                r for r in rows
+                if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
+            ]
         return rows

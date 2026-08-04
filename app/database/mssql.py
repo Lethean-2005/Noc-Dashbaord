@@ -46,3 +46,21 @@ def run_mssql_query(domain, name):
         return cur.fetchall()
     finally:
         conn.close()
+
+
+def run_mssql_write(domain, name, params):
+    """Execute a named, parameterized MSSQL write (INSERT/UPDATE) and commit.
+    `params` is a tuple bound to the query's %s placeholders (pymssql's
+    paramstyle) — never interpolated into the query text, so this is safe
+    against injection the same way run_mssql_query()'s read-only queries
+    already are by having no user input in them at all. Returns the number
+    of rows affected."""
+    query = load_queries(domain)[name]
+    conn = _connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(query, params)
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()

@@ -4,4 +4,4 @@ from app.database.connection import run_query
 
 class SiteTechnologyRepository:
     def fetch_all(self):
-        return run_query("site_technology", "site_technology")
+        return run_query("site_technology_cache", "site_technology_cache")

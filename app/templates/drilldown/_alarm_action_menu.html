@@ -1,0 +1,31 @@
+{# Three-dot Action menu — Acknowledge/Modify Note + Clear Alarm — included
+   from alarms.html's eze/tct/isp_pop row cells. Replaces the old single
+   Ack icon button (_ack_button.html) with a small dropdown so a second
+   action (Clear) can live alongside it without crowding the row.
+
+   "Acknowledge"/"Modify Note" opens the exact same modal/JS as before
+   (openAckModal(), see acknowledge.js) — unchanged. "Clear Alarm" opens a
+   new confirmation modal (openClearModal(), see alarm_actions.js) that
+   posts to a separate endpoint (dashboard.clear_alarm) and manually marks
+   the row cleared in the real source system — see
+   app/database/queries/alarms.sql's clear_alarm query for exactly what
+   that does. data-id on both buttons is TBL_PPD.ID (a uniqueidentifier)
+   — NOT row.rtid, which was confirmed live to repeat across unrelated
+   rows and so can't safely identify a single one for either write-back. #}
+<div class="alarm-action-wrap">
+    <button type="button" class="alarm-action-trigger" onclick="toggleAlarmActionMenu(event, this)" title="Actions">
+        <i class="ti ti-dots-vertical"></i>
+    </button>
+    <div class="theme-dropdown alarm-action-menu">
+        <button type="button" class="theme-option" data-id="{{ row.id }}" data-note="{{ row.note }}"
+                onclick="closeAlarmActionMenus(); openAckModal(this)">
+            <i class="ti {{ 'ti-edit' if row.note else 'ti-note' }}"></i>
+            {{ 'Modify Note' if row.note else 'Acknowledge' }}
+        </button>
+        <button type="button" class="theme-option alarm-action-clear" data-id="{{ row.id }}"
+                onclick="closeAlarmActionMenus(); openClearModal(this)">
+            <i class="ti ti-circle-check"></i>
+            Clear Alarm
+        </button>
+    </div>
+</div>

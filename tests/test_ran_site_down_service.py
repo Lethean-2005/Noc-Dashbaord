@@ -59,7 +59,7 @@ def _tech_rows(site_code, *techs):
     return [{"site_code": site_code, "technology": t} for t in techs]
 
 
-def test_get_counts_uses_hub_site_badge_naming():
+def test_get_counts_hub_site_takes_priority_over_grade():
     alarm_rows = [_alarm_row("S1", event_name="NE Is Disconnected")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g")
@@ -71,7 +71,7 @@ def test_get_counts_uses_hub_site_badge_naming():
     counts = svc.get_counts()
 
     assert counts["Hub-Site"] == 1
-    assert counts["Gold"] == 1
+    assert counts["Gold"] == 0
 
 
 def test_partial_single_generation_alarm_does_not_count():
@@ -165,3 +165,24 @@ def test_get_details_filters_by_hub_site_badge():
 
     assert len(rows) == 1
     assert rows[0]["site_code"] == "S1"
+
+
+def test_get_details_excludes_hub_site_from_its_grade_badge():
+    alarm_rows = [
+        _alarm_row("S1", event_name="NE Is Disconnected"),
+        _alarm_row("S2", event_name="NE Is Disconnected"),
+    ]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
+    ]
+    tech_rows = _tech_rows("S1", "4g") + _tech_rows("S2", "4g")
+    svc = RanSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+    )
+
+    rows = svc.get_details("Gold")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S2"

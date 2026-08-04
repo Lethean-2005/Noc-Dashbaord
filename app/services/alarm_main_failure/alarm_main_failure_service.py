@@ -19,10 +19,12 @@ Down/RAN Tech Down/Alarm Site Down. Without this, a Main Failure alarm
 still open against a decommissioned site would show up with a blank Site
 Name/Hub/Grade/Province instead of being excluded.
 
-Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) are two independent
-dimensions from site_cache (hub_site / site_grade) — a site can be both a
-hub site and graded, so a Main-Failure alarm there counts toward BOTH
-badges (same explicit choice as dg_on_alarm_service.py).
+Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) both come from
+site_cache (hub_site / site_grade), and a site can technically be both a
+hub site and graded — but Hub takes priority: a hub site's Main-Failure
+alarm counts only toward "Hub", never also toward its grade badge, so the
+same site never double-counts across two badges (same convention as
+dg_on_alarm_service.py).
 
 get_details() enriches each row with its site's current Power-category
 Incident/INC-WO (from incident_by_status) if any — no site-down Remark
@@ -89,12 +91,12 @@ class AlarmMainFailureService:
     @ttl_cache(15)
     def get_counts(self):
         """{'Hub': n, 'Diamond': n, 'Gold': n, 'Silver': n, 'Bronze': n} —
-        Hub and grade are independent dimensions, so a site can count
-        toward both (see module docstring)."""
+        Hub takes priority over grade (see module docstring)."""
         counts = {t: 0 for t in BADGE_TYPES}
         for _, site in self._main_failure_rows_with_site():
             if (site.get("hub_site") or "").lower() in _HUB_SITE_VALUES:
                 counts["Hub"] += 1
+                continue
             badge = _GRADE_BADGES.get((site.get("site_grade") or "").lower())
             if badge:
                 counts[badge] += 1
@@ -132,5 +134,8 @@ class AlarmMainFailureService:
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
-            rows = [r for r in rows if r["site_grade"] == badge_type]
+            rows = [
+                r for r in rows
+                if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
+            ]
         return rows

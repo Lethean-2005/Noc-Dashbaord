@@ -66,7 +66,7 @@
 .logo-title {
   font-size: 22px;
   font-weight: 700;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -209,7 +209,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: background 0.2s ease;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .promo-btn:hover {
@@ -282,7 +282,7 @@
   font-size: 18px;
   font-weight: 700;
   color: var(--text-topbar-title);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   margin: 0 0 0 12px;
 }
 
@@ -325,7 +325,7 @@
 .topbar-brand .logo-title {
   font-size: 20px;
   font-weight: 700;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   letter-spacing: -0.02em;
   line-height: 1;
 }
@@ -401,7 +401,7 @@
   border-radius: 3px;
   color: var(--text-search);
   font-size: 13px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -425,7 +425,7 @@
   border: 1px solid var(--border-card);
   border-radius: 3px;
   margin-right: 12px;
-  font-family: 'Exo 2', monospace;
+  font-family: 'Poppins', monospace;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -466,7 +466,7 @@
   transform: translateX(-50%) translateY(-4px);
   background: #fff;
   color: #1f2328;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -536,7 +536,7 @@
   text-decoration: none;
   color: var(--text-secondary);
   font-size: 13px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   transition: background 0.15s ease;
 }
 .search-result:hover {
@@ -657,10 +657,6 @@
 }
 
 .alarm-header h1 {
-  display: none !important;
-}
-
-.alarm-header .search-input {
   display: none !important;
 }
 

@@ -5,7 +5,7 @@ document so Telegram doesn't recompress it and blur the text.
 
 Reads the already-synced incident_site_down cache (see
 app/repositories/incident/incident_site_down_cache_repository.py,
-app/database/queries/site_down.sql) instead of querying Postgres directly —
+app/database/queries/incident_site_down.sql) instead of querying Postgres directly —
 that cache is kept fresh every INCIDENT_SYNC_INTERVAL_SECONDS (default 5
 min) by app/services/incident/incident_sync_service.py, which is more than
 fresh enough for an alert that only checks every ALERT_INTERVAL_SECONDS
@@ -77,7 +77,7 @@ def _cache_telegram_rows(rows, cache_repository):
 
 def _site_down_over_threshold(threshold_min, incident_site_down_cache_repository=None, cache_repository=None):
     """Every Site Down incident not yet Closed whose alarm hasn't cleared
-    (per site_down.sql), read from the already-synced incident_site_down
+    (per incident_site_down.sql), read from the already-synced incident_site_down
     cache, and whose outage has passed `threshold_min` minutes, longest-
     outage first. outage_min is computed for every row (not just the ones
     over threshold) before caching, so telegram_alert_cache always has each

@@ -8,17 +8,10 @@
 -- In-Progress overall (the incident itself isn't fully closed out yet,
 -- even though this particular work order is done) — hence the INNER JOIN
 -- with inc.status = 'in_progress' baked into the join condition, unlike
--- the LEFT JOINs used in incwo_by_status.sql/incwo_site_down.sql.
+-- the LEFT JOINs used in inc_wo_by_status.sql/inc_wo_site_down.sql.
 -- ==============================================================
 
--- name: inprogress_wo_resolve
-WITH single_ne AS (
-  SELECT
-    ne.*,
-    ROW_NUMBER() OVER (PARTITION BY ne.site_name ORDER BY ne.id) as rn
-  FROM
-    object_227 ne
-)
+-- name: inc_wo_resolved
 SELECT
   inc.incident_id AS "Incident ID",
   inc.id AS "Incident Numeric ID",
@@ -44,7 +37,6 @@ SELECT
     ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
   END AS "Support Level",
   wo.fault_description AS "Fault Description",
-  sne.nms_name AS "NMS Code",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -53,7 +45,6 @@ SELECT
 FROM object_324 wo
 JOIN object_322 inc ON wo.parent_incident = inc.id AND inc.status = 'in_progress'
 LEFT JOIN object_160 sites ON wo.site = sites.id
-LEFT JOIN single_ne sne ON sites.id = sne.site_name AND sne.rn = 1
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id

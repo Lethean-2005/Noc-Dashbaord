@@ -196,6 +196,16 @@ def test_clear_all_sites_delegates_to_repository():
     assert svc.get_configured_sites() == []
 
 
+def test_has_configured_sites_false_when_none_configured():
+    svc = _svc()
+    assert svc.has_configured_sites() is False
+
+
+def test_has_configured_sites_true_once_a_site_is_added():
+    svc = _svc(mentor_rows=[{"site_code": "S1", "added_at": "", "source": "Manual"}])
+    assert svc.has_configured_sites() is True
+
+
 def test_get_configured_sites_resolves_name_and_province():
     mentor_rows = [{"site_code": "S1", "added_at": "2026-01-01T00:00:00", "source": "Manual"}]
     site_rows = [{"standard_code": "S1", "physical_location_name": "Rose Condo", "province": "Phnom Penh"}]

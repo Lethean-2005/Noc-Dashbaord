@@ -35,6 +35,7 @@ def create_app(env=None, instance_path=None):
     _init_cache_db(app)
     _start_background_jobs(app)
     _init_telegram_alert(app)
+    _init_webhook_alerts(app)
 
     return app
 
@@ -56,9 +57,10 @@ def _register_blueprints(app):
 
 
 def _register_template_filters(app):
-    from app.utils.formatter import badge_color
+    from app.utils.formatter import badge_color, status_badge_class
 
     app.jinja_env.filters["badge_color"] = badge_color
+    app.jinja_env.filters["status_badge_class"] = status_badge_class
 
 
 def _register_context_processors(app):
@@ -93,6 +95,7 @@ _BACKGROUND_JOBS = (
     ("app.services.vip.vip_incident_alarm_scheduler", "VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS"),
     ("app.services.vip.vip_site_scheduler", "VIP_SITE_SYNC_INTERVAL_SECONDS"),
     ("app.services.all_tasks_scheduler", "ALL_TASKS_SUMMARY_INTERVAL_SECONDS"),
+    ("app.routes.dashboard", "DASHBOARD_LOG_INTERVAL_SECONDS"),
 )
 
 
@@ -155,6 +158,31 @@ def _init_telegram_alert(app):
             _start_telegram()
         else:
             wait_for_leadership(_start_telegram)
+
+
+def _init_webhook_alerts(app):
+    """Start the background Teams webhook alert loop (every
+    TEAMS_ALERT_INTERVAL_SECONDS — see webhook/__init__.py's start()). Same
+    skip conditions as _init_telegram_alert() above (including the
+    leader_lock automatic-takeover-on-leader-loss behavior — a follower
+    process must not send duplicate Teams alerts either); additionally a
+    no-op whenever TEAMS_ALERTS_ENABLED is false, so it can be switched off
+    in .env without touching code."""
+    if app.testing:
+        return
+    if not app.config.get("TEAMS_ALERTS_ENABLED"):
+        return
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from app.services.leader_lock import is_leader, wait_for_leadership
+        from webhook import start
+
+        def _start_webhook_alerts():
+            start(app, app.config["TEAMS_ALERT_INTERVAL_SECONDS"])
+
+        if is_leader():
+            _start_webhook_alerts()
+        else:
+            wait_for_leadership(_start_webhook_alerts)
 
 
 def _register_error_handlers(app):

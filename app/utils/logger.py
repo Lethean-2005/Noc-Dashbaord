@@ -17,6 +17,13 @@ job-name/message table shape (console adds a color per label on top):
     reads on each view (see dashboard.py's index()), so "how current was
     the data a user actually saw" is answered directly instead of having
     to cross-reference sync_meta against request timing by hand
+  - TELEGRAM_LOG_PATH (logs/telegram.log) — only
+    app/services/telegram/telegram_alert.py's own logger, so the Site Down
+    Telegram alert's history (sent/skipped/failed) is readable on its own
+    instead of buried in app.log's general noise
+  - WEBHOOK_LOG_PATH (logs/webhook.log) — only webhook/__init__.py's own
+    logger, same reasoning as TELEGRAM_LOG_PATH but for the Teams webhook
+    alerts (webhook/ package)
 
 Both live output (console, for whoever's watching `python run.py` run) and
 persisted output (the files, the actual source of truth once the terminal
@@ -31,8 +38,7 @@ singletons at import time, often before any Flask app exists.
 
 Each file rotates at LOG_MAX_BYTES (default 10MB), keeping LOG_BACKUP_COUNT
 (default 5) old copies (app.log.1, app.log.2, ...) — without this, these
-files grow forever (app.log had reached ~19MB after one day of real use
-before this was added).
+files grow without bound.
 
 Under pytest, all paths redirect into a temp directory instead of logs/ —
 retry_fetch() is exercised directly by tests using a fake label ("test"),
@@ -69,11 +75,15 @@ if "pytest" in sys.modules:
     _LOG_ERROR_PATH = os.path.join(_log_dir, "error.log")
     _ATTEMPTS_LOG_PATH = os.path.join(_log_dir, "attempts.log")
     _DASHBOARD_LOG_PATH = os.path.join(_log_dir, "dashboard.log")
+    _TELEGRAM_LOG_PATH = os.path.join(_log_dir, "telegram.log")
+    _WEBHOOK_LOG_PATH = os.path.join(_log_dir, "webhook.log")
 else:
     _LOG_PATH = os.environ.get("LOG_PATH", "logs/app.log")
     _LOG_ERROR_PATH = os.environ.get("LOG_ERROR_PATH", "logs/error.log")
     _ATTEMPTS_LOG_PATH = os.environ.get("ATTEMPTS_LOG_PATH", "logs/attempts.log")
     _DASHBOARD_LOG_PATH = os.environ.get("DASHBOARD_LOG_PATH", "logs/dashboard.log")
+    _TELEGRAM_LOG_PATH = os.environ.get("TELEGRAM_LOG_PATH", "logs/telegram.log")
+    _WEBHOOK_LOG_PATH = os.environ.get("WEBHOOK_LOG_PATH", "logs/webhook.log")
 
 _RESET = colorama.Style.RESET_ALL
 
@@ -86,7 +96,7 @@ _LABEL_COLOR = {
     "SUCCESS": colorama.Fore.GREEN,
     "FAILED": colorama.Fore.RED,
     "TOTAL": colorama.Fore.MAGENTA,
-    "DATA": colorama.Fore.CYAN,
+    "DATA": colorama.Fore.GREEN,
     "DEBUG": colorama.Fore.CYAN,
     "WARNING": colorama.Fore.YELLOW,
     "ERROR": colorama.Fore.RED,
@@ -117,6 +127,8 @@ _JOB_WIDTH = 30
 # "Dashboard data as of: ..." line maps to DATA the same way.
 _ALL_TASKS_THREAD_NAME = "all-tasks-summary"  # must match all_tasks_scheduler.py's thread_name
 _DASHBOARD_LOGGER_NAME = "app.routes.dashboard"  # must match dashboard.py's get_logger(__name__)
+_TELEGRAM_LOGGER_NAME = "app.services.telegram.telegram_alert"  # must match telegram_alert.py's get_logger(__name__)
+_WEBHOOK_LOGGER_NAME = "webhook"  # must match webhook/__init__.py's get_logger(__name__)
 
 
 def _is_retry_record(message):
@@ -239,6 +251,14 @@ def _dashboard_only_filter(record):
     return record.name == _DASHBOARD_LOGGER_NAME
 
 
+def _telegram_only_filter(record):
+    return record.name == _TELEGRAM_LOGGER_NAME
+
+
+def _webhook_only_filter(record):
+    return record.name == _WEBHOOK_LOGGER_NAME
+
+
 class _SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     """Rotation (rename app.log -> app.log.1) fails with PermissionError on
     Windows whenever another process still has the file open — which is
@@ -284,5 +304,7 @@ def get_logger(name):
         logger.addHandler(_file_handler(_LOG_ERROR_PATH, level=logging.ERROR))
         logger.addHandler(_file_handler(_ATTEMPTS_LOG_PATH, record_filter=_is_retry_record_filter))
         logger.addHandler(_file_handler(_DASHBOARD_LOG_PATH, record_filter=_dashboard_only_filter))
+        logger.addHandler(_file_handler(_TELEGRAM_LOG_PATH, record_filter=_telegram_only_filter))
+        logger.addHandler(_file_handler(_WEBHOOK_LOG_PATH, record_filter=_webhook_only_filter))
         logger.setLevel(_LOG_LEVEL)
     return logger

@@ -29,6 +29,16 @@
 -- problem this dedup exists to prevent — same root issue as before, just
 -- shifted onto event types with "cell" in the name instead of gone.
 --
+-- A category + partial-dedup variant (Site Down/External Alarm deduped,
+-- Other left un-deduped) was also tried and reverted — full dedup on
+-- every row is the safe default for the 9 other services that share this
+-- cache (alarm_main_failure_service, alarm_site_down_service,
+-- alarm_completely_site_down_service, dg_on_alarm_service,
+-- mentor_site_service, ran_main_ac_alarm_service, ran_site_down_service,
+-- ran_tech_down_service, vip_alarm_sync_service), each of which relies on
+-- getting a clean 1-row-per-(site, event_name) feed regardless of which
+-- event types it filters for.
+--
 -- Site Name is resolved afterward, locally, by looking up the Site Code
 -- (now resolved in Python) against the already-synced site_cache table —
 -- see app/services/ape_alarm/ape_alarm_sync_service.py.
@@ -54,14 +64,15 @@ WITH ranked AS (
     additional_info,
     occurred_at,
     event_name,
+    location,
     nms,
     technology,
     ROW_NUMBER() OVER (
-      PARTITION BY site, event_name
+      PARTITION BY site, event_name, location
       ORDER BY occurred_at DESC
     ) AS rn,
     COUNT(*) OVER (
-      PARTITION BY site, event_name
+      PARTITION BY site, event_name, location
     ) AS occurrence_count
   FROM object_138
   WHERE status = 'Opened'
@@ -72,6 +83,7 @@ SELECT
   additional_info AS "Additional Info",
   occurred_at AS "Occurred At",
   event_name AS "Event Name",
+  location AS "Location",
   nms AS "NMS Code",
   technology AS "Technology",
   occurrence_count AS "Occurrence Count"

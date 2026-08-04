@@ -3,10 +3,16 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{# The drilldown table/header always shows the plain row count — the
+   distinct-site/distinct-device counting lives only in the dashboard
+   card badges (AlarmService.get_isp_pop_counts()/_typed_counts()), not
+   here. This can legitimately differ from the badge number (e.g. 4 rows
+   here, badge showing 2 sites) — that's expected, not a bug. #}
+{% set display_count = rows|length %}
 <div class="alarm-header">
-    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ display_count }}</button>
     <div class="alarm-actions">
-        <span class="alarm-row-count">{{ rows|length }} records</span>
+        <span class="alarm-row-count">{{ display_count }} records</span>
         <details class="date-filter">
             <summary class="btn-export">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
@@ -86,6 +92,7 @@
                 <th>Interface</th>
                 <th>Province</th>
                 <th>Note</th>
+                <th>Action</th>
                 {% elif source == 'tct' %}
                 <th>POP Name</th>
                 <th>POP Code</th>
@@ -98,6 +105,7 @@
                 <th>Province</th>
                 <th>Additional Info</th>
                 <th>Note</th>
+                <th>Action</th>
                 {% elif source == 'it_node' %}
                 <th>TT/INC-WOID</th>
                 <th>Device</th>
@@ -110,6 +118,7 @@
                 <th>SourceGroup</th>
                 <th>Additional Info</th>
                 <th>Note</th>
+                <th>Action</th>
                 {% else %}
                 <th>POP Name</th>
                 <th>POP Code</th>
@@ -121,6 +130,7 @@
                 <th>Root Cause</th>
                 <th>Province</th>
                 <th>Note</th>
+                <th>Action</th>
                 {% endif %}
             </tr>
         </thead>
@@ -139,6 +149,7 @@
                 <td class="ellipsis">{{ row.interface }}</td>
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% elif source == 'tct' %}
                 <td>{{ row.pop_name }}</td>
                 <td>{{ row.pop_code }}</td>
@@ -151,6 +162,7 @@
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.additional_info }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% elif source == 'it_node' %}
                 <td>{{ row.rtid }}</td>
                 <td>{{ row.device_name }}</td>
@@ -163,6 +175,7 @@
                 <td>{{ row.source_group }}</td>
                 <td class="ellipsis">{{ row.additional_info }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% else %}
                 <td>{{ row.pop_name }}</td>
                 <td>{{ row.pop_code }}</td>
@@ -174,16 +187,89 @@
                 <td class="ellipsis fault-desc">{{ row.root_cause }}</td>
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% endif %}
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="{{ 11 if source in ('eze', 'tct', 'it_node') else 10 }}">No active alarms for {{ scope }}</td></tr>
+            <tr class="empty-row"><td colspan="{{ 12 if source in ('eze', 'tct', 'it_node') else 11 }}">No active alarms for {{ scope }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+{% if source in ('eze', 'tct', 'isp_pop', 'it_node') %}
+<div class="modal" id="ackModalOverlay">
+    <div class="modal-content ack-modal-content">
+        <div class="modal-header">
+            <h2>Acknowledge Alarm</h2>
+            <span class="close-modal" onclick="closeAckModal()">&times;</span>
+        </div>
+        <form method="POST" action="{{ url_for('dashboard.acknowledge_alarm') }}" id="ackForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" id="ackId">
+            <div class="modal-body">
+                <div class="ack-field">
+                    <label for="ackTtIncWo">TT / INC-WOID</label>
+                    <input type="text" name="tt_inc_wo_id" id="ackTtIncWo">
+                </div>
+                <div class="ack-field">
+                    <label for="ackNote">Note</label>
+                    <textarea name="note" id="ackNote" rows="4"></textarea>
+                </div>
+                <div class="ack-field">
+                    <label for="ackUsername">Your Name</label>
+                    <input type="text" name="username" id="ackUsername" required>
+                </div>
+            </div>
+            <div class="modal-footer ack-modal-footer">
+                <button type="button" class="ack-cancel-btn" onclick="closeAckModal()">Cancel</button>
+                <button type="submit" class="modal-btn">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal" id="clearModalOverlay">
+    <div class="modal-content ack-modal-content">
+        <div class="modal-header">
+            <h2>Clear Alarm</h2>
+            <span class="close-modal" onclick="closeClearModal()">&times;</span>
+        </div>
+        <form method="POST" action="{{ url_for('dashboard.clear_alarm') }}" id="clearForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="id" id="clearId">
+            <div class="modal-body">
+                <p class="clear-confirm-text">
+                    This marks the alarm as cleared in the source system, the same as if the
+                    device itself had recovered. This cannot be undone automatically — only
+                    confirm if you're sure the issue is actually resolved.
+                </p>
+                <div class="ack-field">
+                    <label for="clearUsername">Your Name</label>
+                    <input type="text" name="username" id="clearUsername" required>
+                </div>
+            </div>
+            <div class="modal-footer ack-modal-footer">
+                <button type="button" class="ack-cancel-btn" onclick="closeClearModal()">Cancel</button>
+                <button type="submit" class="modal-btn modal-btn-danger">Clear Alarm</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
+{% if source in ('eze', 'tct', 'isp_pop', 'it_node') %}
+{# Fallback default for the Ack popup's "Your Name" field on a browser
+   that's never actually submitted it yet — whichever OS account this
+   Flask process itself runs as (see dashboard.py's _DEFAULT_ACK_USERNAME:
+   your own local account when testing locally, svc_nocremote on the VM).
+   acknowledge.js's openAckModal() locks the field read-only as soon as it
+   has any value (cached or this default) — editable only while empty. #}
+<script>window.NOC_DEFAULT_ACK_USERNAME = {{ default_ack_username|tojson }};</script>
+<script src="{{ url_for('static', filename='js/acknowledge.js') }}"></script>
+<script src="{{ url_for('static', filename='js/alarm_actions.js') }}"></script>
+{% endif %}
 {% endblock %}

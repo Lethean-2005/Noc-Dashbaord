@@ -8,7 +8,7 @@ from app.repositories.base_cache_repository import BaseCacheRepository
 class IncWoStatusCacheRepository(BaseCacheRepository):
     valid_tables = INC_WO_STATUS_CACHE_TABLES
     columns = ("incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id",
-               "wo_created_at", "wo_status", "resolved_at",
+               "wo_created_at", "wo_status", "resolved_at", "incident_category",
                "site_name", "site_code", "overdue", "support_level",
                "fault_description", "nms", "hub_site", "site_grade",
                "province", "district", "commune")

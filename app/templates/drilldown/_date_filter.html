@@ -1,8 +1,12 @@
-{# Shared "Occurred At" date-range filter, included by every drilldown
-whose rows have an occurred_at field (see dashboard.py's
-_DATE_FILTERABLE_SCOPES) — ISP POP/EZE/TCT/IT NODE filter Down Time
-instead via their own copy in drilldown/alarms.html, kept separate since
-that page's scope/alarm_type come from different template variables.
+{# Shared date-range filter, included by every drilldown whose rows have
+a date field to filter by. Defaults to "Occurred At" (see dashboard.py's
+_DATE_FILTERABLE_SCOPES); pass {% set date_field_label = '...' %} before
+including this to label a different field (e.g. drilldown/incwo.html sets
+it to 'INC-WO Created At' for _WO_CREATED_AT_FILTERABLE_SCOPES, since its
+rows have wo_created_at, not occurred_at). ISP POP/EZE/TCT/IT NODE filter
+Down Time instead via their own copy in drilldown/alarms.html, kept
+separate since that page's scope/alarm_type come from different template
+variables.
 Caller must {% set scope = '<literal scope string>' %} immediately before
 including this. #}
 <details class="date-filter">
@@ -25,7 +29,7 @@ including this. #}
         <input type="hidden" name="scope" value="{{ scope }}">
         <input type="hidden" name="type" value="{{ request.args.get('type', '') }}">
         <input type="hidden" name="site_code" value="{{ request.args.get('site_code', '') }}">
-        <div class="date-filter-field-label">Filter by Occurred At</div>
+        <div class="date-filter-field-label">Filter by {{ date_field_label or 'Occurred At' }}</div>
         <div class="dp-field" data-date-picker>
             <span class="dp-label">From</span>
             <button type="button" class="dp-trigger">

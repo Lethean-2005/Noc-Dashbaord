@@ -81,6 +81,7 @@ class AlarmSyncService:
         for matching/filtering, so changing its format elsewhere is safe.
         """
         return {
+            "id": str(row.get("ID") or ""),
             "alarm": row.get(alarm_field) or row.get("AlarmName") or "",
             "alarm_name": row.get("AlarmName") or "",
             "device_name": row.get("DeviceName") or "",
@@ -95,4 +96,8 @@ class AlarmSyncService:
             "source_group": row.get("SourceGroup") or "",
             "additional_info": row.get("ADD_INFO") or "",
             "note": row.get("NOTE") or "",
+            "ack": str(row.get("ACK") or ""),
+            "ab": row.get("AB") or "",
+            "mb": row.get("MB") or "",
+            "md": str(row.get("MD") or ""),
         }

@@ -24,7 +24,7 @@
 -- three together, not just here, or it'll silently come back as NULL.
 -- ==============================================================
 
--- name: site_all
+-- name: site_cache
 SELECT
     sites.id,
     sites.name,

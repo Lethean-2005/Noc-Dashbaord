@@ -17,7 +17,8 @@ def start(app, interval_seconds):
     def _work():
         n1 = service.sync()
         n2 = service.sync_technology()
-        return (n1 or 0) + (n2 or 0)
+        n3 = service.sync_ne_nms()
+        return (n1 or 0) + (n2 or 0) + (n3 or 0)
 
     start_singleton_loop(
         app, _work, interval_seconds,

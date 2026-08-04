@@ -34,7 +34,7 @@
     // ==========================================
     // 2. MODERN TYPOGRAPHY & SPACING
     // ==========================================
-    "editor.fontFamily": "'JetBrains Mono', Consolas, 'Courier New', monospace", // Clean, modern font with ligatures
+    "editor.fontFamily": "'jetbrains mono', Consolas, 'Courier New', monospace", // Clean, modern font with ligatures
     "editor.fontSize": 17,
     "editor.lineHeight": 24, // Perfect vertical spacing for clean layouts
     "editor.fontLigatures": true, // Keeps code symbols looking slick and crisp

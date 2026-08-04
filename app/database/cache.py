@@ -5,6 +5,7 @@ drilldown tables, CSV export) never hit MSSQL directly; app/services/alarm/alarm
 keeps it in sync in the background. Same role as Autonoc-Dashboard's
 app/cache/localstorage.db, one file per project.
 """
+import re
 import sqlite3
 from pathlib import Path
 
@@ -19,16 +20,18 @@ ALARM_CACHE_TABLES = ("isp_pop_alarm_cache", "eze_alarm_cache", "tct_alarm_cache
 
 _ALARM_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
-        alarm TEXT, alarm_name TEXT, device_name TEXT, ip_address TEXT, pop_name TEXT,
+        id TEXT, alarm TEXT, alarm_name TEXT, device_name TEXT, ip_address TEXT, pop_name TEXT,
         pop_code TEXT, province TEXT, down_time TEXT, root_cause TEXT, rtid TEXT,
-        interface TEXT, source_group TEXT, additional_info TEXT, note TEXT
+        interface TEXT, source_group TEXT, additional_info TEXT, note TEXT,
+        ack TEXT, ab TEXT, mb TEXT, md TEXT
     )
 """
 
 _ALARM_CACHE_COLUMNS = {
-    "alarm", "alarm_name", "device_name", "ip_address", "pop_name",
+    "id", "alarm", "alarm_name", "device_name", "ip_address", "pop_name",
     "pop_code", "province", "down_time", "root_cause", "rtid",
     "interface", "source_group", "additional_info", "note",
+    "ack", "ab", "mb", "md",
 }
 
 # One row per Site (object_160 on PostgreSQL), curated down to the columns
@@ -56,20 +59,22 @@ _SITE_CACHE_COLUMNS = {
     "p_lat", "p_lon", "hub_site",
 }
 
-# One row per Incident currently in 'new' or 'in_progress' status — the
-# full joined drilldown detail (Site/INC-WO/Province/District/Commune/NMS)
-# behind every Incident-column badge. See
+# One row per (Incident, Site) pair currently in 'new' or 'in_progress'
+# status — the full joined drilldown detail (Site/INC-WO/Province/District/
+# Commune/NMS) behind every Incident-column badge. A multi-site incident is
+# more than one row here, one per site, sharing the same incident_id — see
 # app/database/queries/incident_by_status.sql for the join logic and
 # app/services/incident/incident_sync_service.py for the sync.
 INCIDENT_STATUS_CACHE_TABLES = ("incident_by_status",)
 
 _INCIDENT_STATUS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
-        incident_id TEXT PRIMARY KEY, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
+        incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
         occurred_at TEXT, overdue TEXT, category TEXT,
         l1_noc_investigation_result TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
-        province TEXT, district TEXT, commune TEXT
+        province TEXT, district TEXT, commune TEXT,
+        PRIMARY KEY (incident_id, site_code)
     )
 """
 
@@ -80,9 +85,41 @@ _INCIDENT_STATUS_CACHE_COLUMNS = {
     "province", "district", "commune",
 }
 
+# Same shape as incident_by_status above, but scoped to ONLY VIP/VVIP sites
+# (33 of 4,360 sites, confirmed against real data) and to status != 'closed'
+# instead of just ('new', 'in_progress') — so a Resolved incident still
+# shows here. Kept as its own separate table rather than widening
+# incident_by_status itself, which is shared by IncidentService and
+# MentorSiteService and caused a real outage the one time it was widened
+# directly (Incident's drilldown has no pagination; company-wide Resolved
+# incidents pushed it to 3,800+ rows). Scoping to just VIP/VVIP sites here
+# keeps the row count small even with full Resolved history included. See
+# app/database/queries/vip_incident_status.sql and
+# app/services/incident/incident_sync_service.py for the sync. Used only by
+# VipAlarmService's enrichment.
+VIP_INCIDENT_STATUS_CACHE_TABLES = ("vip_incident_status",)
+
+_VIP_INCIDENT_STATUS_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
+        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
+        occurred_at TEXT, overdue TEXT, category TEXT,
+        l1_noc_investigation_result TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
+        province TEXT, district TEXT, commune TEXT,
+        PRIMARY KEY (incident_id, site_code)
+    )
+"""
+
+_VIP_INCIDENT_STATUS_CACHE_COLUMNS = {
+    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
+    "resolved_at", "site_name", "site_code", "occurred_at", "overdue", "category",
+    "l1_noc_investigation_result", "nms", "hub_site", "site_grade",
+    "province", "district", "commune",
+}
+
 # One row per INC-WO not yet 'closed' — the full joined drilldown detail
 # (Site/Incident/NMS/...) behind every INC-WO-column badge. See
-# app/database/queries/incwo_by_status.sql for the join logic and
+# app/database/queries/inc_wo_by_status.sql for the join logic and
 # app/services/incident/incident_sync_service.py for the sync. wo_id can be NULL for
 # a freshly-created 'new' work order (not yet assigned a real id) — SQLite
 # allows multiple NULLs in a PRIMARY KEY/UNIQUE column, same as standard SQL.
@@ -90,14 +127,14 @@ _INCIDENT_STATUS_CACHE_COLUMNS = {
 # inc_wo_site_down shares this exact same shape — it's the same join
 # narrowed to category='site_down' work orders not yet resolved/closed,
 # behind the "INC-WO Site Down" card on the Custom Dashboard
-# (reports/index.html). See app/database/queries/incwo_site_down.sql.
+# (reports/index.html). See app/database/queries/inc_wo_site_down.sql.
 INC_WO_STATUS_CACHE_TABLES = ("inc_wo_by_status", "inc_wo_site_down")
 
 _INC_WO_STATUS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT PRIMARY KEY,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT,
-        site_name TEXT, site_code TEXT, overdue TEXT, support_level TEXT,
+        incident_category TEXT, site_name TEXT, site_code TEXT, overdue TEXT, support_level TEXT,
         fault_description TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
         province TEXT, district TEXT, commune TEXT
     )
@@ -105,7 +142,7 @@ _INC_WO_STATUS_TABLE_SCHEMA = """
 
 _INC_WO_STATUS_CACHE_COLUMNS = {
     "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "resolved_at", "site_name", "site_code", "overdue", "support_level",
+    "resolved_at", "incident_category", "site_name", "site_code", "overdue", "support_level",
     "fault_description", "nms", "hub_site", "site_grade",
     "province", "district", "commune",
 }
@@ -115,7 +152,7 @@ _INC_WO_STATUS_CACHE_COLUMNS = {
 # Dashboard (reports/index.html). Same shape as inc_wo_by_status/
 # inc_wo_site_down plus incident_status (this query's INNER JOIN condition
 # includes the parent Incident's own status). See
-# app/database/queries/inprogress_wo_resolve.sql.
+# app/database/queries/inc_wo_resolved.sql.
 INC_WO_RESOLVED_CACHE_TABLES = ("inc_wo_resolved",)
 
 _INC_WO_RESOLVED_TABLE_SCHEMA = """
@@ -133,25 +170,8 @@ _INC_WO_RESOLVED_CACHE_COLUMNS = {
     "nms", "hub_site", "site_grade", "province", "district", "commune",
 }
 
-# One row per new, not-yet-worked customer complaint raised by a VIP
-# customer — see app/database/queries/vip_customer_complaint.sql and
-# app/services/incident/incident_sync_service.py for the sync.
-VIP_CUSTOMER_COMPLAINT_CACHE_TABLES = ("vip_customer_complaint",)
-
-_VIP_CUSTOMER_COMPLAINT_TABLE_SCHEMA = """
-    CREATE TABLE IF NOT EXISTS {table} (
-        incident_id TEXT PRIMARY KEY, customer_address TEXT, customer_phone_no TEXT,
-        problem_experienced_at TEXT, fault_description TEXT
-    )
-"""
-
-_VIP_CUSTOMER_COMPLAINT_CACHE_COLUMNS = {
-    "incident_id", "customer_address", "customer_phone_no",
-    "problem_experienced_at", "fault_description",
-}
-
 # One row per VIP/VVIP Site (SITE_INFO on MSSQL) — see
-# app/database/queries/vip_site.sql and app/services/vip/vip_site_sync_service.py
+# app/database/queries/vip_site_cache.sql and app/services/vip/vip_site_sync_service.py
 # for the sync. `id` (a GUID) is used as the primary key since SITE_CODE and
 # BTS_NAME both have real duplicates in this table (multiple sectors/
 # technologies can share the same physical site).
@@ -172,22 +192,24 @@ _VIP_SITE_CACHE_COLUMNS = {
     "tech", "site_id", "lat", "long",
 }
 
-# One row per Site Down incident not yet Closed whose alarm hasn't cleared —
-# behind the "Incident Site Down" card on the Custom Dashboard
-# (reports/index.html), and read directly by the Telegram Site Down alert
-# (app/services/telegram/telegram_alert.py) instead of that alert querying
-# Postgres a second time for the same data. Same join/filter as
-# app/database/queries/site_down.sql, minus Incident Status filtering
-# since this card shows every matching status. See
+# One row per (Site Down incident, Site) pair not yet Closed whose alarm
+# hasn't cleared — behind the "Incident Site Down" card on the Custom
+# Dashboard (reports/index.html), and read directly by the Telegram Site
+# Down alert (app/services/telegram/telegram_alert.py) instead of that
+# alert querying Postgres a second time for the same data. Same join/filter
+# as app/database/queries/incident_site_down.sql, minus Incident Status filtering
+# since this card shows every matching status. A multi-site incident is
+# more than one row here, one per site, sharing the same incident_id. See
 # app/services/incident/incident_sync_service.py for the sync.
 INCIDENT_SITE_DOWN_CACHE_TABLES = ("incident_site_down",)
 
 _INCIDENT_SITE_DOWN_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
-        incident_id TEXT PRIMARY KEY, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
+        incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
         occurred_at TEXT, l1_noc_investigation_result TEXT, last_comments TEXT, nms TEXT,
-        hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
+        hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT,
+        PRIMARY KEY (incident_id, site_code)
     )
 """
 
@@ -209,10 +231,11 @@ TELEGRAM_ALERT_CACHE_TABLES = ("telegram_alert_cache",)
 
 _TELEGRAM_ALERT_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
-        incident_id TEXT PRIMARY KEY, incident_status TEXT, wo_id TEXT,
+        incident_id TEXT, incident_status TEXT, wo_id TEXT,
         wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
         occurred_at TEXT, outage_min INTEGER, l1_noc_investigation_result TEXT, last_comments TEXT,
-        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
+        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT,
+        PRIMARY KEY (incident_id, site_code)
     )
 """
 
@@ -304,12 +327,12 @@ _SITE_LOOKUP_CACHE_COLUMNS = {"sran_id", "nodeb_id", "bts_id", "site_name"}
 
 # One row per (site, technology) pair a site actually has an NE for
 # (object_227, distinct — not the "first NE only" single_ne/sne CTE
-# site_down.sql/incident_by_status.sql use for the NMS code). technology is
+# incident_site_down.sql/incident_by_status.sql use for the NMS code). technology is
 # confirmed to only ever be '2g'/'3g'/'4g'/'5g'. Used by
 # app/services/alarm_site_down/alarm_completely_site_down_service.py to know
 # a site's full technology footprint, so it can tell whether every
 # technology a site has is currently down (not just one). See
-# app/database/queries/site_technology.sql and
+# app/database/queries/site_technology_cache.sql and
 # app/services/site/site_sync_service.py.
 SITE_TECHNOLOGY_CACHE_TABLES = ("site_technology_cache",)
 
@@ -322,6 +345,21 @@ _SITE_TECHNOLOGY_TABLE_SCHEMA = """
 
 _SITE_TECHNOLOGY_CACHE_COLUMNS = {"site_code", "technology"}
 
+# One row per site with an NE (object_227) — the site's NMS vendor code,
+# resolved ONCE here instead of being recomputed independently inside 6
+# other queries via their own `single_ne`/`sne` window function over the
+# whole object_227 table. See app/database/queries/ne_nms_lookup.sql and
+# app/services/site/site_sync_service.py's sync_ne_nms().
+NE_NMS_LOOKUP_CACHE_TABLES = ("ne_nms_lookup_cache",)
+
+_NE_NMS_LOOKUP_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        site_code TEXT PRIMARY KEY, nms_code TEXT
+    )
+"""
+
+_NE_NMS_LOOKUP_CACHE_COLUMNS = {"site_code", "nms_code"}
+
 # (cache table names, CREATE TABLE template, expected columns) — used by
 # init_cache_db() below to create each group and drop-and-recreate any table
 # whose columns are stale (these are pure caches, so that's always safe).
@@ -329,9 +367,9 @@ _CACHE_DEFINITIONS = (
     (ALARM_CACHE_TABLES, _ALARM_TABLE_SCHEMA, _ALARM_CACHE_COLUMNS),
     (SITE_CACHE_TABLES, _SITE_TABLE_SCHEMA, _SITE_CACHE_COLUMNS),
     (INCIDENT_STATUS_CACHE_TABLES, _INCIDENT_STATUS_TABLE_SCHEMA, _INCIDENT_STATUS_CACHE_COLUMNS),
+    (VIP_INCIDENT_STATUS_CACHE_TABLES, _VIP_INCIDENT_STATUS_TABLE_SCHEMA, _VIP_INCIDENT_STATUS_CACHE_COLUMNS),
     (INC_WO_STATUS_CACHE_TABLES, _INC_WO_STATUS_TABLE_SCHEMA, _INC_WO_STATUS_CACHE_COLUMNS),
     (INC_WO_RESOLVED_CACHE_TABLES, _INC_WO_RESOLVED_TABLE_SCHEMA, _INC_WO_RESOLVED_CACHE_COLUMNS),
-    (VIP_CUSTOMER_COMPLAINT_CACHE_TABLES, _VIP_CUSTOMER_COMPLAINT_TABLE_SCHEMA, _VIP_CUSTOMER_COMPLAINT_CACHE_COLUMNS),
     (VIP_SITE_CACHE_TABLES, _VIP_SITE_TABLE_SCHEMA, _VIP_SITE_CACHE_COLUMNS),
     (INCIDENT_SITE_DOWN_CACHE_TABLES, _INCIDENT_SITE_DOWN_TABLE_SCHEMA, _INCIDENT_SITE_DOWN_CACHE_COLUMNS),
     (TELEGRAM_ALERT_CACHE_TABLES, _TELEGRAM_ALERT_TABLE_SCHEMA, _TELEGRAM_ALERT_CACHE_COLUMNS),
@@ -340,12 +378,15 @@ _CACHE_DEFINITIONS = (
     (VIP_INCIDENT_ALARM_CACHE_TABLES, _VIP_INCIDENT_ALARM_TABLE_SCHEMA, _VIP_INCIDENT_ALARM_CACHE_COLUMNS),
     (SITE_LOOKUP_CACHE_TABLES, _SITE_LOOKUP_TABLE_SCHEMA, _SITE_LOOKUP_CACHE_COLUMNS),
     (SITE_TECHNOLOGY_CACHE_TABLES, _SITE_TECHNOLOGY_TABLE_SCHEMA, _SITE_TECHNOLOGY_CACHE_COLUMNS),
+    (NE_NMS_LOOKUP_CACHE_TABLES, _NE_NMS_LOOKUP_TABLE_SCHEMA, _NE_NMS_LOOKUP_CACHE_COLUMNS),
 )
 
-# Tables from a previous design no longer synced by anything — dropped on
-# startup so an existing instance/localstorage.db doesn't keep an
-# unfiltered 211k-row full Incident mirror around for nothing.
-_RETIRED_TABLES = ("incident_cache",)
+# Tables no longer synced by anything — dropped on startup so an existing
+# instance/localstorage.db doesn't keep stale, unread data around forever.
+_RETIRED_TABLES = (
+    "incident_cache", "winauth_registered_user", "incident_closed_site",
+    "incident_wo_site", "vip_customer_complaint",
+)
 
 
 def db_path() -> Path:
@@ -353,9 +394,38 @@ def db_path() -> Path:
 
 
 def get_cache_conn() -> sqlite3.Connection:
+    """`timeout=10` already sets SQLite's busy-timeout (10s) — matches
+    PRAGMA busy_timeout=10000, just via the sqlite3 module's own connect()
+    argument rather than a separate PRAGMA. WAL mode is the piece that
+    wasn't set anywhere: SQLite's default rollback-journal mode holds an
+    exclusive lock for a writer's whole transaction, blocking every other
+    reader AND writer — with this many background sync threads (site,
+    incident, ape_alarm, vip_*, all_tasks_summary, dashboard heartbeat,
+    ...) all touching the same instance/localstorage.db concurrently, that
+    produced real "database is locked" errors under load. WAL lets readers
+    proceed while a writer is active (only writer-vs-writer still
+    serializes), which is a much better fit for this access pattern. It's
+    a setting stored in the database file itself, not the connection, so
+    this PRAGMA is a fast no-op on every connection after the first one
+    that actually switches it over."""
     conn = sqlite3.connect(db_path(), timeout=10)
+    conn.execute("PRAGMA journal_mode=WAL;")
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _expected_pk_columns(schema):
+    """Primary key column name(s) a CREATE TABLE schema string declares —
+    either a trailing `PRIMARY KEY (col1, col2)` clause, or an inline
+    `col TYPE PRIMARY KEY`. Used by init_cache_db() to also catch a
+    PRIMARY KEY change (e.g. incident_id -> (incident_id, site_code)) as a
+    schema mismatch, since the plain column-name comparison alone can't see
+    that — same set of column names, different key."""
+    composite = re.search(r"PRIMARY KEY\s*\(([^)]+)\)", schema, re.IGNORECASE)
+    if composite:
+        return {c.strip() for c in composite.group(1).split(",")}
+    inline = re.search(r"(\w+)\s+\w+\s+PRIMARY KEY", schema, re.IGNORECASE)
+    return {inline.group(1)} if inline else set()
 
 
 def init_cache_db() -> None:
@@ -374,10 +444,13 @@ def init_cache_db() -> None:
             if table in existing:
                 conn.execute(f"DROP TABLE {table}")
         for tables, schema, expected_columns in _CACHE_DEFINITIONS:
+            expected_pk = _expected_pk_columns(schema)
             for table in tables:
                 if table in existing:
-                    cols = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
-                    if cols != expected_columns:
+                    info = conn.execute(f"PRAGMA table_info({table})").fetchall()
+                    cols = {r[1] for r in info}
+                    pk = {r[1] for r in info if r[5]}
+                    if cols != expected_columns or pk != expected_pk:
                         conn.execute(f"DROP TABLE {table}")
                 conn.execute(schema.format(table=table))
         conn.execute(

@@ -76,11 +76,20 @@ class Config:
     # ── Server ───────────────────────────────────────────────────
     HOST = os.environ.get("HOST", "0.0.0.0")
     PORT = int(os.environ.get("PORT", 8000))
+    # waitress's own default is 4 — too few once several NOC staff have the
+    # dashboard open at once: the Overall page alone makes ~10 sequential
+    # SQLite cache reads per load, and every open tab full-page-reloads on
+    # its own DASHBOARD_LOG_INTERVAL_SECONDS timer (dashboard/index.html),
+    # so those reloads land in synchronized bursts across everyone's
+    # browsers rather than spread out — a small thread pool means that
+    # burst queues up instead of running concurrently. See run.py.
+    WAITRESS_THREADS = int(os.environ.get("WAITRESS_THREADS", 8))
 
-    # ── PostgreSQL — primary application database ───────────────
-    # Currently unused: incidents/reports/mentor pages are still static
-    # placeholders (see project memory), so these stay at their .env.example
-    # defaults until that data gets wired in.
+    # ── PostgreSQL — Incident/Site/VIP data source ──────────────
+    # Read by app/database/connection.py's run_query(). Backs the Incident,
+    # INC-WO, Site, and VIP caches synced by app/services/incident/
+    # incident_sync_service.py, app/services/site/site_sync_service.py, and
+    # app/services/vip/*_sync_service.py.
     DB_HOST = os.environ.get("DB_HOST", "localhost")
     DB_PORT = os.environ.get("DB_PORT", "5432")
     DB_NAME = os.environ.get("DB_NAME", "dashboard_db")
@@ -132,14 +141,22 @@ class Config:
     # Postgres-backed sync job puts the same, predictable load on the DB.
     INCIDENT_SYNC_INTERVAL_SECONDS = int(os.environ.get("INCIDENT_SYNC_INTERVAL_SECONDS", 300))
 
+    # ── Dashboard data-freshness heartbeat (logs/dashboard.log) ─────
+    # app/routes/dashboard.py's start() logs the same "Dashboard data as
+    # of: ..." line the homepage logs per-view, but on its own clock-
+    # aligned schedule (00:00, 00:05, 00:10, ... for the 300s default) so
+    # dashboard.log has a regular trace even between page views.
+    DASHBOARD_LOG_INTERVAL_SECONDS = int(os.environ.get("DASHBOARD_LOG_INTERVAL_SECONDS", 300))
+
     # ── ape_alarm cache — broader NE/connectivity alarms on object_138 ──
     # Read by app/repositories/ape_alarm/ape_alarm_repository.py. A background job
     # (app/services/ape_alarm/ape_alarm_scheduler.py) syncs this into the local cache
     # (instance/localstorage.db) every APE_ALARM_SYNC_INTERVAL_SECONDS.
     # object_138 is a 10M-row foreign table with no supporting index, so
-    # this defaults to a much longer interval than
-    # SITE/INCIDENT_SYNC_INTERVAL_SECONDS to keep that scan infrequent.
-    APE_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("APE_ALARM_SYNC_INTERVAL_SECONDS", 900))
+    # every sync here is a genuinely heavy scan — matches
+    # SITE/INCIDENT_SYNC_INTERVAL_SECONDS's 300s (5 min) rather than a
+    # longer interval, at the cost of hitting that scan 3x more often.
+    APE_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("APE_ALARM_SYNC_INTERVAL_SECONDS", 300))
 
     # ── vip_alarm cache — every alarm type at VIP/VVIP sites, derived
     # locally from the already-synced ape_alarm cache (no Postgres call of
@@ -148,7 +165,7 @@ class Config:
     # this from ape_alarm + site_cache (both already-synced local tables)
     # every VIP_ALARM_SYNC_INTERVAL_SECONDS — see
     # app/services/vip/vip_alarm_sync_service.py.
-    VIP_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_ALARM_SYNC_INTERVAL_SECONDS", 900))
+    VIP_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_ALARM_SYNC_INTERVAL_SECONDS", 300))
 
     # ── vip_incident_alarm cache — purely local join of vip_alarm +
     # incident_by_status + site_cache (no Postgres call, no replica risk) ──
@@ -163,7 +180,7 @@ class Config:
     # MSSQL's SITE_INFO (see app/services/vip/vip_site_sync_service.py) ──
     # A background job (app/services/vip/vip_site_scheduler.py) refreshes
     # this every VIP_SITE_SYNC_INTERVAL_SECONDS.
-    VIP_SITE_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_SITE_SYNC_INTERVAL_SECONDS", 900))
+    VIP_SITE_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_SITE_SYNC_INTERVAL_SECONDS", 300))
 
     # ── all-tasks summary — one combined "Total" log line across every
     # cache table (app/services/all_tasks_scheduler.py), on its own timer
@@ -210,11 +227,20 @@ class Config:
     ALERT_THRESHOLD_MIN = int(os.environ.get("ALERT_THRESHOLD_MIN", 240))
     ALERT_INTERVAL_SECONDS = int(os.environ.get("ALERT_INTERVAL_SECONDS", 14400))
 
-    SMTP_HOST = os.environ.get("SMTP_HOST", "")
-    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
-    SMTP_USERNAME = os.environ.get("SMTP_USERNAME", "")
-    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
-    SMTP_FROM = os.environ.get("SMTP_FROM", "")
+    # ── Teams webhook alerts (webhook/ package) ─────────────────────
+    # Master on/off for the scheduled Teams sends (webhook.start(), called
+    # from _init_webhook_alerts() below) and how often send_all() runs.
+    # Each individual card's on/off is really "is its TEAMS_WEBHOOK_* URL
+    # set in .env" (see webhook/common.py's resolve_url()), not a flag here.
+    TEAMS_ALERTS_ENABLED = os.environ.get("TEAMS_ALERTS_ENABLED", "true").strip().lower() == "true"
+    TEAMS_ALERT_INTERVAL_SECONDS = int(os.environ.get("TEAMS_ALERT_INTERVAL_SECONDS", 900))
+    # When an alert has 0 active rows, the send is skipped by default (see
+    # webhook/common.py's _send_empty_enabled()). Set to true to still post
+    # a "no active alarms" card every cycle.
+    WEBHOOK_SEND_EMPTY = os.environ.get("WEBHOOK_SEND_EMPTY", "false").strip().lower() == "true"
+    # Base dashboard URL used to build each Teams card's "View Report" /
+    # "View Dashboard" links (webhook/common.py). Blank = links omitted.
+    DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "")
 
     # ── Security ─────────────────────────────────────────────────
     WTF_CSRF_ENABLED = _bool(os.environ.get("CSRF_ENABLED"), default=True)
@@ -235,7 +261,14 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SESSION_COOKIE_SECURE = True
+    # Defaults to True (cookie only sent over HTTPS) — the correct setting
+    # once this is actually served over HTTPS. Until then, plain HTTP
+    # deployments (e.g. http://172.16.8.145:5000) need this set to False in
+    # .env, or the session cookie holding the CSRF token never gets sent
+    # back, and every form submit fails with "The CSRF session token is
+    # missing." Set SESSION_COOKIE_SECURE=False in .env as a temporary
+    # measure only — switch back to True once HTTPS is set up.
+    SESSION_COOKIE_SECURE = _bool(os.environ.get("SESSION_COOKIE_SECURE"), default=True)
 
 
 config_map = {

@@ -40,7 +40,7 @@
             {% for row in rows %}
             <tr>
                 <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
-                <td>{% if row.incident_status %}<span class="status-badge status-{{ 'new' if row.incident_status == 'New' else 'in-progress' }}">{{ row.incident_status }}</span>{% endif %}</td>
+                <td>{% if row.incident_status %}<span class="status-badge {{ row.incident_status|status_badge_class }}">{{ row.incident_status }}</span>{% endif %}</td>
                 <td>{% if row.wo_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/inc_wo/form/{{ row.wo_numeric_id }}" target="_blank" rel="noopener">{{ row.wo_id }}</a>{% else %}{{ row.wo_id }}{% endif %}</td>
                 <td>{{ row.wo_created_at }}</td>
                 <td>{{ row.wo_status }}</td>

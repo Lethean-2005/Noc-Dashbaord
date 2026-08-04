@@ -9,6 +9,6 @@
 -- per-row procedural call was worth removing.
 -- ==============================================================
 
--- name: site_lookup
+-- name: site_lookup_cache
 SELECT sran_id, nodeb_id, bts_id, site_name
 FROM site_lookup_mv;

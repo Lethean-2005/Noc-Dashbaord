@@ -16,13 +16,27 @@ _RESOLVED_TABLE = "inc_wo_resolved"
 
 # badge `type` (from the drilldown URL / badge count key) -> the exact
 # field/value pairs to match in inc_wo_by_status (already formatted by
-# incwo_by_status.sql, e.g. 'l2_on_site' -> 'L2 On-Site', overdue -> 'Yes').
+# inc_wo_by_status.sql, e.g. 'l2_on_site' -> 'L2 On-Site', overdue -> 'Yes').
 # Add the next badge here the same way.
 #
 # "resolved" also requires incident_status == "In Progress" — same
-# definition as the separate "INC-WO Resolved" card (inprogress_wo_resolve.sql):
+# definition as the separate "INC-WO Resolved" card (inc_wo_resolved.sql):
 # an INC-WO that's Resolved while its parent Incident is still open overall,
 # not just any Resolved INC-WO regardless of the parent Incident's status.
+#
+# "overdue"/"overdue_l2"/"overdue_l3" cache every incident category — the
+# only thing excluded is the specific combination of Customer Complaint +
+# parent Incident already Resolved (not "Customer Complaint only", and not
+# "every Resolved incident"). A row with any other category is kept
+# regardless of resolved status; a Customer Complaint row is kept as long
+# as it isn't yet Resolved. "_exclude" is a special filter key (see
+# _matches() below): a callable given the whole row, returning True if the
+# row should be dropped — the opposite of every other filter key, which is
+# a positive match requirement.
+def _is_resolved_customer_complaint(row):
+    return row.get("incident_category") == "Customer Complaint" and row.get("incident_status") == "Resolved"
+
+
 BADGE_FILTERS = {
     "new": {"wo_status": "New"},
     "assigned": {"wo_status": "Assigned"},
@@ -32,9 +46,17 @@ BADGE_FILTERS = {
     "reopened": {"wo_status": "Reopened"},
     "returned": {"wo_status": "Returned"},
     "on_hold": {"wo_status": "On Hold"},
-    "overdue": {"overdue": "Yes"},
-    "overdue_l2": {"overdue": "Yes", "support_level": "L2 On-Site"},
-    "overdue_l3": {"overdue": "Yes", "support_level": "L3 Internal Support"},
+    "overdue": {"overdue": "Yes", "_exclude": _is_resolved_customer_complaint},
+    "overdue_l2": {
+        "overdue": "Yes",
+        "support_level": "L2 On-Site",
+        "_exclude": _is_resolved_customer_complaint,
+    },
+    "overdue_l3": {
+        "overdue": "Yes",
+        "support_level": "L3 Internal Support",
+        "_exclude": _is_resolved_customer_complaint,
+    },
 }
 
 # "INC-WO Site Down" card badge `type` -> field/value pair to match in
@@ -49,7 +71,26 @@ _SITE_GRADE_BADGES = {
 
 
 def _matches(row, filters):
-    return all(row.get(key) == value for key, value in filters.items())
+    """Each filter value is either an exact value to match, or a callable
+    predicate on that one field's value (e.g. `lambda status: status !=
+    "Resolved"`) for conditions a plain equality check can't express. The
+    special key "_exclude" is a callable given the whole row instead of one
+    field's value, returning True if the row should be DROPPED rather than
+    kept — for conditions on a combination of fields, like BADGE_FILTERS["overdue"]'s
+    "drop only if Customer Complaint AND Resolved" rule, which isn't
+    expressible as a per-field requirement."""
+    for key, value in filters.items():
+        if key == "_exclude":
+            if value(row):
+                return False
+            continue
+        actual = row.get(key)
+        if callable(value):
+            if not value(actual):
+                return False
+        elif actual != value:
+            return False
+    return True
 
 
 def _matches_site_down_badge(row, badge_type):
@@ -126,7 +167,7 @@ class IncWoService:
 
     def get_resolved_details(self):
         """Every row behind the "INC-WO Resolved" card — already fully
-        scoped by inprogress_wo_resolve.sql, no further filtering needed."""
+        scoped by inc_wo_resolved.sql, no further filtering needed."""
         rows = self.resolved_cache_repository.fetch_all(_RESOLVED_TABLE)
         for r in rows:
             r["wo_id"] = r.get("wo_id") or ""

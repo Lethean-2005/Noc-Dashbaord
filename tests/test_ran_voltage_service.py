@@ -1,0 +1,223 @@
+"""Tests for RanVoltageService — the RAN Status card's 'DC Low/High' column.
+Reads the already-synced ape_alarm cache (no Postgres call of its own),
+narrows to High/Low DC Voltage event types via a case-insensitive substring
+match, buckets by Hub-Site/Diamond/Gold/Silver/Bronze from site_cache (Hub-Site
+takes priority: a hub site counts only there, never also under its grade),
+and enriches
+drilldown rows with the site's current **Power**-category Incident/INC-WO
+from incident_by_status (not any open incident) plus a "Site down" Remark
+flag when that same site also has an open **Site Down**-category incident —
+same shape as test_ran_main_ac_alarm_service.py.
+"""
+from app.services.ran.ran_voltage_service import RanVoltageService
+
+
+class FakeApeAlarmRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+class FakeSiteRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+class FakeIncidentStatusRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
+def _alarm_row(site_code, event_name="Low DC Voltage Alarm", **overrides):
+    row = {
+        "occurred_at": "2026-01-01 00:00:00",
+        "event_name": event_name,
+        "additional_info": "",
+        "nms": "ZTE",
+        "technology": "Power",
+        "site_code": site_code,
+        "site_name": f"Site {site_code}",
+        "occurrence_count": 1,
+    }
+    row.update(overrides)
+    return row
+
+
+def test_get_counts_matches_both_high_and_low_dc_voltage():
+    alarm_rows = [
+        _alarm_row("S1", event_name="Low DC Voltage Alarm"),
+        _alarm_row("S1", event_name="High DC Voltage Alarm"),
+        _alarm_row("S1", event_name="Door Alarm"),  # not voltage, excluded
+    ]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    counts = svc.get_counts()
+
+    assert counts["Gold"] == 2
+    assert counts["Hub-Site"] == 0
+
+
+def test_get_counts_hub_site_takes_priority_over_grade_for_the_same_alarm():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    counts = svc.get_counts()
+
+    assert counts["Hub-Site"] == 1
+    assert counts["Diamond"] == 0
+
+
+def test_get_counts_ignores_alarms_with_no_matching_site():
+    alarm_rows = [_alarm_row("UNKNOWN")]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([]))
+
+    counts = svc.get_counts()
+
+    assert all(n == 0 for n in counts.values())
+
+
+def test_get_details_enriches_rows_with_site_and_computes_outage_min():
+    alarm_rows = [_alarm_row("S1", occurred_at="2020-01-01 00:00:00")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Hub-Router", "site_grade": "silver", "province": "Phnom Penh"}]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details()
+
+    assert rows[0]["hub_site"] == "Hub-Router"
+    assert rows[0]["site_grade"] == "Silver"
+    assert rows[0]["province"] == "Phnom Penh"
+    assert rows[0]["outage_min"] > 0
+
+
+def test_get_details_enriches_rows_with_current_power_incident_and_inc_wo():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{
+        "site_code": "S1", "incident_id": "INC1", "incident_numeric_id": 1,
+        "wo_id": "WO1", "wo_numeric_id": 1, "wo_created_at": "2026-01-01 00:00:00",
+        "wo_status": "New", "category": "Power",
+    }]
+    svc = RanVoltageService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["incident_id"] == "INC1"
+    assert row["wo_id"] == "WO1"
+    assert row["wo_status"] == "New"
+
+
+def test_get_details_ignores_non_power_incidents_for_incident_wo_enrichment():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{
+        "site_code": "S1", "incident_id": "INC1", "wo_id": "WO1",
+        "category": "BSS Hardware",
+    }]
+    svc = RanVoltageService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["incident_id"] == ""
+    assert row["wo_id"] == ""
+
+
+def test_get_details_remark_flags_a_site_with_an_open_site_down_incident():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{"site_code": "S1", "category": "Site Down"}]
+    svc = RanVoltageService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["remark"] == "Site down"
+
+
+def test_get_details_remark_blank_when_no_open_site_down_incident():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{"site_code": "S1", "category": "Power"}]
+    svc = RanVoltageService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["remark"] == ""
+
+
+def test_get_details_defaults_incident_fields_to_empty_when_no_match():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    row = svc.get_details()[0]
+
+    assert row["incident_id"] == ""
+    assert row["wo_id"] == ""
+    assert row["remark"] == ""
+
+
+def test_get_details_filters_by_badge_type():
+    alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
+    ]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details("Gold")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S1"
+
+
+def test_get_details_filters_by_hub_site_badge():
+    alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
+    ]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details("Hub-Site")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S1"
+
+
+def test_get_details_excludes_hub_site_from_its_grade_badge():
+    alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
+    ]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details("Gold")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S2"
+
+
+def test_is_voltage_does_not_match_unrelated_events():
+    alarm_rows = [_alarm_row("S1", event_name="Main Failure Alarm")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    svc = RanVoltageService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    assert svc.get_details() == []

@@ -172,7 +172,7 @@
   background: transparent;
   color: var(--text-secondary);
   font-size: 12px;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
   transition: background 0.15s ease;
 }

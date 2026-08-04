@@ -2,8 +2,9 @@
 Alarm' column. Reads the already-synced ape_alarm cache (no Postgres call
 of its own), narrows to Main Failure event types via a case-insensitive
 substring match (real event_name text is messy, see the service's module
-docstring), buckets by Hub-Site/Diamond/Gold/Silver/Bronze from site_cache
-(independent dimensions, so a site can count toward both), and enriches
+docstring), buckets by Hub-Site/Diamond/Gold/Silver/Bronze from site_cache (Hub-Site
+takes priority: a hub site counts only there, never also under its grade),
+and enriches
 drilldown rows with the site's current **Power**-category Incident/INC-WO
 from incident_by_status (not any open incident) plus a "Site down" Remark
 flag when that same site also has an open **Site Down**-category incident.
@@ -65,7 +66,7 @@ def test_get_counts_matches_messy_real_world_main_failure_variants():
     assert counts["Hub-Site"] == 0
 
 
-def test_get_counts_double_counts_hub_site_and_grade_for_the_same_alarm():
+def test_get_counts_hub_site_takes_priority_over_grade_for_the_same_alarm():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
     svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
@@ -73,7 +74,7 @@ def test_get_counts_double_counts_hub_site_and_grade_for_the_same_alarm():
     counts = svc.get_counts()
 
     assert counts["Hub-Site"] == 1
-    assert counts["Diamond"] == 1
+    assert counts["Diamond"] == 0
 
 
 def test_get_counts_ignores_alarms_with_no_matching_site():
@@ -251,3 +252,17 @@ def test_get_details_filters_by_hub_site_badge():
 
     assert len(rows) == 1
     assert rows[0]["site_code"] == "S1"
+
+
+def test_get_details_excludes_hub_site_from_its_grade_badge():
+    alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
+    ]
+    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details("Gold")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S2"

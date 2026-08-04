@@ -4,5 +4,5 @@ from app.database.connection import run_query
 
 class SiteLookupRepository:
     def fetch_all(self):
-        """See app/database/queries/site_lookup.sql."""
-        return run_query("site_lookup", "site_lookup")
+        """See app/database/queries/site_lookup_cache.sql."""
+        return run_query("site_lookup_cache", "site_lookup_cache")

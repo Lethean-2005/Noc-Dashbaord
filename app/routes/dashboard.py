@@ -1,9 +1,11 @@
 """Dashboard page routes."""
 import csv
+import getpass
 import io
+import math
 import re
 
-from flask import Blueprint, Response, render_template, request
+from flask import Blueprint, Response, current_app, redirect, render_template, request, url_for
 
 from app.repositories.alarm.alarm_cache_repository import AlarmCacheRepository
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -22,12 +24,27 @@ from app.services.mentor.mentor_site_service import MentorSiteService
 from app.services.ran.ran_main_ac_alarm_service import RanMainAcAlarmService
 from app.services.ran.ran_site_down_service import RanSiteDownService
 from app.services.ran.ran_tech_down_service import RanTechDownService
+from app.services.ran.ran_voltage_service import RanVoltageService
+from app.services.scheduler_utils import seconds_until_next_aligned_time
 from app.services.vip.vip_alarm_service import VipAlarmService
 from app.utils.datetime import format_short_date
 from app.utils.logger import get_logger
 
 dashboard_bp = Blueprint("dashboard", __name__)
 logger = get_logger(__name__)
+
+# Whichever OS account this Flask process itself is running as — read once
+# at import time (the process's own user never changes while it's running).
+# Used only as a suggested (never locked) default for the Acknowledge
+# popup's "Your Name" field on a browser that hasn't submitted it yet (see
+# drilldown/alarms.html + acknowledge.js's openAckModal()). This happens to
+# equal "whoever's testing this" only when the browser and the server run
+# on the same machine (local dev, or an RDP session directly on the VM) —
+# for real NOC staff on separate PCs hitting the one central VM, everyone
+# would see the VM's own account (e.g. svc_nocremote) as the suggestion,
+# same as before; it's still just an editable suggestion, never locked
+# until a real submission happens, so that's a safe default either way.
+_DEFAULT_ACK_USERNAME = getpass.getuser()
 alarm_service = AlarmService()
 incident_service = IncidentService()
 incwo_service = IncWoService()
@@ -35,6 +52,7 @@ vip_alarm_service = VipAlarmService()
 ran_main_ac_alarm_service = RanMainAcAlarmService()
 ran_site_down_service = RanSiteDownService()
 ran_tech_down_service = RanTechDownService()
+ran_voltage_service = RanVoltageService()
 dg_on_alarm_service = DgOnAlarmService()
 mentor_site_service = MentorSiteService()
 alarm_site_down_service = AlarmSiteDownService()
@@ -64,13 +82,48 @@ def _log_dashboard_data_freshness():
     )
     logger.info(f"Dashboard data as of: {parts}")
 
+
+def _log_dashboard_refresh():
+    """Logs a bare 'Dashboard Refresh' line — see logs/dashboard.log
+    (app/utils/logger.py) — one per clock-aligned tick (00:00, 00:05,
+    00:10, ...), matching the same cadence the browser's own auto-reload
+    uses (see dashboard/index.html). The timestamp comes from the log
+    formatter itself (app/utils/logger.py's _BaseTableFormatter), not this
+    message, so no date/time needs building here."""
+    logger.info("Dashboard Refresh")
+
+
+def start(app, interval_seconds=None):
+    """Background heartbeat for logs/dashboard.log — logs 'Dashboard
+    Refresh' on its own clock-aligned schedule (e.g. every 300s -> 00:00,
+    00:05, 00:10, ...) instead of only when someone happens to load the
+    page, so dashboard.log has a regular trace even during a stretch with
+    no page views. The per-view freshness log
+    (_log_dashboard_data_freshness()) still fires too, on its own from
+    index() — answering "what did this specific visit actually see"
+    independently of this heartbeat."""
+    from app.services.scheduler_utils import seconds_until_next_aligned_time, start_singleton_loop
+
+    wait = interval_seconds or app.config["DASHBOARD_LOG_INTERVAL_SECONDS"]
+    tz_name = app.config["TIMEZONE"]
+    delay = seconds_until_next_aligned_time(wait, tz_name)
+    start_singleton_loop(
+        app, _log_dashboard_refresh, wait,
+        thread_name="dashboard-freshness-log",
+        log_message=f"Dashboard freshness heartbeat started (every {wait}s, "
+                     f"first run in {delay:.0f}s)",
+        first_run_delay=delay,
+        next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name),
+    )
+
 # Scopes backed by a real MSSQL query (dashboard.drilldown routes these to
-# drilldown/alarms.html + live rows). Every other scope is still a static
-# placeholder card, so it falls through to the empty-state template.
+# drilldown/alarms.html + live rows). Every other live scope is handled by
+# _SCOPE_HANDLERS below instead; a scope in neither dict falls through to
+# the empty-state template.
 _LIVE_ALARM_SCOPES = {
     "ISP POP": alarm_service.get_isp_pop_details,
     "EZE": alarm_service.get_eze_details,
-    "TCT Port Down/Up": alarm_service.get_tct_details,
+    "IP Telcotech/Cellcard": alarm_service.get_tct_details,
     "IT NODE": alarm_service.get_it_node_details,
 }
 
@@ -82,7 +135,7 @@ _LIVE_ALARM_SCOPES = {
 _ALARM_SOURCE = {
     "ISP POP": "isp_pop",
     "EZE": "eze",
-    "TCT Port Down/Up": "tct",
+    "IP Telcotech/Cellcard": "tct",
     "IT NODE": "it_node",
 }
 
@@ -125,6 +178,7 @@ _INCIDENT_CSV_COLUMNS = [
 
 _INC_WO_CSV_COLUMNS = [
     ("incident_id", "Incident ID"), ("incident_status", "Incident Status"),
+    ("incident_category", "Incident Category"),
     ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
     ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
     ("overdue", "Overdue"), ("support_level", "Support Level"),
@@ -174,6 +228,14 @@ _RAN_TECH_DOWN_CSV_COLUMNS = [
     ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
     ("radio_technology", "Technology"), ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
     ("province", "Province"),
+]
+
+_RAN_VOLTAGE_CSV_COLUMNS = [
+    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
+    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("province", "Province"), ("remark", "Remark"),
 ]
 
 _DG_ON_ALARM_CSV_COLUMNS = [
@@ -288,6 +350,11 @@ _SCOPE_HANDLERS = {
         "template": "drilldown/ran_tech_down.html",
         "csv_columns": _RAN_TECH_DOWN_CSV_COLUMNS,
     },
+    "DC Low/High": {
+        "fetch": lambda alarm_type: ran_voltage_service.get_details(alarm_type),
+        "template": "drilldown/ran_voltage.html",
+        "csv_columns": _RAN_VOLTAGE_CSV_COLUMNS,
+    },
     "Alarm DG On": {
         "fetch": lambda alarm_type: dg_on_alarm_service.get_details(alarm_type),
         "template": "drilldown/dg_on_alarm.html",
@@ -329,12 +396,18 @@ _SCOPE_HANDLERS = {
 # actually carry an occurred_at field. "Incident" and "INC-WO Resolved"
 # are absent because inc_wo_by_status/inc_wo_resolved have no occurred_at
 # (only INC-WO Created At / Resolved At) — ISP POP/EZE/TCT/IT NODE filter
-# Down Time instead, via their own separate path (_fetch_rows()).
+# Down Time instead, via their own separate path (_fetch_rows()). "INC-WO"
+# and "INC-WO Site Down" get their own INC-WO Created At filter below
+# instead, since they have wo_created_at but no occurred_at.
 _DATE_FILTERABLE_SCOPES = {
     "Incident", "Incident Site Down", "VVIP Site", "RAN Main AC Alarm",
-    "RAN Site Down", "RAN Tech Down", "Alarm DG On", "Alarm Site Down",
+    "RAN Site Down", "RAN Tech Down", "DC Low/High", "Alarm DG On", "Alarm Site Down",
     "Alarm Completely Site Down", "Alarm Main Failure", "Mentor sites", "Mentor Site",
 }
+
+# Both scopes render drilldown/incwo.html, whose rows carry wo_created_at
+# but no occurred_at — see drilldown/incwo.html's date-filter include.
+_WO_CREATED_AT_FILTERABLE_SCOPES = {"INC-WO", "INC-WO Site Down"}
 
 
 def _filter_by_occurred_at(rows, date_from, date_to):
@@ -349,9 +422,24 @@ def _filter_by_occurred_at(rows, date_from, date_to):
     return rows
 
 
+def _filter_by_wo_created_at(rows, date_from, date_to):
+    """Same as _filter_by_occurred_at(), but for wo_created_at — the date
+    field drilldown/incwo.html's rows (INC-WO / INC-WO Site Down) actually
+    carry instead of occurred_at."""
+    if date_from:
+        rows = [r for r in rows if (r.get("wo_created_at") or "")[:10] >= date_from]
+    if date_to:
+        rows = [r for r in rows if (r.get("wo_created_at") or "")[:10] <= date_to]
+    return rows
+
+
 @dashboard_bp.route("/")
 def index():
     _log_dashboard_data_freshness()
+    refresh_seconds = current_app.config["DASHBOARD_LOG_INTERVAL_SECONDS"]
+    # Rounded up (never down) so the reload never fires a fraction of a
+    # second before the aligned boundary it's meant to land on.
+    next_refresh_seconds = math.ceil(seconds_until_next_aligned_time(refresh_seconds, current_app.config["TIMEZONE"]))
     return render_template(
         "dashboard/index.html",
         isp_pop_counts=alarm_service.get_isp_pop_counts(),
@@ -363,7 +451,9 @@ def index():
         ran_main_ac_alarm_counts=ran_main_ac_alarm_service.get_counts(),
         ran_site_down_counts=ran_site_down_service.get_counts(),
         ran_tech_down_counts=ran_tech_down_service.get_counts(),
+        ran_voltage_counts=ran_voltage_service.get_counts(),
         mentor_site_counts=mentor_site_service.get_counts(),
+        next_refresh_seconds=next_refresh_seconds,
     )
 
 
@@ -408,6 +498,47 @@ def _date_range_label(date_from, date_to):
     return "All Dates"
 
 
+@dashboard_bp.route("/alarms/acknowledge", methods=["POST"])
+def acknowledge_alarm():
+    """Acknowledge/Modify popup submit target, for the EZE / TCT / ISP POP
+    drilldown tables (see drilldown/alarms.html). Writes straight to the
+    real MSSQL row via AlarmService.acknowledge_note() — not the local
+    cache, which only picks the change up on its own next sync cycle.
+    `row_id` is TBL_PPD.ID (a uniqueidentifier), not RTID — RTID was
+    confirmed live to repeat across unrelated rows. `username` is never
+    captured server-side (this app has no login system — see
+    app/extensions.py's load_user() stub); it's whatever the popup's JS
+    read from that browser's own localStorage, submitted as a plain form
+    field like every other value here."""
+    row_id = request.form.get("id", "").strip()
+    tt_inc_wo_id = request.form.get("tt_inc_wo_id", "").strip()
+    note = request.form.get("note", "").strip()
+    username = request.form.get("username", "").strip()
+
+    if row_id and username and (tt_inc_wo_id or note):
+        alarm_service.acknowledge_note(row_id, tt_inc_wo_id, note, username)
+
+    return redirect(request.referrer or url_for("dashboard.index"))
+
+
+@dashboard_bp.route("/alarms/clear", methods=["POST"])
+def clear_alarm():
+    """Clear Alarm popup submit target, for the EZE / TCT / ISP POP
+    drilldown tables' three-dot Action menu (see drilldown/alarms.html +
+    drilldown/_alarm_action_menu.html). Writes straight to the real MSSQL
+    row via AlarmService.clear_alarm() — not the local cache, same
+    reasoning as acknowledge_alarm() above. `row_id` is TBL_PPD.ID, not
+    RTID — same reasoning as acknowledge_alarm(). `username` is captured
+    the same client-side-only way as the Ack popup (see acknowledge.js)."""
+    row_id = request.form.get("id", "").strip()
+    username = request.form.get("username", "").strip()
+
+    if row_id and username:
+        alarm_service.clear_alarm(row_id, username)
+
+    return redirect(request.referrer or url_for("dashboard.index"))
+
+
 @dashboard_bp.route("/drilldown")
 def drilldown():
     title = request.args.get("title", "Detail")
@@ -432,6 +563,16 @@ def drilldown():
                     "date_to_display": format_short_date(date_to),
                     "date_range_label": _date_range_label(date_from, date_to),
                 }
+            elif rows is not None and scope in _WO_CREATED_AT_FILTERABLE_SCOPES:
+                rows = _filter_by_wo_created_at(rows, date_from, date_to)
+                extra = {
+                    **extra,
+                    "scope": scope,
+                    "date_from": date_from, "date_to": date_to,
+                    "date_from_display": format_short_date(date_from),
+                    "date_to_display": format_short_date(date_to),
+                    "date_range_label": _date_range_label(date_from, date_to),
+                }
             return render_template(handler["template"], title=title, label=label, rows=rows, **extra)
         # None + none_is_404 (unknown "Incident"/"INC-WO" alarm_type) falls
         # through to the empty-state template below, same as every other
@@ -446,6 +587,7 @@ def drilldown():
             date_from_display=format_short_date(date_from),
             date_to_display=format_short_date(date_to),
             date_range_label=_date_range_label(date_from, date_to),
+            default_ack_username=_DEFAULT_ACK_USERNAME,
         )
 
     # Not one of the live scopes above — still a static placeholder card,
@@ -482,6 +624,8 @@ def drilldown_download():
             return Response("Unknown or unavailable scope", status=404)
         if rows is not None and scope in _DATE_FILTERABLE_SCOPES:
             rows = _filter_by_occurred_at(rows, date_from, date_to)
+        elif rows is not None and scope in _WO_CREATED_AT_FILTERABLE_SCOPES:
+            rows = _filter_by_wo_created_at(rows, date_from, date_to)
         return _csv_response(rows, handler["csv_columns"], _safe_filename(scope, alarm_type))
 
     rows = _fetch_rows(scope, alarm_type, date_from, date_to)

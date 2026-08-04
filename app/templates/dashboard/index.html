@@ -5,3 +5,14 @@
 {% block content %}
     {% include "dashboard/partials/cards.html" %}
 {% endblock %}
+
+{% block scripts %}
+<script>
+    // Reload on the same clock-aligned schedule the background sync jobs
+    // use (00:00, 00:05, 00:10, ...) — next_refresh_seconds is computed
+    // server-side (seconds_until_next_aligned_time(), same helper every
+    // scheduler uses) so this can't drift from the actual data refresh
+    // cadence or depend on the browser's own clock being correct.
+    setTimeout(() => location.reload(), {{ next_refresh_seconds }} * 1000);
+</script>
+{% endblock %}

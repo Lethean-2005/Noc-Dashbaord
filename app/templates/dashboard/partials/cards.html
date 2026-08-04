@@ -1,10 +1,11 @@
-{# ═══════════════════════════════════════════════════════════════ ISP POP / EZE
-and TCT Port Down/Up are live, backed by MSSQL (noc.TBL_PPD via
-app/services/alarm_service.py). The remaining cards (VVIP, Mentor, RAN,
-Incident/INC-WO) are still a static visual replica of the reference dashboard —
-hardcoded badges, no real query behind them yet.
+{# ═══════════════════════════════════════════════════════════════ Every card
+here is live: ISP POP / EZE / IP Telcotech/Cellcard are backed by MSSQL
+(noc.TBL_PPD via app/services/alarm/alarm_service.py); VVIP Site, Mentor
+Site, RAN Status, and Incident/INC-WO by Status are backed by PostgreSQL,
+each synced into its own local cache table by its own background scheduler
+(see app/__init__.py's _BACKGROUND_JOBS).
 ═══════════════════════════════════════════════════════════════ #} {# Row 1 —
-equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
+equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
 <div class="dashboard-grid">
   {% if features.FEATURE_VVIP_SITE %}
   <!-- VVIP Site — live from PostgreSQL (object_138 joined to object_160.site_strategic_type) -->
@@ -307,7 +308,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
     </div>
   </div>
   {% endif %} {% if features.FEATURE_TCT_PORT %}
-  <!-- TCT Port Down/Up — live from MSSQL (noc.TBL_PPD) -->
+  <!-- IP Telcotech/Cellcard — live from MSSQL (noc.TBL_PPD) -->
   <div class="card">
     <div class="card-header">
       <i class="ti ti-chevron-down card-arrow"></i>
@@ -320,7 +321,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['bandwidth']|badge_color }}"
               data-badge-key="tct_bandwidth"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="bandwidth"
               >{{ tct_counts['bandwidth'] }}</span
             ><span class="badge-label">BANDWIDTH</span>
@@ -329,7 +330,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['bgp']|badge_color }}"
               data-badge-key="tct_bgp"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="bgp"
               >{{ tct_counts['bgp'] }}</span
             ><span class="badge-label">BGP</span>
@@ -338,7 +339,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['congestion']|badge_color }}"
               data-badge-key="tct_congestion"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="congestion"
               >{{ tct_counts['congestion'] }}</span
             ><span class="badge-label">CONGESTION</span>
@@ -347,7 +348,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['cpu']|badge_color }}"
               data-badge-key="tct_cpu"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="cpu"
               >{{ tct_counts['cpu'] }}</span
             ><span class="badge-label">CPU</span>
@@ -356,7 +357,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['crc']|badge_color }}"
               data-badge-key="tct_crc"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="crc"
               >{{ tct_counts['crc'] }}</span
             ><span class="badge-label">CRC</span>
@@ -365,7 +366,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['dldp']|badge_color }}"
               data-badge-key="tct_dldp"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="dldp"
               >{{ tct_counts['dldp'] }}</span
             ><span class="badge-label">DLDP</span>
@@ -374,7 +375,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['memory']|badge_color }}"
               data-badge-key="tct_memory"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="memory"
               >{{ tct_counts['memory'] }}</span
             ><span class="badge-label">MEMORY</span>
@@ -383,7 +384,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['node']|badge_color }}"
               data-badge-key="tct_node"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="node"
               >{{ tct_counts['node'] }}</span
             ><span class="badge-label">NODE</span>
@@ -394,7 +395,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['port']|badge_color }}"
               data-badge-key="tct_port"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="port"
               >{{ tct_counts['port'] }}</span
             ><span class="badge-label">PORT</span>
@@ -403,7 +404,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['storm']|badge_color }}"
               data-badge-key="tct_storm"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="storm"
               >{{ tct_counts['storm'] }}</span
             ><span class="badge-label">STORM</span>
@@ -412,16 +413,16 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['switch_signal_low']|badge_color }}"
               data-badge-key="tct_switch_signal_low"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="switch_signal_low"
               >{{ tct_counts['switch_signal_low'] }}</span
-            ><span class="badge-label">SWITCH_SIGNAL_LOW</span>
+            ><span class="badge-label">SIGNAL_LOW</span>
           </div>
           <div class="badge-item">
             <span
               class="badge {{ tct_counts['tx_ofa_port']|badge_color }}"
               data-badge-key="tct_tx_ofa_port"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="tx_ofa_port"
               >{{ tct_counts['tx_ofa_port'] }}</span
             ><span class="badge-label">TX_OFA_PORT</span>
@@ -430,7 +431,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['tx_otu/eth']|badge_color }}"
               data-badge-key="tct_tx_otu_eth"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="tx_otu/eth"
               >{{ tct_counts['tx_otu/eth'] }}</span
             ><span class="badge-label">TX_OTU/ETH</span>
@@ -439,7 +440,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['tx_temperature']|badge_color }}"
               data-badge-key="tct_tx_temperature"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="tx_temperature"
               >{{ tct_counts['tx_temperature'] }}</span
             ><span class="badge-label">TX_TEMPERATURE</span>
@@ -448,7 +449,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
             <span
               class="badge {{ tct_counts['zero_traffic']|badge_color }}"
               data-badge-key="tct_zero_traffic"
-              data-scope="TCT Port Down/Up"
+              data-scope="IP Telcotech/Cellcard"
               data-type="zero_traffic"
               >{{ tct_counts['zero_traffic'] }}</span
             ><span class="badge-label">ZERO_TRAFFIC</span>
@@ -459,7 +460,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
     <div class="card-footer">
       <a
         class="btn-view"
-        href="{{ url_for('dashboard.drilldown', title='TCT Port Down/Up', label='TCT Port Down/Up', value=0, scope='TCT Port Down/Up') }}"
+        href="{{ url_for('dashboard.drilldown', title='IP Telcotech/Cellcard', label='IP Telcotech/Cellcard', value=0, scope='IP Telcotech/Cellcard') }}"
         >View</a
       >
     </div>
@@ -475,9 +476,9 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
       <h3 class="card-title">RAN Status</h3>
     </div>
     <div class="card-body">
-      <div class="badge-three-columns">
+      <div class="badge-four-columns">
         <div class="badge-column">
-          <div class="card-section-title">RAN Site Down</div>
+          <div class="card-section-title">Site Down</div>
           <div class="badge-item">
             <span
               class="badge {{ ran_site_down_counts['Hub-Site']|badge_color }}"
@@ -530,7 +531,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
           >
         </div>
         <div class="badge-column">
-          <div class="card-section-title title-accent">RAN Main AC Alarm</div>
+          <div class="card-section-title title-accent">Main AC Alarm</div>
           <div class="badge-item">
             <span
               class="badge {{ ran_main_ac_alarm_counts['Hub-Site']|badge_color }}"
@@ -583,7 +584,60 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | TCT Port Down/Up #}
           >
         </div>
         <div class="badge-column">
-          <div class="card-section-title title-accent-blue">RAN Tech Down</div>
+          <div class="card-section-title title-accent-purple">DC Low/High</div>
+          <div class="badge-item">
+            <span
+              class="badge {{ ran_voltage_counts['Hub-Site']|badge_color }}"
+              data-badge-key="ran_v_hub_site"
+              data-scope="DC Low/High"
+              data-type="Hub-Site"
+              >{{ ran_voltage_counts['Hub-Site'] }}</span
+            ><span class="badge-label">Hub-Site</span>
+          </div>
+          <div class="badge-item">
+            <span
+              class="badge {{ ran_voltage_counts['Diamond']|badge_color }}"
+              data-badge-key="ran_v_diamond"
+              data-scope="DC Low/High"
+              data-type="Diamond"
+              >{{ ran_voltage_counts['Diamond'] }}</span
+            ><span class="badge-label">Diamond</span>
+          </div>
+          <div class="badge-item">
+            <span
+              class="badge {{ ran_voltage_counts['Gold']|badge_color }}"
+              data-badge-key="ran_v_gold"
+              data-scope="DC Low/High"
+              data-type="Gold"
+              >{{ ran_voltage_counts['Gold'] }}</span
+            ><span class="badge-label">Gold</span>
+          </div>
+          <div class="badge-item">
+            <span
+              class="badge {{ ran_voltage_counts['Silver']|badge_color }}"
+              data-badge-key="ran_v_silver"
+              data-scope="DC Low/High"
+              data-type="Silver"
+              >{{ ran_voltage_counts['Silver'] }}</span
+            ><span class="badge-label">Silver</span>
+          </div>
+          <div class="badge-item">
+            <span
+              class="badge {{ ran_voltage_counts['Bronze']|badge_color }}"
+              data-badge-key="ran_v_bronze"
+              data-scope="DC Low/High"
+              data-type="Bronze"
+              >{{ ran_voltage_counts['Bronze'] }}</span
+            ><span class="badge-label">Bronze</span>
+          </div>
+          <a
+            class="btn-view badge-column-footer"
+            href="{{ url_for('dashboard.drilldown', title='DC Low/High', label='DC Low/High', value=0, scope='DC Low/High') }}"
+            >View DC low/high</a
+          >
+        </div>
+        <div class="badge-column">
+          <div class="card-section-title title-accent-blue">Tech Down</div>
           <div class="badge-item">
             <span
               class="badge {{ ran_tech_down_counts['Hub-Site']|badge_color }}"

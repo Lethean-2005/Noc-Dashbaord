@@ -44,13 +44,13 @@ instead — which then fails with `Microsoft Visual C++ 14.0 or greater is
 required` if no compiler is installed. Upgrading pip first avoids this:
 
 ```
-.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install --upgrade pip
 ```
 
 ## 5. Install dependencies
 
 ```
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
 ### If a package fails with "Could not find a version that satisfies ..."
@@ -74,7 +74,7 @@ First check whether a prebuilt wheel exists at all, without touching the
 version pin:
 
 ```
-.venv\Scripts\python.exe -m pip install --only-binary=:all: <package>
+.venv/Scripts/python.exe -m pip install --only-binary=:all: -r requirements.txt
 ```
 
 - If that **succeeds**, the problem was pip's resolver, not a missing
@@ -98,7 +98,7 @@ seconds.
 ## 7. Optional: desktop shortcuts
 
 ```
-scripts\create_shortcuts.bat
+scripts/create_shortcuts.bat
 ```
 
 Adds two Desktop icons: **Noc Dashboard** (starts it) and **Dashboard

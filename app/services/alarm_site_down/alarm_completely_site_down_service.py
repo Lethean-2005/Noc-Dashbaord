@@ -4,7 +4,7 @@ app/services/alarm_site_down/alarm_site_down_service.py (open ape_alarm
 rows matching app/utils/alarm_category.py's SITE_DOWN_EVENTS), but narrowed
 further to sites where EVERY radio technology the site actually has
 (2g/3g/4g/5g, from the site_technology_cache — see
-app/database/queries/site_technology.sql) is currently down, not just one.
+app/database/queries/site_technology_cache.sql) is currently down, not just one.
 
 The completely-down/partially-down split itself lives in
 app/utils/alarm_category.py's classify_site_technology_coverage() — shared
@@ -16,9 +16,10 @@ that function's docstring for the full SRAN/generation mapping reasoning.
 A site with no known technology inventory (not in site_technology_cache)
 never counts as "completely" down — there's nothing to have fully covered.
 
-Hub/Diamond/Gold/Silver/Bronze and the Incident/INC-WO enrichment follow
-the same conventions as alarm_site_down_service.py — see that file for the
-fuller reasoning.
+Hub/Diamond/Gold/Silver/Bronze (Hub takes priority over grade — a hub site
+never also double-counts under its grade badge) and the Incident/INC-WO
+enrichment follow the same conventions as alarm_site_down_service.py — see
+that file for the fuller reasoning.
 """
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
 from app.repositories.incident.incident_site_down_cache_repository import IncidentSiteDownCacheRepository
@@ -99,8 +100,9 @@ class AlarmCompletelySiteDownService:
     @ttl_cache(15)
     def get_counts(self):
         """{'Hub': n, 'Diamond': n, 'Gold': n, 'Silver': n, 'Bronze': n} —
-        counts distinct sites that are completely down (Hub and grade are
-        independent dimensions, so a site can count toward both)."""
+        counts distinct sites that are completely down. Hub takes priority
+        over grade: a hub site counts only toward "Hub", never also toward
+        its grade badge."""
         completely_down = self._completely_down_site_codes()
         site_by_code = {
             r["standard_code"]: r
@@ -112,6 +114,7 @@ class AlarmCompletelySiteDownService:
             site = site_by_code.get(code) or {}
             if (site.get("hub_site") or "").lower() in _HUB_SITE_VALUES:
                 counts["Hub"] += 1
+                continue
             badge = _GRADE_BADGES.get((site.get("site_grade") or "").lower())
             if badge:
                 counts[badge] += 1
@@ -148,5 +151,8 @@ class AlarmCompletelySiteDownService:
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
-            rows = [r for r in rows if r["site_grade"] == badge_type]
+            rows = [
+                r for r in rows
+                if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
+            ]
         return rows

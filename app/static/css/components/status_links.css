@@ -39,6 +39,30 @@
   color: #10b981;
 }
 
+.status-badge.status-acknowledged {
+  background: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  color: #8b5cf6;
+}
+
+.status-badge.status-on-hold {
+  background: rgba(234, 88, 12, 0.12);
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  color: #ea580c;
+}
+
+.status-badge.status-reopened {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.status-badge.status-returned {
+  background: rgba(236, 72, 153, 0.12);
+  border: 1px solid rgba(236, 72, 153, 0.35);
+  color: #ec4899;
+}
+
 /* ── Streamline links (Incident ID / INC-WO ID columns) ── */
 .alarm-table a {
   color: #2563eb;

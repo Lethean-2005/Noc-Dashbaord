@@ -57,3 +57,71 @@ def test_get_details_with_unknown_badge_type_returns_none():
     svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
 
     assert svc.get_details("not_a_real_badge") is None
+
+
+def _overdue_row(support_level, incident_status, incident_category="Customer Complaint"):
+    return _row(
+        overdue="Yes",
+        support_level=support_level,
+        incident_category=incident_category,
+        incident_status=incident_status,
+    )
+
+
+def test_overdue_l2_includes_matching_row():
+    rows = [_overdue_row("L2 On-Site", incident_status="In Progress")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    result = svc.get_details("overdue_l2")
+
+    assert len(result) == 1
+
+
+def test_overdue_l3_excludes_resolved_parent_incident():
+    rows = [_overdue_row("L3 Internal Support", incident_status="Resolved")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    assert svc.get_details("overdue_l3") == []
+
+
+def test_overdue_excludes_resolved_parent_incident():
+    rows = [_overdue_row(support_level=None, incident_status="Resolved")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    assert svc.get_details("overdue") == []
+
+
+def test_overdue_includes_other_categories_even_when_resolved():
+    """Only the Customer Complaint + Resolved combination is dropped — any
+    other category is cached regardless of its parent Incident's status."""
+    rows = [_overdue_row(support_level=None, incident_category="Power", incident_status="Resolved")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    result = svc.get_details("overdue")
+
+    assert len(result) == 1
+
+
+def test_overdue_includes_customer_complaint_when_not_resolved():
+    rows = [_overdue_row(support_level=None, incident_category="Customer Complaint", incident_status="In Progress")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    result = svc.get_details("overdue")
+
+    assert len(result) == 1
+
+
+def test_overdue_l2_excludes_resolved_customer_complaint():
+    rows = [_overdue_row("L2 On-Site", incident_category="Customer Complaint", incident_status="Resolved")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    assert svc.get_details("overdue_l2") == []
+
+
+def test_overdue_l2_includes_other_categories_even_when_resolved():
+    rows = [_overdue_row("L2 On-Site", incident_category="Power", incident_status="Resolved")]
+    svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    result = svc.get_details("overdue_l2")
+
+    assert len(result) == 1

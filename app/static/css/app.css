@@ -1,20 +1,4 @@
 @font-face {
-  font-family: 'Exo 2';
-  src: url('../fonts/Exo2-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Exo 2';
-  src: url('../fonts/Exo2-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Poppins';
   src: url('../fonts/Poppins-Regular.ttf') format('truetype');
   font-weight: 400;
@@ -33,7 +17,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-body);
   color: var(--text-primary);
   display: flex;
@@ -160,7 +144,7 @@ body {
     width: min(340px, calc(100vw - 40px));
     text-align: center;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-    font-family: 'Exo 2', sans-serif;
+    font-family: 'Poppins', sans-serif;
 }
 .confirm-icon { display: flex; justify-content: center; margin-bottom: 10px; color: #ef4444; }
 .confirm-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; }

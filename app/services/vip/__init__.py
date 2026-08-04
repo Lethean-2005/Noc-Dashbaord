@@ -1,2 +1,2 @@
-"""VIP/VVIP-specific services — sites, customer complaints, and the
-broader alarm/Incident feed for VIP/VVIP-tagged sites."""
+"""VIP/VVIP-specific services — sites and the broader alarm/Incident feed
+for VIP/VVIP-tagged sites."""

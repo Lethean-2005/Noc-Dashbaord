@@ -13,17 +13,28 @@ vip_alarm has no event_name filter (every alarm type at a VIP/VVIP site is
 cached, same as ape_alarm), so the badge categories below are derived
 here, at read time, by matching event_name/additional_info against the
 same keyword patterns ape_alarm.sql uses to build its own curated filter.
+
+get_details()'s Incident/INC-WO enrichment reads from vip_incident_status,
+NOT incident_by_status — that one only keeps 'new'/'in_progress' (shared by
+IncidentService and MentorSiteService, both of which need Resolved
+excluded), so a site's ticket reference would go blank the moment it's
+Resolved. vip_incident_status is a separate cache scoped to only VIP/VVIP
+sites (see app/database/queries/vip_incident_status.sql) that also keeps
+Resolved incidents (only excludes Closed) — safe to widen that way here
+specifically because it's scoped to 33 of 4,360 sites, unlike
+incident_by_status which covers every site company-wide.
 """
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.repositories.vip.vip_alarm_cache_repository import VipAlarmCacheRepository
+from app.repositories.vip.vip_incident_status_cache_repository import VipIncidentStatusCacheRepository
 from app.utils.alarm_category import SITE_DOWN_EVENTS
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
 from app.utils.nms import NMS_NAMES
 
 _TABLE = "vip_alarm"
-_INCIDENT_STATUS_TABLE = "incident_by_status"
+_VIP_INCIDENT_STATUS_TABLE = "vip_incident_status"
 _SITE_TABLE = "site_cache"
 
 BADGE_TYPES = (
@@ -59,9 +70,11 @@ def _categorize(event_name, additional_info):
 
 
 class VipAlarmService:
-    def __init__(self, cache_repository=None, incident_status_cache_repository=None, site_cache_repository=None):
+    def __init__(self, cache_repository=None, vip_incident_status_cache_repository=None, site_cache_repository=None):
         self.cache_repository = cache_repository or VipAlarmCacheRepository()
-        self.incident_status_cache_repository = incident_status_cache_repository or IncidentStatusCacheRepository()
+        self.vip_incident_status_cache_repository = (
+            vip_incident_status_cache_repository or VipIncidentStatusCacheRepository()
+        )
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()
 
     def get_counts(self):
@@ -83,13 +96,14 @@ class VipAlarmService:
         """Every cached VIP/VVIP alarm row, with outage_min filled in,
         optionally narrowed to one badge category (matches get_counts()'s
         categorization), and enriched with each site's current Incident/
-        INC-WO plus Hub Site/Site Grade/Province — all resolved locally
-        against incident_by_status/site_cache (same reasoning as
+        INC-WO (including Resolved, not just New/In Progress — see module
+        docstring) plus Hub Site/Site Grade/Province — all resolved locally
+        against vip_incident_status/site_cache (same reasoning as
         app/services/vip/vip_incident_alarm_sync_service.py: no Postgres
         call needed since both are already synced separately)."""
         rows = self.cache_repository.fetch_all(_TABLE)
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(
-            self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
+            self.vip_incident_status_cache_repository.fetch_all(_VIP_INCIDENT_STATUS_TABLE)
         )
         site_by_code = {
             r["standard_code"]: r

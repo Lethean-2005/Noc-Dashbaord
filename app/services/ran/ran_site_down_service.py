@@ -116,9 +116,9 @@ class RanSiteDownService:
     @ttl_cache(15)
     def get_counts(self):
         """{'Hub-Site': n, 'Diamond': n, 'Gold': n, 'Silver': n, 'Bronze': n}
-        — counts distinct sites that are completely down (Hub-Site and
-        grade are independent dimensions, so a site can count toward
-        both)."""
+        — counts distinct sites that are completely down. Hub-Site takes
+        priority over grade: a hub site counts only toward "Hub-Site",
+        never also toward its grade badge."""
         completely_down = self._completely_down_site_codes()
         site_by_code = {
             r["standard_code"]: r
@@ -130,6 +130,7 @@ class RanSiteDownService:
             site = site_by_code.get(code) or {}
             if (site.get("hub_site") or "").lower() in _HUB_SITE_VALUES:
                 counts["Hub-Site"] += 1
+                continue
             badge = _GRADE_BADGES.get((site.get("site_grade") or "").lower())
             if badge:
                 counts[badge] += 1
@@ -166,5 +167,8 @@ class RanSiteDownService:
         if badge_type == "Hub-Site":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
-            rows = [r for r in rows if r["site_grade"] == badge_type]
+            rows = [
+                r for r in rows
+                if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
+            ]
         return rows

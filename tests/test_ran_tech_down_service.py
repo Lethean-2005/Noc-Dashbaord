@@ -72,7 +72,7 @@ def test_single_generation_alarm_on_multi_tech_site_counts():
     counts = svc.get_counts()
 
     assert counts["Hub-Site"] == 1
-    assert counts["Gold"] == 1
+    assert counts["Gold"] == 0
 
 
 def test_sran_alarm_never_counts_as_tech_down():

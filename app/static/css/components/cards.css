@@ -1,16 +1,37 @@
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 0;
 }
 
 @media (max-width: 1024px) {
-  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
-  .dashboard-grid { grid-template-columns: 1fr; }
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Narrow tier (e.g. DevTools docked open, shrinking the page viewport to
+   ~1195px): 3 columns instead of 4, so IP Telcotech wraps to row 2
+   alongside RAN Status. Kept tightly bounded — 1024px (existing 2-column
+   tier) up to 1300px only — specifically so it does NOT reach into normal
+   full-window desktop widths, which stay on 4 columns by default. */
+@media (min-width: 1025px) and (max-width: 1300px) {
+  .dashboard-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Ultra-wide monitors: 3 columns instead of 4. With the existing DOM order,
+   VVIP/Mentor/IP Ezecom fill row 1. IP Telcotech stays a normal 1-column
+   card and RAN Status keeps its usual .card-wide span-2, putting them
+   together on row 2. Incident/INC-WO (also .card-wide, but not
+   .card-ran-status) gets bumped to a full span-3 below so it fills row 3
+   on its own instead of leaving a gap — the only markup-free way to single
+   it out from RAN Status, since both share the plain .card-wide class. */
+@media (min-width: 2800px) {
+  .dashboard-grid { grid-template-columns: repeat(3, 1fr); }
+  .card-wide:not(.card-ran-status) { grid-column: span 3; }
 }
 
 .card {
@@ -19,11 +40,11 @@
   background: var(--bg-card);
   color: var(--text-secondary);
   border: 1px solid var(--border-card);
-  border-radius: 14px;
-  padding: 14px 16px;
+  border-radius: 12px;
+  padding: 10px 12px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-card);
-  min-height: 120px;
+  min-height: 90px;
 }
 
 .card:hover {
@@ -44,9 +65,9 @@
 .card-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding-bottom: 9px;
+  gap: 6px;
+  margin-bottom: 7px;
+  padding-bottom: 6px;
   border-bottom: 1px dashed var(--border-strong);
   user-select: none;
   cursor: pointer;
@@ -66,12 +87,12 @@
 .card-collapsed .card-arrow { transform: rotate(-90deg); }
 
 .card-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
   margin: 0;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
 }
 
 .card-body { flex: 1; }
@@ -80,14 +101,14 @@
    the View buttons land on the same line even though the card gets
    stretched taller to match its row sibling. */
 .card-ran-status .card-body { display: flex; flex-direction: column; }
-.card-ran-status .badge-three-columns { flex: 1; }
+.card-ran-status .badge-four-columns { flex: 1; }
 
 .card-footer {
   margin-top: auto;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 10px;
+  gap: 6px;
+  padding-top: 7px;
 }
 
 .badge {
@@ -98,7 +119,7 @@
   padding: 6px 12px;
   border-radius: 3px;
   transition: all 0.2s ease;
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   cursor: pointer;
 }
 
@@ -206,7 +227,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -258,7 +279,7 @@
 .badge-column {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 /* A View button that belongs to one column instead of the shared
@@ -276,7 +297,7 @@
 .badge-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
 }
 
@@ -284,12 +305,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 21px;
-  min-width: 34px;
+  width: 30px;
+  height: 19px;
+  min-width: 30px;
   padding: 0;
   border-radius: 2px;
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 700;
   text-align: center;
   color: #ffffff !important;
@@ -306,12 +327,12 @@
 .badge-item .badge-silver     { background: #6b7280 !important; }
 
 .badge-item .badge-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  min-width: 90px;
+  min-width: 80px;
   white-space: nowrap;
   color: var(--text-secondary);
-  font-family: 'Exo 2', sans-serif;
+  font-family: 'Poppins', sans-serif;
   transition: color 0.15s ease;
 }
 
@@ -337,11 +358,41 @@
 .card-wide { grid-column: span 2; }
 @media (max-width: 600px) { .card-wide { grid-column: span 1; } }
 
+/* RAN Status / Incident-INC-WO hold far more rows than a normal card
+   (3 stacked sections of 5-6 items each), so on a phone the same compact
+   sizing used everywhere else reads as too small for how much content
+   they carry. Size these two back up on mobile only — desktop/tablet
+   keep the compact sizing added above. */
+@media (max-width: 600px) {
+  .card-wide {
+    padding: 14px 16px;
+  }
+  .card-wide .card-title {
+    font-size: 15px;
+  }
+  .card-wide .badge-item .badge {
+    width: 34px;
+    height: 21px;
+    min-width: 34px;
+    font-size: 12.5px;
+  }
+  .card-wide .badge-item .badge-label {
+    font-size: 13px;
+    min-width: 90px;
+  }
+  .card-wide .badge-item {
+    gap: 8px;
+  }
+  .card-wide .badge-column {
+    gap: 8px;
+  }
+}
+
 /* Three columns inside a wide merged card */
 .badge-three-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px 10px;
   flex: 1;
 }
 .badge-three-columns .badge-column {
@@ -351,7 +402,28 @@
   gap: 6px;
 }
 @media (max-width: 600px) {
-  .badge-three-columns { grid-template-columns: 1fr; }
+  .badge-three-columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Four columns inside a wide merged card (RAN Status: Site Down / Main AC
+   Alarm / Voltage / Tech Down) */
+.badge-four-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px 10px;
+  flex: 1;
+}
+.badge-four-columns .badge-column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 6px;
+}
+@media (max-width: 900px) {
+  .badge-four-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .badge-four-columns { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Column headers inside a merged card */
@@ -365,12 +437,13 @@
 }
 .card-section-title.title-accent { color: #f97316; }
 .card-section-title.title-accent-blue { color: #0ea5e9; }
+.card-section-title.title-accent-purple { color: #a855f7; }
 
 /* Badge Two Columns Grid Layout */
 .badge-two-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
 }
 
 .badge-two-columns .badge-column {

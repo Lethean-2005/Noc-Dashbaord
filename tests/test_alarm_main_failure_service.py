@@ -3,7 +3,8 @@ Custom Dashboard. Same architecture as test_dg_on_alarm_service.py: reads
 the already-synced ape_alarm cache (no Postgres call of its own), narrows
 to Main-Failure alarms via a case-insensitive substring match on
 event_name, buckets by Hub/Diamond/Gold/Silver/Bronze from site_cache
-(independent dimensions, so a site can count toward both), enriches
+(Hub takes priority: a hub site counts only there, never also under its
+grade), enriches
 drilldown rows with the site's current Power-category Incident/INC-WO, and
 excludes any alarm whose site_code has no matching site_cache record (that
 cache already excludes off_air sites — see site_cache.sql).
@@ -72,7 +73,7 @@ def test_get_counts_matches_messy_event_name_variant():
     assert counts["Silver"] == 1
 
 
-def test_get_counts_double_counts_hub_and_grade_for_the_same_alarm():
+def test_get_counts_hub_takes_priority_over_grade_for_the_same_alarm():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
     svc = AlarmMainFailureService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
@@ -80,7 +81,7 @@ def test_get_counts_double_counts_hub_and_grade_for_the_same_alarm():
     counts = svc.get_counts()
 
     assert counts["Hub"] == 1
-    assert counts["Diamond"] == 1
+    assert counts["Diamond"] == 0
 
 
 def test_get_counts_ignores_non_main_failure_events():
@@ -144,6 +145,20 @@ def test_get_details_filters_by_hub_badge():
 
     assert len(rows) == 1
     assert rows[0]["site_code"] == "S1"
+
+
+def test_get_details_excludes_hub_from_its_grade_badge():
+    alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
+    site_rows = [
+        {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
+        {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
+    ]
+    svc = AlarmMainFailureService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+
+    rows = svc.get_details("Gold")
+
+    assert len(rows) == 1
+    assert rows[0]["site_code"] == "S2"
 
 
 def test_get_details_filters_by_grade_badge():

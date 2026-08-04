@@ -27,7 +27,7 @@ class SiteLookupSyncService:
         this runs inside an infinite background loop, so any uncaught
         exception here would silently kill that loop forever. Returns the
         row count synced, or None on failure."""
-        rows = retry_fetch(self.site_lookup_repository.fetch_all, "site_lookup")
+        rows = retry_fetch(self.site_lookup_repository.fetch_all, "site_lookup_cache")
         if rows is None:
             return None
 
