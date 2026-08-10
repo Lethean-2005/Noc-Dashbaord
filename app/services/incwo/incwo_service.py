@@ -7,12 +7,14 @@ app/database/cache.py) that app/services/incident/incident_scheduler.py keeps in
 sync with PostgreSQL in the background — the dashboard never waits on a
 live Postgres query.
 """
+
 from app.repositories.incwo.incwo_resolved_cache_repository import IncWoResolvedCacheRepository
 from app.repositories.incwo.incwo_status_cache_repository import IncWoStatusCacheRepository
 
 _TABLE = "inc_wo_by_status"
 _SITE_DOWN_TABLE = "inc_wo_site_down"
 _RESOLVED_TABLE = "inc_wo_resolved"
+
 
 # badge `type` (from the drilldown URL / badge count key) -> the exact
 # field/value pairs to match in inc_wo_by_status (already formatted by
@@ -34,7 +36,10 @@ _RESOLVED_TABLE = "inc_wo_resolved"
 # row should be dropped — the opposite of every other filter key, which is
 # a positive match requirement.
 def _is_resolved_customer_complaint(row):
-    return row.get("incident_category") == "Customer Complaint" and row.get("incident_status") == "Resolved"
+    return (
+        row.get("incident_category") == "Customer Complaint"
+        and row.get("incident_status") == "Resolved"
+    )
 
 
 BADGE_FILTERS = {

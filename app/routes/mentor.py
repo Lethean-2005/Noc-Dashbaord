@@ -1,4 +1,5 @@
 """Mentor Sites page routes."""
+
 from flask import Blueprint, Response, redirect, render_template, request, url_for
 
 from app.services.mentor.mentor_site_service import MentorSiteService
@@ -38,12 +39,14 @@ def add():
     added, duplicate, invalid = mentor_site_service.add_site_codes(raw_text)
     if not added and not duplicate and not invalid:
         return redirect(url_for("mentor.index", error="No site code entered."))
-    return redirect(url_for(
-        "mentor.index",
-        added=len(added) if added else None,
-        duplicate=", ".join(duplicate) if duplicate else None,
-        invalid=", ".join(invalid) if invalid else None,
-    ))
+    return redirect(
+        url_for(
+            "mentor.index",
+            added=len(added) if added else None,
+            duplicate=", ".join(duplicate) if duplicate else None,
+            invalid=", ".join(invalid) if invalid else None,
+        )
+    )
 
 
 @mentor_bp.route("/upload", methods=["POST"])
@@ -54,12 +57,14 @@ def upload():
     added, duplicate, invalid, error = mentor_site_service.add_from_csv(file.stream)
     if error:
         return redirect(url_for("mentor.index", error=error))
-    return redirect(url_for(
-        "mentor.index",
-        added=len(added) if added else None,
-        duplicate=", ".join(duplicate) if duplicate else None,
-        invalid=", ".join(invalid) if invalid else None,
-    ))
+    return redirect(
+        url_for(
+            "mentor.index",
+            added=len(added) if added else None,
+            duplicate=", ".join(duplicate) if duplicate else None,
+            invalid=", ".join(invalid) if invalid else None,
+        )
+    )
 
 
 @mentor_bp.route("/remove/<site_code>", methods=["POST"])

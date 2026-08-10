@@ -10,6 +10,7 @@ to Category = Site Down, Status != Closed, Cleared Alarm Received = FALSE
 (see app/database/queries/incident_site_down.sql), so no extra category filtering
 is needed here.
 """
+
 from app.services.alarm_site_down.alarm_site_down_service import AlarmSiteDownService
 
 
@@ -53,9 +54,14 @@ def _alarm_row(site_code, event_name="NE Is Disconnected", **overrides):
 
 
 def test_get_counts_matches_site_down_event_name():
-    alarm_rows = [_alarm_row("S1", event_name="NE Is Disconnected"), _alarm_row("S1", event_name="Door Alarm")]
+    alarm_rows = [
+        _alarm_row("S1", event_name="NE Is Disconnected"),
+        _alarm_row("S1", event_name="Door Alarm"),
+    ]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -71,7 +77,9 @@ def test_get_counts_matches_newer_gnodeb_variants():
         {"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "silver"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -82,7 +90,9 @@ def test_get_counts_matches_newer_gnodeb_variants():
 def test_get_counts_ignores_non_site_down_events():
     alarm_rows = [_alarm_row("S1", event_name="Main Failure Alarm")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -92,7 +102,9 @@ def test_get_counts_ignores_non_site_down_events():
 def test_get_counts_hub_takes_priority_over_grade_for_the_same_alarm():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -106,12 +118,19 @@ def test_get_details_enriches_rows_with_current_site_down_incident():
     unlike incident_by_status which excludes 'resolved' entirely."""
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    incident_rows = [{
-        "site_code": "S1", "incident_id": "INC1", "wo_id": "WO1", "wo_status": "New",
-        "incident_status": "Resolved",
-    }]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "incident_id": "INC1",
+            "wo_id": "WO1",
+            "wo_status": "New",
+            "incident_status": "Resolved",
+        }
+    ]
     svc = AlarmSiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentSiteDownRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -123,7 +142,9 @@ def test_get_details_enriches_rows_with_current_site_down_incident():
 def test_get_details_includes_radio_technology():
     alarm_rows = [_alarm_row("S1", event_name="eNodeB is out of service")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -133,7 +154,9 @@ def test_get_details_includes_radio_technology():
 def test_get_details_translates_nms_code():
     alarm_rows = [_alarm_row("S1", nms="7")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -146,7 +169,9 @@ def test_get_details_filters_by_hub_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     rows = svc.get_details("Hub")
 
@@ -160,7 +185,9 @@ def test_get_details_excludes_hub_from_its_grade_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
     ]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     rows = svc.get_details("Gold")
 
@@ -175,7 +202,9 @@ def test_get_details_excludes_alarms_with_no_matching_site_cache_record():
     Site Name/Hub/Grade/Province."""
     alarm_rows = [_alarm_row("S1"), _alarm_row("S2"), _alarm_row("")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     rows = svc.get_details()
 
@@ -186,7 +215,9 @@ def test_get_details_excludes_alarms_with_no_matching_site_cache_record():
 def test_get_counts_excludes_alarms_with_no_matching_site_cache_record():
     alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -199,7 +230,9 @@ def test_get_details_filters_by_grade_badge():
         {"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = AlarmSiteDownService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([]))
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo([])
+    )
 
     rows = svc.get_details("Bronze")
 

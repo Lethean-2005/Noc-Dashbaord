@@ -6,6 +6,7 @@ classify_site_technology_coverage(), the shared completely-down/
 partially-down split used by AlarmCompletelySiteDownService,
 RanSiteDownService, and RanTechDownService.
 """
+
 from app.utils.alarm_category import classify_site_technology_coverage, site_down_technology
 
 
@@ -54,7 +55,8 @@ def _alarm(site_code, event_name):
 
 def test_sran_alarm_alone_is_completely_down():
     completely, partial = classify_site_technology_coverage(
-        [_alarm("S1", "NE Is Disconnected")], {"S1": {"2g", "4g"}},
+        [_alarm("S1", "NE Is Disconnected")],
+        {"S1": {"2g", "4g"}},
     )
     assert completely == {"S1"}
     assert partial == set()
@@ -62,7 +64,8 @@ def test_sran_alarm_alone_is_completely_down():
 
 def test_single_generation_alarm_on_multi_tech_site_is_partial():
     completely, partial = classify_site_technology_coverage(
-        [_alarm("S1", "eNodeB is out of service")], {"S1": {"2g", "4g"}},
+        [_alarm("S1", "eNodeB is out of service")],
+        {"S1": {"2g", "4g"}},
     )
     assert completely == set()
     assert partial == {"S1"}
@@ -79,7 +82,8 @@ def test_covering_every_generation_is_completely_down():
 
 def test_single_generation_alarm_on_single_tech_site_is_completely_down():
     completely, partial = classify_site_technology_coverage(
-        [_alarm("S1", "BTS O&M LINK FAILURE")], {"S1": {"2g"}},
+        [_alarm("S1", "BTS O&M LINK FAILURE")],
+        {"S1": {"2g"}},
     )
     assert completely == {"S1"}
     assert partial == set()
@@ -87,7 +91,8 @@ def test_single_generation_alarm_on_single_tech_site_is_completely_down():
 
 def test_site_with_no_known_inventory_lands_in_neither_set():
     completely, partial = classify_site_technology_coverage(
-        [_alarm("S1", "NE Is Disconnected")], {},
+        [_alarm("S1", "NE Is Disconnected")],
+        {},
     )
     assert completely == set()
     assert partial == set()

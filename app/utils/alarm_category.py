@@ -10,12 +10,18 @@ read the same underlying alarm shape and used to duplicate this list.
 # subsystem alarming. Matched as an EXACT (not substring) match against the
 # lowercased event_name.
 SITE_DOWN_EVENTS = {
-    "nodeb is out of service", "enodeb is out of service", "csl fault",
-    "ne is disconnected", "ne3sws agent not responding to requests",
+    "nodeb is out of service",
+    "enodeb is out of service",
+    "csl fault",
+    "ne is disconnected",
+    "ne3sws agent not responding to requests",
     "the link between the server and the me is broken",
-    "bts o&m link failure", "site abis control link broken",
-    "gnodeb out of service", "gnodeb du out-of-service",
-    "enodeb out of service", "nodeb out of service",
+    "bts o&m link failure",
+    "site abis control link broken",
+    "gnodeb out of service",
+    "gnodeb du out-of-service",
+    "enodeb out of service",
+    "nodeb out of service",
     "wcdma base station out of use",
 }
 
@@ -37,7 +43,7 @@ _2G_EVENTS = {"csl fault", "bts o&m link failure", "site abis control link broke
 
 
 def site_down_technology(event_name):
-    """"SRAN"/"5G"/"4G"/"3G"/"2G" for a SITE_DOWN_EVENTS member, or "" for
+    """ "SRAN"/"5G"/"4G"/"3G"/"2G" for a SITE_DOWN_EVENTS member, or "" for
     anything else (not a Site-Down event, or an unmapped one)."""
     name = (event_name or "").strip().lower()
     if name in _SRAN_EVENTS:

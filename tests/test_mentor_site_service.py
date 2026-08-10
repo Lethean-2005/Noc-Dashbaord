@@ -5,6 +5,7 @@ local caches, same flow as vip_alarm_service.py but for a user-picked site
 list. mentor_sites itself is NOT a Postgres sync cache — see
 mentor_site_repository.py.
 """
+
 import io
 
 from app.services.mentor.mentor_site_service import MentorSiteService
@@ -18,7 +19,9 @@ class FakeMentorSiteRepo:
 
     def add(self, site_code, source):
         if not any(r["site_code"] == site_code for r in self._rows):
-            self._rows.append({"site_code": site_code, "added_at": "2026-01-01T00:00:00", "source": source})
+            self._rows.append(
+                {"site_code": site_code, "added_at": "2026-01-01T00:00:00", "source": source}
+            )
 
     def fetch_all(self):
         return list(self._rows)
@@ -81,7 +84,10 @@ def _svc(mentor_rows=None, alarm_rows=None, site_rows=None, incident_rows=None):
 
 
 _KNOWN_SITES = [
-    {"standard_code": "S1"}, {"standard_code": "S2"}, {"standard_code": "S3"}, {"standard_code": "S4"},
+    {"standard_code": "S1"},
+    {"standard_code": "S2"},
+    {"standard_code": "S3"},
+    {"standard_code": "S4"},
 ]
 
 
@@ -91,7 +97,12 @@ def test_add_site_codes_splits_on_commas_spaces_and_newlines():
     assert set(added) == {"S1", "S2", "S3", "S4"}
     assert duplicate == []
     assert invalid == []
-    assert {r["site_code"] for r in svc.mentor_site_repository.fetch_all()} == {"S1", "S2", "S3", "S4"}
+    assert {r["site_code"] for r in svc.mentor_site_repository.fetch_all()} == {
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+    }
 
 
 def test_add_site_codes_dedupes_and_uppercases():
@@ -208,7 +219,9 @@ def test_has_configured_sites_true_once_a_site_is_added():
 
 def test_get_configured_sites_resolves_name_and_province():
     mentor_rows = [{"site_code": "S1", "added_at": "2026-01-01T00:00:00", "source": "Manual"}]
-    site_rows = [{"standard_code": "S1", "physical_location_name": "Rose Condo", "province": "Phnom Penh"}]
+    site_rows = [
+        {"standard_code": "S1", "physical_location_name": "Rose Condo", "province": "Phnom Penh"}
+    ]
     svc = _svc(mentor_rows=mentor_rows, site_rows=site_rows)
 
     rows = svc.get_configured_sites()
@@ -354,8 +367,10 @@ def test_get_alarm_details_filters_by_site_code():
     happened to belong to, not what the caller actually asked for. Filtering
     for S1 (the non-last site) is what exposes that — filtering for S2 (the
     last one) would pass even with the bug present."""
-    mentor_rows = [{"site_code": "S1", "added_at": "", "source": "Manual"},
-                    {"site_code": "S2", "added_at": "", "source": "Manual"}]
+    mentor_rows = [
+        {"site_code": "S1", "added_at": "", "source": "Manual"},
+        {"site_code": "S2", "added_at": "", "source": "Manual"},
+    ]
     alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
     svc = _svc(mentor_rows=mentor_rows, alarm_rows=alarm_rows)
 
@@ -378,7 +393,14 @@ def test_get_alarm_details_returns_empty_when_nothing_configured():
 def test_get_alarm_details_enriches_with_incident_and_computes_outage():
     mentor_rows = [{"site_code": "S1", "added_at": "", "source": "Manual"}]
     alarm_rows = [_alarm_row("S1", occurred_at="2020-01-01 00:00:00")]
-    site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold", "province": "Phnom Penh"}]
+    site_rows = [
+        {
+            "standard_code": "S1",
+            "hub_site": "Hub-MW",
+            "site_grade": "gold",
+            "province": "Phnom Penh",
+        }
+    ]
     svc = _svc(mentor_rows=mentor_rows, alarm_rows=alarm_rows, site_rows=site_rows)
 
     row = svc.get_alarm_details()[0]
@@ -464,9 +486,13 @@ def test_get_alarm_details_filters_by_full_badge_category():
 def test_get_alarm_details_includes_category_and_resolved_at_from_incident():
     mentor_rows = [{"site_code": "S1", "added_at": "", "source": "Manual"}]
     alarm_rows = [_alarm_row("S1")]
-    incident_rows = [{
-        "site_code": "S1", "category": "Power", "resolved_at": "2026-01-02 00:00:00",
-    }]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "category": "Power",
+            "resolved_at": "2026-01-02 00:00:00",
+        }
+    ]
     svc = _svc(mentor_rows=mentor_rows, alarm_rows=alarm_rows, incident_rows=incident_rows)
 
     row = svc.get_alarm_details()[0]

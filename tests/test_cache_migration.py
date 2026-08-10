@@ -8,6 +8,7 @@ the table, and the app kept crashing with "UNIQUE constraint failed:
 incident_by_status.incident_id" against a stale table left over from before
 the fix, even after the code was updated and the process restarted.
 """
+
 from app.database.cache import _expected_pk_columns, get_cache_conn, init_cache_db
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 
@@ -74,8 +75,7 @@ def test_incident_status_cache_repository_writes_multi_site_incident_rows(app):
             {"incident_id": "INC-1", "site_code": "7032", "site_name": "Site B"},
         ]
         full_rows = [
-            {col: row.get(col) for col in IncidentStatusCacheRepository.columns}
-            for row in rows
+            {col: row.get(col) for col in IncidentStatusCacheRepository.columns} for row in rows
         ]
 
         repo.replace_all("incident_by_status", full_rows)

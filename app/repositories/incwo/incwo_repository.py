@@ -1,4 +1,5 @@
 """Data access for the INC-WO table (object_324) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 

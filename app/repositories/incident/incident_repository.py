@@ -1,4 +1,5 @@
 """Data access for the Incident table (object_322) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 
@@ -31,4 +32,6 @@ class IncidentRepository:
         is valid SQL but a pointless round-trip)."""
         if not incident_ids:
             return []
-        return run_query("inc_wo_by_incident_ids", "inc_wo_by_incident_ids", incident_ids=list(incident_ids))
+        return run_query(
+            "inc_wo_by_incident_ids", "inc_wo_by_incident_ids", incident_ids=list(incident_ids)
+        )

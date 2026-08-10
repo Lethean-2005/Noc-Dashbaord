@@ -6,6 +6,7 @@ both this and RAN Site Down for the same site. See
 app/utils/alarm_category.py's classify_site_technology_coverage() for the
 shared split and its own test suite for the full edge cases.
 """
+
 from app.services.ran.ran_tech_down_service import RanTechDownService
 
 
@@ -65,8 +66,10 @@ def test_single_generation_alarm_on_multi_tech_site_counts():
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g", "4g")
     svc = RanTechDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -82,8 +85,10 @@ def test_sran_alarm_never_counts_as_tech_down():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g", "4g")
     svc = RanTechDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -99,8 +104,10 @@ def test_single_tech_site_fully_covered_is_not_tech_down():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g")
     svc = RanTechDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -114,8 +121,10 @@ def test_get_details_includes_radio_technology_and_incident():
     tech_rows = _tech_rows("S1", "2g", "4g")
     incident_rows = [{"site_code": "S1", "incident_id": "INC1", "wo_id": "WO1"}]
     svc = RanTechDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -136,8 +145,10 @@ def test_get_details_filters_by_grade_badge():
     ]
     tech_rows = _tech_rows("S1", "2g", "4g") + _tech_rows("S2", "2g", "4g")
     svc = RanTechDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     rows = svc.get_details("Bronze")

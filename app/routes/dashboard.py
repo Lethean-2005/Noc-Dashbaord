@@ -1,4 +1,5 @@
 """Dashboard page routes."""
+
 import csv
 import getpass
 import io
@@ -14,7 +15,9 @@ from app.repositories.incwo.incwo_status_cache_repository import IncWoStatusCach
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.repositories.vip.vip_alarm_cache_repository import VipAlarmCacheRepository
 from app.services.alarm.alarm_service import AlarmService
-from app.services.alarm_site_down.alarm_completely_site_down_service import AlarmCompletelySiteDownService
+from app.services.alarm_site_down.alarm_completely_site_down_service import (
+    AlarmCompletelySiteDownService,
+)
 from app.services.alarm_site_down.alarm_site_down_service import AlarmSiteDownService
 from app.services.alarm_main_failure.alarm_main_failure_service import AlarmMainFailureService
 from app.services.dg_on.dg_on_alarm_service import DgOnAlarmService
@@ -106,15 +109,18 @@ def start(app, interval_seconds=None):
 
     wait = interval_seconds or app.config["DASHBOARD_LOG_INTERVAL_SECONDS"]
     tz_name = app.config["TIMEZONE"]
-    delay = seconds_until_next_aligned_time(wait, tz_name)
+    delay = seconds_until_next_aligned_time(wait, tz_name, offset_seconds=95)
     start_singleton_loop(
-        app, _log_dashboard_refresh, wait,
+        app,
+        _log_dashboard_refresh,
+        wait,
         thread_name="dashboard-freshness-log",
         log_message=f"Dashboard freshness heartbeat started (every {wait}s, "
-                     f"first run in {delay:.0f}s)",
+        f"first run in {delay:.0f}s)",
         first_run_delay=delay,
-        next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name),
+        next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name, offset_seconds=95),
     )
+
 
 # Scopes backed by a real MSSQL query (dashboard.drilldown routes these to
 # drilldown/alarms.html + live rows). Every other live scope is handled by
@@ -141,150 +147,305 @@ _ALARM_SOURCE = {
 
 _CSV_COLUMNS_BY_SOURCE = {
     "isp_pop": [
-        ("pop_name", "POP Name"), ("pop_code", "POP Code"), ("device_name", "Device"),
-        ("ip_address", "IP"), ("alarm_name", "Alarm Name"), ("down_time", "Down Time"),
-        ("outage_min", "Outage(min)"), ("root_cause", "Root Cause"),
-        ("province", "Province"), ("note", "Note"),
+        ("pop_name", "POP Name"),
+        ("pop_code", "POP Code"),
+        ("device_name", "Device"),
+        ("ip_address", "IP"),
+        ("alarm_name", "Alarm Name"),
+        ("down_time", "Down Time"),
+        ("outage_min", "Outage(min)"),
+        ("root_cause", "Root Cause"),
+        ("province", "Province"),
+        ("note", "Note"),
     ],
     "eze": [
-        ("rtid", "TT/INC-WOID"), ("pop_name", "POP Name"), ("pop_code", "POP Code"),
-        ("device_name", "Device"), ("ip_address", "IP"), ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"), ("outage_min", "Outage(min)"), ("interface", "Interface"),
-        ("province", "Province"), ("note", "Note"),
+        ("rtid", "TT/INC-WOID"),
+        ("pop_name", "POP Name"),
+        ("pop_code", "POP Code"),
+        ("device_name", "Device"),
+        ("ip_address", "IP"),
+        ("alarm_name", "Alarm Name"),
+        ("down_time", "Down Time"),
+        ("outage_min", "Outage(min)"),
+        ("interface", "Interface"),
+        ("province", "Province"),
+        ("note", "Note"),
     ],
     "tct": [
-        ("pop_name", "POP Name"), ("pop_code", "POP Code"), ("device_name", "Device"),
-        ("ip_address", "IP"), ("alarm_name", "Alarm Name"), ("down_time", "Down Time"),
-        ("outage_min", "Outage(min)"), ("interface", "Interface"), ("province", "Province"),
-        ("additional_info", "Additional Info"), ("note", "Note"),
+        ("pop_name", "POP Name"),
+        ("pop_code", "POP Code"),
+        ("device_name", "Device"),
+        ("ip_address", "IP"),
+        ("alarm_name", "Alarm Name"),
+        ("down_time", "Down Time"),
+        ("outage_min", "Outage(min)"),
+        ("interface", "Interface"),
+        ("province", "Province"),
+        ("additional_info", "Additional Info"),
+        ("note", "Note"),
     ],
     "it_node": [
-        ("rtid", "TT/INC-WOID"), ("device_name", "Device"), ("ip_address", "IP"),
-        ("alarm_name", "Alarm Name"), ("down_time", "Down Time"), ("outage_min", "Outage(min)"),
-        ("interface", "Interface"), ("root_cause", "Root Cause"), ("source_group", "SourceGroup"),
-        ("additional_info", "Additional Info"), ("note", "Note"),
+        ("rtid", "TT/INC-WOID"),
+        ("device_name", "Device"),
+        ("ip_address", "IP"),
+        ("alarm_name", "Alarm Name"),
+        ("down_time", "Down Time"),
+        ("outage_min", "Outage(min)"),
+        ("interface", "Interface"),
+        ("root_cause", "Root Cause"),
+        ("source_group", "SourceGroup"),
+        ("additional_info", "Additional Info"),
+        ("note", "Note"),
     ],
 }
 
 _INCIDENT_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("incident_status", "Incident Status"),
-    ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("overdue", "Overdue"),
-    ("category", "Category"), ("l1_noc_investigation_result", "L1 NOC Investigation Result"),
-    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
-    ("province", "Province"), ("district", "District"), ("commune", "Commune"),
+    ("incident_id", "Incident ID"),
+    ("incident_status", "Incident Status"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("overdue", "Overdue"),
+    ("category", "Category"),
+    ("l1_noc_investigation_result", "L1 NOC Investigation Result"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("district", "District"),
+    ("commune", "Commune"),
 ]
 
 _INC_WO_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("incident_status", "Incident Status"),
+    ("incident_id", "Incident ID"),
+    ("incident_status", "Incident Status"),
     ("incident_category", "Incident Category"),
-    ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("overdue", "Overdue"), ("support_level", "Support Level"),
-    ("fault_description", "Fault Description"), ("nms", "NMS"), ("hub_site", "Hub Site"),
-    ("site_grade", "Site Grade"), ("province", "Province"), ("district", "District"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("overdue", "Overdue"),
+    ("support_level", "Support Level"),
+    ("fault_description", "Fault Description"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("district", "District"),
     ("commune", "Commune"),
 ]
 
 _INC_WO_RESOLVED_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("incident_status", "Incident Status"),
-    ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("overdue", "Overdue"), ("support_level", "Support Level"),
-    ("fault_description", "Fault Description"), ("nms", "NMS"), ("hub_site", "Hub Site"),
-    ("site_grade", "Site Grade"), ("province", "Province"), ("district", "District"),
+    ("incident_id", "Incident ID"),
+    ("incident_status", "Incident Status"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("overdue", "Overdue"),
+    ("support_level", "Support Level"),
+    ("fault_description", "Fault Description"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("district", "District"),
     ("commune", "Commune"),
 ]
 
 _VIP_ALARM_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("resolved_at", "Resolved At"),
-    ("site_name", "Site Name"), ("site_code", "Site Code"), ("occurred_at", "Occurred At"),
-    ("outage_min", "Outage(min)"), ("event_name", "Event Name"), ("category", "Category"),
-    ("nms", "NMS"), ("technology", "Technology"),
-    ("hub_site", "Hub Site"), ("site_grade", "Site Grade"), ("province", "Province"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("resolved_at", "Resolved At"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("category", "Category"),
+    ("nms", "NMS"),
+    ("technology", "Technology"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
 ]
 
 _RAN_MAIN_AC_ALARM_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
-    ("province", "Province"), ("remark", "Remark"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("remark", "Incident Category"),
 ]
 
 _RAN_SITE_DOWN_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("radio_technology", "Technology"), ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("radio_technology", "Technology"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _RAN_TECH_DOWN_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("radio_technology", "Technology"), ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("radio_technology", "Technology"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _RAN_VOLTAGE_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
-    ("province", "Province"), ("remark", "Remark"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("remark", "Incident Category"),
 ]
 
 _DG_ON_ALARM_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _ALARM_SITE_DOWN_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("radio_technology", "Technology"), ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("radio_technology", "Technology"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _ALARM_COMPLETELY_SITE_DOWN_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("radio_technology", "Technology"), ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("radio_technology", "Technology"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _ALARM_MAIN_FAILURE_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"), ("event_name", "Event Name"),
-    ("nms", "NMS"), ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
     ("province", "Province"),
 ]
 
 _MENTOR_SITE_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("resolved_at", "Resolved At"), ("site_name", "Site Name"),
-    ("site_code", "Site Code"), ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"),
-    ("event_name", "Event Name"), ("category", "Category"), ("nms", "NMS"),
-    ("hub_site", "Hub Site"), ("site_grade", "Site Grade"), ("province", "Province"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("resolved_at", "Resolved At"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("event_name", "Event Name"),
+    ("category", "Category"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
 ]
 
 _INCIDENT_SITE_DOWN_CSV_COLUMNS = [
-    ("incident_id", "Incident ID"), ("wo_id", "INC-WO ID"), ("wo_created_at", "INC-WO Created At"),
-    ("wo_status", "INC-WO Status"), ("site_name", "Site Name"), ("site_code", "Site Code"),
-    ("occurred_at", "Occurred At"), ("outage_min", "Outage(min)"),
-    ("l1_noc_investigation_result", "L1 NOC Investigation Result"), ("nms", "NMS"),
-    ("hub_site", "Hub Site"), ("site_grade", "Site Grade"),
-    ("province", "Province"), ("district", "District"), ("commune", "Commune"),
+    ("incident_id", "Incident ID"),
+    ("wo_id", "INC-WO ID"),
+    ("wo_created_at", "INC-WO Created At"),
+    ("wo_status", "INC-WO Status"),
+    ("site_name", "Site Name"),
+    ("site_code", "Site Code"),
+    ("occurred_at", "Occurred At"),
+    ("outage_min", "Outage(min)"),
+    ("l1_noc_investigation_result", "L1 NOC Investigation Result"),
+    ("nms", "NMS"),
+    ("hub_site", "Hub Site"),
+    ("site_grade", "Site Grade"),
+    ("province", "Province"),
+    ("district", "District"),
+    ("commune", "Commune"),
 ]
 
 # One entry per non-alarm drilldown scope, shared by drilldown() (renders a
@@ -317,7 +478,8 @@ _SCOPE_HANDLERS = {
         "template": "drilldown/incwo.html",
         "csv_columns": _INC_WO_CSV_COLUMNS,
         "extra_template_kwargs": lambda alarm_type: {
-            "export_scope": "INC-WO Site Down", "export_type": alarm_type,
+            "export_scope": "INC-WO Site Down",
+            "export_type": alarm_type,
         },
     },
     "INC-WO Resolved": {
@@ -400,9 +562,19 @@ _SCOPE_HANDLERS = {
 # and "INC-WO Site Down" get their own INC-WO Created At filter below
 # instead, since they have wo_created_at but no occurred_at.
 _DATE_FILTERABLE_SCOPES = {
-    "Incident", "Incident Site Down", "VVIP Site", "RAN Main AC Alarm",
-    "RAN Site Down", "RAN Tech Down", "DC Low/High", "Alarm DG On", "Alarm Site Down",
-    "Alarm Completely Site Down", "Alarm Main Failure", "Mentor sites", "Mentor Site",
+    "Incident",
+    "Incident Site Down",
+    "VVIP Site",
+    "RAN Main AC Alarm",
+    "RAN Site Down",
+    "RAN Tech Down",
+    "DC Low/High",
+    "Alarm DG On",
+    "Alarm Site Down",
+    "Alarm Completely Site Down",
+    "Alarm Main Failure",
+    "Mentor sites",
+    "Mentor Site",
 }
 
 # Both scopes render drilldown/incwo.html, whose rows carry wo_created_at
@@ -438,8 +610,17 @@ def index():
     _log_dashboard_data_freshness()
     refresh_seconds = current_app.config["DASHBOARD_LOG_INTERVAL_SECONDS"]
     # Rounded up (never down) so the reload never fires a fraction of a
-    # second before the aligned boundary it's meant to land on.
-    next_refresh_seconds = math.ceil(seconds_until_next_aligned_time(refresh_seconds, current_app.config["TIMEZONE"]))
+    # second before the aligned boundary it's meant to land on. offset_seconds=120
+    # deliberately lands this after every background sync job's own staggered
+    # offset (0-95s into the same cycle, see each scheduler's start()) — so a
+    # browser's auto-reload never has to compete with a background job's
+    # local database write, and always picks up data that finished syncing
+    # moments earlier instead of data mid-sync.
+    next_refresh_seconds = math.ceil(
+        seconds_until_next_aligned_time(
+            refresh_seconds, current_app.config["TIMEZONE"], offset_seconds=120
+        )
+    )
     return render_template(
         "dashboard/index.html",
         isp_pop_counts=alarm_service.get_isp_pop_counts(),
@@ -470,7 +651,9 @@ def _fetch_rows(scope, alarm_type, date_from="", date_to=""):
         return None
     rows = fetch_details()
     if alarm_type:
-        rows = [r for r in rows if (r.get("alarm") or "").strip().upper() == alarm_type.strip().upper()]
+        rows = [
+            r for r in rows if (r.get("alarm") or "").strip().upper() == alarm_type.strip().upper()
+        ]
     if date_from:
         rows = [r for r in rows if (r.get("down_time") or "")[:10] >= date_from]
     if date_to:
@@ -553,12 +736,17 @@ def drilldown():
     if handler:
         rows = handler["fetch"](alarm_type)
         if rows is not None or not handler.get("none_is_404"):
-            extra = handler["extra_template_kwargs"](alarm_type) if "extra_template_kwargs" in handler else {}
+            extra = (
+                handler["extra_template_kwargs"](alarm_type)
+                if "extra_template_kwargs" in handler
+                else {}
+            )
             if rows is not None and scope in _DATE_FILTERABLE_SCOPES:
                 rows = _filter_by_occurred_at(rows, date_from, date_to)
                 extra = {
                     **extra,
-                    "date_from": date_from, "date_to": date_to,
+                    "date_from": date_from,
+                    "date_to": date_to,
                     "date_from_display": format_short_date(date_from),
                     "date_to_display": format_short_date(date_to),
                     "date_range_label": _date_range_label(date_from, date_to),
@@ -568,12 +756,15 @@ def drilldown():
                 extra = {
                     **extra,
                     "scope": scope,
-                    "date_from": date_from, "date_to": date_to,
+                    "date_from": date_from,
+                    "date_to": date_to,
                     "date_from_display": format_short_date(date_from),
                     "date_to_display": format_short_date(date_to),
                     "date_range_label": _date_range_label(date_from, date_to),
                 }
-            return render_template(handler["template"], title=title, label=label, rows=rows, **extra)
+            return render_template(
+                handler["template"], title=title, label=label, rows=rows, **extra
+            )
         # None + none_is_404 (unknown "Incident"/"INC-WO" alarm_type) falls
         # through to the empty-state template below, same as every other
         # scope with no live backing query.
@@ -581,9 +772,15 @@ def drilldown():
     rows = _fetch_rows(scope, alarm_type, date_from, date_to)
     if rows is not None:
         return render_template(
-            "drilldown/alarms.html", title=title, label=label, scope=scope,
-            alarm_type=alarm_type, rows=rows, source=_ALARM_SOURCE[scope],
-            date_from=date_from, date_to=date_to,
+            "drilldown/alarms.html",
+            title=title,
+            label=label,
+            scope=scope,
+            alarm_type=alarm_type,
+            rows=rows,
+            source=_ALARM_SOURCE[scope],
+            date_from=date_from,
+            date_to=date_to,
             date_from_display=format_short_date(date_from),
             date_to_display=format_short_date(date_to),
             date_range_label=_date_range_label(date_from, date_to),

@@ -4,6 +4,7 @@ instead of running its own live Postgres query every cycle. These tests
 lock in that the threshold filter, outage_min computation, and mirroring
 into telegram_alert_cache still work now that the data source changed.
 """
+
 from app.services.telegram.telegram_alert import _site_down_over_threshold
 
 
@@ -25,12 +26,24 @@ class FakeTelegramCacheRepo:
 
 def _site_down_row(incident_id, occurred_at, **overrides):
     row = {
-        "incident_id": incident_id, "incident_numeric_id": 1, "incident_status": "New",
-        "wo_id": "WO1", "wo_numeric_id": 1, "wo_created_at": "2026-01-01 00:00:00",
-        "wo_status": "New", "site_name": "Site A", "site_code": "S1",
-        "occurred_at": occurred_at, "l1_noc_investigation_result": "",
-        "last_comments": "checking", "nms": "Nokia", "hub_site": "", "site_grade": "",
-        "province": "", "district": "", "commune": "",
+        "incident_id": incident_id,
+        "incident_numeric_id": 1,
+        "incident_status": "New",
+        "wo_id": "WO1",
+        "wo_numeric_id": 1,
+        "wo_created_at": "2026-01-01 00:00:00",
+        "wo_status": "New",
+        "site_name": "Site A",
+        "site_code": "S1",
+        "occurred_at": occurred_at,
+        "l1_noc_investigation_result": "",
+        "last_comments": "checking",
+        "nms": "Nokia",
+        "hub_site": "",
+        "site_grade": "",
+        "province": "",
+        "district": "",
+        "commune": "",
     }
     row.update(overrides)
     return row
@@ -67,7 +80,9 @@ def test_every_row_is_cached_regardless_of_threshold(app):
 
 def test_last_comments_and_nms_survive_the_switch_to_the_shared_cache(app):
     with app.app_context():
-        rows = [_site_down_row("OLD1", "2020-01-01 00:00:00", last_comments="on-site now", nms="Huawei")]
+        rows = [
+            _site_down_row("OLD1", "2020-01-01 00:00:00", last_comments="on-site now", nms="Huawei")
+        ]
         source_repo = FakeIncidentSiteDownRepo(rows)
         cache_repo = FakeTelegramCacheRepo()
 

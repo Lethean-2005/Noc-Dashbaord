@@ -6,6 +6,7 @@ Alarm Site Down, Alarm Completely Site Down, Mentor sites/Mentor Site).
 ISP POP/EZE/TCT/IT NODE keep filtering Down Time instead, via their own
 separate _fetch_rows() path — not covered here.
 """
+
 from app.routes.dashboard import _DATE_FILTERABLE_SCOPES, _filter_by_occurred_at
 
 
@@ -66,8 +67,16 @@ def test_date_filterable_scopes_excludes_inc_wo_and_alarm_scopes():
 
 def test_date_filterable_scopes_includes_expected_scopes():
     for scope in (
-        "Incident", "Incident Site Down", "VVIP Site", "RAN Main AC Alarm",
-        "RAN Site Down", "RAN Tech Down", "Alarm DG On", "Alarm Site Down",
-        "Alarm Completely Site Down", "Mentor sites", "Mentor Site",
+        "Incident",
+        "Incident Site Down",
+        "VVIP Site",
+        "RAN Main AC Alarm",
+        "RAN Site Down",
+        "RAN Tech Down",
+        "Alarm DG On",
+        "Alarm Site Down",
+        "Alarm Completely Site Down",
+        "Mentor sites",
+        "Mentor Site",
     ):
         assert scope in _DATE_FILTERABLE_SCOPES

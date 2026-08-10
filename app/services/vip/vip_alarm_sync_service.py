@@ -8,13 +8,13 @@ alarm type opened, no date window") — vip_alarm's rows were always a
 strict subset of what ape_alarm already fetches for the same sites, so
 re-querying Postgres a second time for the same underlying data was
 redundant load on a table already prone to "conflict with recovery". This
-reads ape_alarm's cache instead — same reasoning/pattern as
-vip_incident_alarm_sync_service.py (also a pure local join of already-
-synced tables, no retry needed since there's no foreign table or replica
-involved at this layer). ape_alarm already resolves Site Code locally too
+reads ape_alarm's cache instead — a pure local derivation of an already-
+synced table, no retry needed since there's no foreign table or replica
+involved at this layer. ape_alarm already resolves Site Code locally too
 (app/utils/get_processed_site.py, see ape_alarm_sync_service.py), so this benefits
 from that for free — no get_processed_site() call anywhere in this path.
 """
+
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.repositories.vip.vip_alarm_cache_repository import VipAlarmCacheRepository
@@ -29,7 +29,9 @@ _VIP_TYPES = {"vip", "vvip"}
 
 
 class VipAlarmSyncService:
-    def __init__(self, ape_alarm_cache_repository=None, cache_repository=None, site_cache_repository=None):
+    def __init__(
+        self, ape_alarm_cache_repository=None, cache_repository=None, site_cache_repository=None
+    ):
         self.ape_alarm_cache_repository = ape_alarm_cache_repository or ApeAlarmCacheRepository()
         self.cache_repository = cache_repository or VipAlarmCacheRepository()
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()

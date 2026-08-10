@@ -2,6 +2,7 @@
 get_processed_site() PL/pgSQL function (see that function's SQL comments
 for the original 5-step priority chain this must match exactly).
 """
+
 from app.utils.get_processed_site import get_processed_site, index_site_lookup
 
 
@@ -45,13 +46,17 @@ def test_step2_takes_priority_over_additional_info_lookups():
 
 def test_step4_nodeb_id_lookup_when_site_has_no_digits():
     by_sran_id, by_nodeb_id, by_bts_id = _lookup(nodeb_id=(5555, "YY7777"))
-    code = get_processed_site("NoDigitsHere", "prefix;UIubLink=5555;suffix", by_sran_id, by_nodeb_id, by_bts_id)
+    code = get_processed_site(
+        "NoDigitsHere", "prefix;UIubLink=5555;suffix", by_sran_id, by_nodeb_id, by_bts_id
+    )
     assert code == "7777"
 
 
 def test_step5_bts_id_lookup_when_no_site_digits_or_nodeb_match():
     by_sran_id, by_nodeb_id, by_bts_id = _lookup(bts_id=(6666, "ZZ8888"))
-    code = get_processed_site("NoDigitsHere", "prefix;GBtsEquipment=6666;suffix", by_sran_id, by_nodeb_id, by_bts_id)
+    code = get_processed_site(
+        "NoDigitsHere", "prefix;GBtsEquipment=6666;suffix", by_sran_id, by_nodeb_id, by_bts_id
+    )
     assert code == "8888"
 
 
@@ -63,7 +68,9 @@ def test_step6_fallback_pattern_in_additional_info():
 
 def test_returns_empty_string_when_nothing_matches():
     by_sran_id, by_nodeb_id, by_bts_id = _lookup()
-    code = get_processed_site("NoDigitsHere", "no patterns here either", by_sran_id, by_nodeb_id, by_bts_id)
+    code = get_processed_site(
+        "NoDigitsHere", "no patterns here either", by_sran_id, by_nodeb_id, by_bts_id
+    )
     assert code == ""
 
 

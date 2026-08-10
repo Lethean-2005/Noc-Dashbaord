@@ -9,6 +9,7 @@ this app (DgOnAlarmService, AlarmSiteDownService, etc.) treats an empty/
 missing badge_type as "no filter, show everything" — these were the
 outliers.
 """
+
 from app.services.incident.incident_service import IncidentService
 
 
@@ -22,11 +23,41 @@ class FakeStatusRepo:
 
 def _row(incident_status="New", category="BSS Hardware", overdue="No", **overrides):
     row = {
-        "incident_id": "INC1", "incident_status": incident_status, "category": category,
-        "overdue": overdue, "site_code": "S1", "occurred_at": "2026-01-01 00:00:00",
+        "incident_id": "INC1",
+        "incident_status": incident_status,
+        "category": category,
+        "overdue": overdue,
+        "site_code": "S1",
+        "occurred_at": "2026-01-01 00:00:00",
     }
     row.update(overrides)
     return row
+
+
+def test_get_incident_counts_counts_distinct_incidents_not_rows():
+    """A multi-site incident (2 rows, same incident_id, different sites)
+    must count once toward its badge, matching Streamline's own per-ticket
+    count — not once per affected site."""
+    rows = [
+        _row(incident_id="INC1", incident_status="In Progress", site_code="S1"),
+        _row(incident_id="INC1", incident_status="In Progress", site_code="S2"),
+        _row(incident_id="INC2", incident_status="In Progress", site_code="S3"),
+    ]
+    svc = IncidentService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    counts = svc.get_incident_counts()
+
+    assert counts["in_progress"] == 2
+
+
+def test_get_incident_counts_matches_get_details_row_count_when_no_multi_site_incident():
+    rows = [
+        _row(incident_id="INC1", incident_status="New"),
+        _row(incident_id="INC2", incident_status="New"),
+    ]
+    svc = IncidentService(FakeStatusRepo(rows), FakeStatusRepo([]))
+
+    assert svc.get_incident_counts()["new"] == 2
 
 
 def test_get_details_with_no_badge_type_returns_every_row():

@@ -8,16 +8,26 @@ batched fetch scoped to a batch of incident ids, instead of a per-row
 LATERAL subquery against the foreign object_324 table — see
 _latest_wo_by_incident_site()'s docstring for why that mattered).
 """
+
 from app.services.incident.incident_sync_service import IncidentSyncService
 
 
 def _site_down_source_row(**overrides):
     row = {
-        "Incident ID": "INC1", "Incident Numeric ID": 1, "Incident Status": "New",
-        "Site Name": "Site A", "Site Numeric ID": 10, "Site Code": "S1",
-        "Occurred At": None, "L1 NOC Investigation Result": "",
+        "Incident ID": "INC1",
+        "Incident Numeric ID": 1,
+        "Incident Status": "New",
+        "Site Name": "Site A",
+        "Site Numeric ID": 10,
+        "Site Code": "S1",
+        "Occurred At": None,
+        "L1 NOC Investigation Result": "",
         "Last Comments": "on-site now",
-        "Hub Site": "", "Site Grade": "", "Province": "", "District": "", "Commune": "",
+        "Hub Site": "",
+        "Site Grade": "",
+        "Province": "",
+        "District": "",
+        "Commune": "",
     }
     row.update(overrides)
     return row
@@ -25,9 +35,13 @@ def _site_down_source_row(**overrides):
 
 def _wo_row(**overrides):
     row = {
-        "Incident Numeric ID": 1, "Site Numeric ID": 10,
-        "INC-WO ID": "WO1", "INC-WO Numeric ID": 1, "INC-WO Created At": None,
-        "INC-WO Status": "New", "Resolved At": None,
+        "Incident Numeric ID": 1,
+        "Site Numeric ID": 10,
+        "INC-WO ID": "WO1",
+        "INC-WO Numeric ID": 1,
+        "INC-WO Created At": None,
+        "INC-WO Status": "New",
+        "Resolved At": None,
     }
     row.update(overrides)
     return row
@@ -121,7 +135,10 @@ class FakeIncidentRepoForWo:
 def test_latest_wo_by_incident_site_requests_only_this_batchs_incident_ids():
     repo = FakeIncidentRepoForWo([])
     svc = IncidentSyncService(incident_repository=repo)
-    rows = [_site_down_source_row(**{"Incident Numeric ID": 1}), _site_down_source_row(**{"Incident Numeric ID": 2})]
+    rows = [
+        _site_down_source_row(**{"Incident Numeric ID": 1}),
+        _site_down_source_row(**{"Incident Numeric ID": 2}),
+    ]
 
     svc._latest_wo_by_incident_site(rows)
 
@@ -158,7 +175,10 @@ def test_latest_wo_by_incident_site_keeps_wos_separate_per_site():
     site_b_wo = _wo_row(**{"Site Numeric ID": 20, "INC-WO ID": "WO-B"})
     repo = FakeIncidentRepoForWo([site_a_wo, site_b_wo])
     svc = IncidentSyncService(incident_repository=repo)
-    rows = [_site_down_source_row(**{"Site Numeric ID": 10}), _site_down_source_row(**{"Site Numeric ID": 20})]
+    rows = [
+        _site_down_source_row(**{"Site Numeric ID": 10}),
+        _site_down_source_row(**{"Site Numeric ID": 20}),
+    ]
 
     result = svc._latest_wo_by_incident_site(rows)
 
@@ -166,20 +186,60 @@ def test_latest_wo_by_incident_site_keeps_wos_separate_per_site():
     assert result[(1, 20)]["INC-WO ID"] == "WO-B"
 
 
-def test_latest_wo_by_incident_site_never_matches_a_siteless_wo_to_a_siteless_row():
-    """Real bug found live (INC-0000122533/INC-0000118176): the old SQL
-    matched via `wo.site = sites.id`, and SQL's NULL = NULL is never true,
-    so a WO with no site could never match an incident row with no site
-    either — it always stayed correctly blank. A naive Python dict keyed
-    by (incident_id, site_id) would wrongly match here instead, since
-    None == None IS true in Python. Both the incident's row and its WO
-    genuinely have no site in this scenario (confirmed live), and the
-    result must still come back empty, not the WO."""
-    siteless_wo = _wo_row(**{"Site Numeric ID": None, "INC-WO ID": "WO-SHOULD-NOT-MATCH"})
+def test_latest_wo_by_incident_site_matches_a_siteless_wo_to_a_singleton_siteless_incident():
+    """ "Other Site" incidents (site not in the registered Site list, see
+    incident_by_status.sql's COALESCE note) have no Site Numeric ID, and
+    neither does their WO — but object_324.parent_incident is a direct FK
+    to the incident's own numeric id, so when that incident is a single
+    row in this batch (no multi-site fan-out to disambiguate), matching by
+    incident id alone is unambiguous. Confirmed live: INC-0000223089 (site
+    "I0229", not in object_160) has exactly this shape, and the source
+    system's own UI shows its WO directly under the incident."""
+    siteless_wo = _wo_row(**{"Site Numeric ID": None, "INC-WO ID": "WO-SHOULD-MATCH"})
     repo = FakeIncidentRepoForWo([siteless_wo])
     svc = IncidentSyncService(incident_repository=repo)
     rows = [_site_down_source_row(**{"Site Numeric ID": None})]
 
     result = svc._latest_wo_by_incident_site(rows)
 
+    assert result[(1, None)]["INC-WO ID"] == "WO-SHOULD-MATCH"
+
+
+def test_latest_wo_by_incident_site_still_refuses_a_siteless_wo_when_the_incident_has_multiple_rows():
+    """The real protection the original guard existed for: a multi-site
+    incident where more than one of its sites fails to resolve produces
+    several siteless rows for the SAME incident id — there's no way to
+    tell which row a siteless WO actually belongs to, so it must stay
+    unmatched for all of them, same as before this fix."""
+    siteless_wo = _wo_row(**{"Site Numeric ID": None, "INC-WO ID": "WO-SHOULD-NOT-MATCH"})
+    repo = FakeIncidentRepoForWo([siteless_wo])
+    svc = IncidentSyncService(incident_repository=repo)
+    rows = [
+        _site_down_source_row(**{"Site Numeric ID": None, "Site Code": "UNRESOLVED-A"}),
+        _site_down_source_row(**{"Site Numeric ID": None, "Site Code": "UNRESOLVED-B"}),
+    ]
+
+    result = svc._latest_wo_by_incident_site(rows)
+
     assert (1, None) not in result
+
+
+def test_latest_wo_by_incident_site_never_cross_matches_two_different_siteless_incidents():
+    """Real bug found live (INC-0000122533/INC-0000118176) — two different
+    "Other Site" incidents, each its own singleton siteless row, each with
+    its own siteless WO. The (incident_id, site_id) key already keeps them
+    apart since the incident ids differ; each must get only its own WO,
+    never the other's."""
+    wo_a = _wo_row(**{"Incident Numeric ID": 1, "Site Numeric ID": None, "INC-WO ID": "WO-A"})
+    wo_b = _wo_row(**{"Incident Numeric ID": 2, "Site Numeric ID": None, "INC-WO ID": "WO-B"})
+    repo = FakeIncidentRepoForWo([wo_a, wo_b])
+    svc = IncidentSyncService(incident_repository=repo)
+    rows = [
+        _site_down_source_row(**{"Incident Numeric ID": 1, "Site Numeric ID": None}),
+        _site_down_source_row(**{"Incident Numeric ID": 2, "Site Numeric ID": None}),
+    ]
+
+    result = svc._latest_wo_by_incident_site(rows)
+
+    assert result[(1, None)]["INC-WO ID"] == "WO-A"
+    assert result[(2, None)]["INC-WO ID"] == "WO-B"

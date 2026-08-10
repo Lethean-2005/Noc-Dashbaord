@@ -7,14 +7,17 @@ Both this and pop_main_failure.py read the same isp_pop_alarm_cache (the ISP
 POP card's data) and split it client-side by the `alarm` field's two values —
 there is no separate cache table per alarm type, unlike EZE/TCT.
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.alarm.alarm_service import AlarmService
+
     rows = AlarmService().get_isp_pop_details()
     return [r for r in rows if r.get("alarm") == "POP/PON DOWN"]
 

@@ -2,6 +2,7 @@
 the local cache (instance/localstorage.db). Mirrors the alarm sync in
 app/services/alarm/alarm_sync_service.py — same reasoning applies here.
 """
+
 from app.repositories.vip.vip_site_cache_repository import VipSiteCacheRepository
 from app.repositories.vip.vip_site_repository import VipSiteRepository
 from app.utils.logger import get_logger

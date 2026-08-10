@@ -6,14 +6,17 @@ URL:  TEAMS_WEBHOOK_POP_MAIN_FAILURE in .env
 See pop_down.py — same isp_pop_alarm_cache, filtered to the other `alarm`
 value.
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.alarm.alarm_service import AlarmService
+
     rows = AlarmService().get_isp_pop_details()
     return [r for r in rows if r.get("alarm") == "POP/PON POWER"]
 

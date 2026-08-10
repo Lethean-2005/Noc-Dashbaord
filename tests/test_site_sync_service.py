@@ -4,6 +4,7 @@ code respectively), confirmed prone to "conflict with recovery" (see
 incident_sync_service.py's module docstring), so both go through
 retry_fetch() same as every other object_227-touching sync.
 """
+
 from unittest.mock import patch
 
 from app.services.site.site_sync_service import SiteSyncService

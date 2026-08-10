@@ -15,6 +15,7 @@ Ported from Autonoc-Dashboard/webhook/common.py, adapted to this project's
 Flask-SQLAlchemy services (every fetch() needs an active app context — see
 run_cli() and __main__.py) and its own snake_case cache column names.
 """
+
 import argparse
 import json
 import os
@@ -53,8 +54,7 @@ _STREAMLINE_HOST = "prd-web-mc.cellcard.com.kh"
 def _esc(text) -> str:
     """Minimal HTML escape for cell text."""
     s = str(text) if text not in (None, "") else "—"
-    return (s.replace("&", "&amp;").replace("<", "&lt;")
-             .replace(">", "&gt;").replace('"', "&quot;"))
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 _TS_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?")
@@ -122,16 +122,17 @@ def _id_link(row, key):
 
 # ── Alert specification ──────────────────────────────────────────────
 
+
 @dataclass
 class AlertSpec:
-    key: str                       # short id, e.g. "eze"
-    title: str                     # card title, e.g. "EZE Active Alarms"
-    env_var: str                   # env var holding this webhook's URL
-    fetch: Callable                # () -> (rows, total[, extra]) or rows
-    columns: list                  # [(label, row_key)]; key "_idx" = row number
-    report_path: str = ""          # dashboard path for the "View Report" link
-    max_rows: int = 40             # cap rows put into the card
-    env_fallback: str = ""         # optional secondary env var (compatibility)
+    key: str  # short id, e.g. "eze"
+    title: str  # card title, e.g. "EZE Active Alarms"
+    env_var: str  # env var holding this webhook's URL
+    fetch: Callable  # () -> (rows, total[, extra]) or rows
+    columns: list  # [(label, row_key)]; key "_idx" = row number
+    report_path: str = ""  # dashboard path for the "View Report" link
+    max_rows: int = 40  # cap rows put into the card
+    env_fallback: str = ""  # optional secondary env var (compatibility)
 
 
 def resolve_url(spec: "AlertSpec"):
@@ -151,6 +152,7 @@ def _rows_total(result):
 
 
 # ── Card builders ────────────────────────────────────────────────────
+
 
 def build_html_table(rows, columns, max_rows=40) -> str:
     """
@@ -177,7 +179,7 @@ def build_html_table(rows, columns, max_rows=40) -> str:
             elif raw in (None, ""):
                 disp = "—"
             elif key in _FULL_TS_KEYS:
-                disp = _full_ts(raw)   # full 'YYYY-MM-DD HH:MM:SS'
+                disp = _full_ts(raw)  # full 'YYYY-MM-DD HH:MM:SS'
             else:
                 disp = _compact(raw)
             inner = _esc(disp)
@@ -191,11 +193,11 @@ def build_html_table(rows, columns, max_rows=40) -> str:
     return (
         '<div style="max-height:195px;border:1px solid #999;overflow:auto;">'
         f'<table style="border-collapse:collapse;white-space:nowrap;width:100%;'
-        f'background:#fff;color:#000;font-weight:700;font-family:{_FONT};'
+        f"background:#fff;color:#000;font-weight:700;font-family:{_FONT};"
         f'font-size:10.5px;">'
-        f'<thead><tr>{th}</tr></thead>'
+        f"<thead><tr>{th}</tr></thead>"
         f'<tbody style="vertical-align:top;">{"".join(body_rows)}</tbody>'
-        '</table></div>'
+        "</table></div>"
     )
 
 
@@ -228,26 +230,29 @@ def build_connector_card(spec: "AlertSpec", rows, total, max_rows=None) -> dict:
     else:
         # No active alarms — still post a card that says so.
         subtitle = f"No active alarms · {now}"
-        body = {"text": f'<div style="padding:10px 4px;font-family:{_FONT};'
-                        f'font-size:13px;color:#111;font-weight:700;">'
-                        f'No active {spec.title} right now.</div>',
-                "markdown": False}
+        body = {
+            "text": f'<div style="padding:10px 4px;font-family:{_FONT};'
+            f'font-size:13px;color:#111;font-weight:700;">'
+            f"No active {spec.title} right now.</div>",
+            "markdown": False,
+        }
 
     sections = [
-        {"activityTitle": f"**{spec.title}**",
-         "activitySubtitle": subtitle, "markdown": True},
+        {"activityTitle": f"**{spec.title}**", "activitySubtitle": subtitle, "markdown": True},
         body,
     ]
     if base:
         report = f"{base}{spec.report_path}" if spec.report_path else f"{base}/"
         _link = "color:#2563eb;text-decoration:none;font-weight:600;"
-        sections.append({
-            "text": f'<span style="font-family:{_FONT};font-size:12px;">'
-                    f'<a href="{report}" style="{_link}">View Report Table</a>'
-                    f' &nbsp;|&nbsp; '
-                    f'<a href="{base}/" style="{_link}">View Dashboard</a></span>',
-            "markdown": False,
-        })
+        sections.append(
+            {
+                "text": f'<span style="font-family:{_FONT};font-size:12px;">'
+                f'<a href="{report}" style="{_link}">View Report Table</a>'
+                f" &nbsp;|&nbsp; "
+                f'<a href="{base}/" style="{_link}">View Dashboard</a></span>',
+                "markdown": False,
+            }
+        )
 
     return {
         "@type": "MessageCard",
@@ -288,9 +293,13 @@ def _post_json(url: str, payload: dict, timeout: int = 30):
     HTTPResponse (``.status`` int, ``.data`` bytes); raises on network/TLS
     failure."""
     body = json.dumps(payload).encode("utf-8")
-    return _pool().request("POST", url, body=body,
-                           headers={"Content-Type": "application/json"},
-                           timeout=urllib3.Timeout(total=timeout))
+    return _pool().request(
+        "POST",
+        url,
+        body=body,
+        headers={"Content-Type": "application/json"},
+        timeout=urllib3.Timeout(total=timeout),
+    )
 
 
 def _send_empty_enabled() -> bool:
@@ -330,9 +339,12 @@ def send(spec: "AlertSpec", max_rows=None) -> dict:
     try:
         resp = _post_json(url, payload)
         ok = 200 <= resp.status < 300
-        return {"sent": ok, "count": min(total, spec.max_rows),
-                "status": resp.status,
-                "reason": "sent" if ok else f"HTTP {resp.status}"}
+        return {
+            "sent": ok,
+            "count": min(total, spec.max_rows),
+            "status": resp.status,
+            "reason": "sent" if ok else f"HTTP {resp.status}",
+        }
     except Exception as exc:
         return {"sent": False, "count": 0, "status": None, "reason": f"POST error: {exc}"}
 
@@ -343,12 +355,14 @@ def run_cli(spec: "AlertSpec") -> int:
     runs outside the web server process."""
     parser = argparse.ArgumentParser(description=f"Send '{spec.title}' to Teams")
     parser.add_argument("--max-rows", type=int, default=spec.max_rows)
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Build and print the payload without sending")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Build and print the payload without sending"
+    )
     args = parser.parse_args()
     spec.max_rows = args.max_rows
 
     from app import create_app
+
     app = create_app()
     with app.app_context():
         url = resolve_url(spec)
@@ -358,8 +372,10 @@ def run_cli(spec: "AlertSpec") -> int:
             print(f"ERROR: could not load '{spec.title}' data: {exc}")
             return 1
         if not rows and not _send_empty_enabled() and not args.dry_run:
-            print(f"No active '{spec.title}' rows — skipping send "
-                  f"(set WEBHOOK_SEND_EMPTY=true to post an empty card).")
+            print(
+                f"No active '{spec.title}' rows — skipping send "
+                f"(set WEBHOOK_SEND_EMPTY=true to post an empty card)."
+            )
             return 0
 
         payload = build_payload(spec, rows, total)
@@ -368,8 +384,10 @@ def run_cli(spec: "AlertSpec") -> int:
         print(f"Rows        : {min(total, spec.max_rows)} of {total}")
         if args.dry_run or not url:
             if not url and not args.dry_run:
-                print(f"\n{spec.env_var} is not set in .env — nothing sent. "
-                      f"(add the webhook URL, or use --dry-run to preview)")
+                print(
+                    f"\n{spec.env_var} is not set in .env — nothing sent. "
+                    f"(add the webhook URL, or use --dry-run to preview)"
+                )
             print("Payload preview (first 400 chars):")
             print(json.dumps(payload)[:400])
             return 0 if args.dry_run else 3

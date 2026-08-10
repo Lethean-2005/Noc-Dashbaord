@@ -1,4 +1,5 @@
 """Data access for the per-site technology inventory (object_227) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 

@@ -31,6 +31,7 @@ this page:
     one shared private function) — both read the same ape_alarm-derived
     row shape, so the same keyword rules apply.
 """
+
 import csv
 import io
 import re
@@ -51,8 +52,14 @@ _INCIDENT_STATUS_TABLE = "incident_by_status"
 _SITE_DOWN_CATEGORY = "site down"
 
 BADGE_TYPES = (
-    "Site Down", "Main AC Failure", "Low DC Voltage", "High DC Voltage",
-    "DG-On", "RECT Failure", "Door Alarm", "Other",
+    "Site Down",
+    "Main AC Failure",
+    "Low DC Voltage",
+    "High DC Voltage",
+    "DG-On",
+    "RECT Failure",
+    "Door Alarm",
+    "Other",
 )
 
 STATUS_TYPES = BADGE_TYPES + ("OK",)
@@ -89,14 +96,17 @@ class MentorSiteService:
         self.mentor_site_repository = mentor_site_repository or MentorSiteRepository()
         self.ape_alarm_cache_repository = ape_alarm_cache_repository or ApeAlarmCacheRepository()
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()
-        self.incident_status_cache_repository = incident_status_cache_repository or IncidentStatusCacheRepository()
+        self.incident_status_cache_repository = (
+            incident_status_cache_repository or IncidentStatusCacheRepository()
+        )
 
     def _real_site_codes(self):
         """Every standard_code currently in site_cache — used to reject
         input that doesn't correspond to a real, known site instead of
         silently adding garbage a user mistyped."""
         return {
-            r["standard_code"] for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
+            r["standard_code"]
+            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
             if r.get("standard_code")
         }
 
@@ -109,7 +119,9 @@ class MentorSiteService:
         configured list (so the caller can say "already added" instead of
         silently no-op'ing); invalid lists whatever doesn't correspond to
         any known site."""
-        codes = {c.strip().upper() for c in re.split(r"[^A-Za-z0-9_-]+", raw_text or "") if c.strip()}
+        codes = {
+            c.strip().upper() for c in re.split(r"[^A-Za-z0-9_-]+", raw_text or "") if c.strip()
+        }
         valid_codes = self._real_site_codes()
         already_configured = {r["site_code"] for r in self.mentor_site_repository.fetch_all()}
         added, duplicate, invalid = [], [], []
@@ -193,8 +205,10 @@ class MentorSiteService:
         for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE):
             alarms_by_site.setdefault(row.get("site_code"), []).append(row)
         site_down_incident_codes = {
-            r.get("site_code") for r in self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
-            if (r.get("category") or "").strip().lower() == _SITE_DOWN_CATEGORY and r.get("site_code")
+            r.get("site_code")
+            for r in self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
+            if (r.get("category") or "").strip().lower() == _SITE_DOWN_CATEGORY
+            and r.get("site_code")
         }
 
         result = []
@@ -209,14 +223,16 @@ class MentorSiteService:
                     break
                 if status == "OK":
                     status = matched
-            result.append({
-                "site_code": site_code,
-                "site_name": site.get("physical_location_name") or site.get("name") or "",
-                "province": site.get("province") or "",
-                "status": status,
-                "source": entry.get("source") or "",
-                "added_at": entry.get("added_at") or "",
-            })
+            result.append(
+                {
+                    "site_code": site_code,
+                    "site_name": site.get("physical_location_name") or site.get("name") or "",
+                    "province": site.get("province") or "",
+                    "status": status,
+                    "source": entry.get("source") or "",
+                    "added_at": entry.get("added_at") or "",
+                }
+            )
         return result
 
     def _configured_alarm_rows(self):
@@ -224,7 +240,8 @@ class MentorSiteService:
         if not configured_codes:
             return []
         return [
-            row for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
+            row
+            for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
             if row.get("site_code") in configured_codes
         ]
 
@@ -287,7 +304,9 @@ class MentorSiteService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms"))
+            row["nms"] = inc.get("nms") or NMS_NAMES.get(
+                str(row.get("nms") or "").strip(), row.get("nms")
+            )
             rows.append(row)
 
         if alarm_type:

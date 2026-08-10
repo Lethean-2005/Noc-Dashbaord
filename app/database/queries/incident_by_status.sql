@@ -20,6 +20,24 @@
 -- behavior) silently dropped every other site of a multi-site incident
 -- from every Incident-column badge and from "Incident Site Down".
 --
+-- "Other Site" fallback: when an incident's site isn't in the registered
+-- Site list at all (e.g. a new/unlisted site), the source system's UI
+-- shows an "Other Site" checkbox and lets the user type the site code
+-- directly into the incident's own site_code column, with its own
+-- province_ref/district/commune picked manually too — completely separate
+-- from site_text. Confirmed live: INC-0000223089 has other_site=true,
+-- site_code='I0229' (0 matches in object_160 — genuinely not a registered
+-- site), plus its own province_ref/district/commune. Falls back to these
+-- (Site Code via COALESCE; Province/District/Commune via a CASE keyed on
+-- `sites.id IS NULL`, not just a blank field, since ~96 REGISTERED sites
+-- also have a blank province/district/commune of their own — using
+-- sites.id IS NULL instead of COALESCE on the field itself means a
+-- registered-but-incomplete site's location stays correctly blank rather
+-- than silently substituting the incident's own, possibly-different
+-- value) so these incidents show a real Site Code/Province/District/
+-- Commune instead of blank — Site Name/Hub Site/Site Grade stay blank
+-- either way since there's no registered Site row to pull those from.
+--
 -- NMS Code is resolved locally in Python against the ne_nms_lookup_cache
 -- table (site -> oldest-by-id NE's nms_name), not joined here — see
 -- app/database/queries/ne_nms_lookup.sql and IncidentSyncService's
@@ -53,7 +71,7 @@ SELECT
   END AS "Incident Status",
   ploc.fra_site_name AS "Site Name",
   sites.id AS "Site Numeric ID",
-  sites.standard_code AS "Site Code",
+  COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
   CASE WHEN inc.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE inc.incident_category
@@ -84,9 +102,12 @@ LEFT JOIN LATERAL (
   FROM UNNEST(STRING_TO_ARRAY(inc.site_text, ',')) AS site_part
 ) site ON TRUE
 LEFT JOIN object_160 sites ON site.site_code = sites.standard_code
-LEFT JOIN object_162 province ON sites.province = province.id
-LEFT JOIN object_164 district ON sites.district = district.id
-LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_162 province
+  ON (CASE WHEN sites.id IS NULL THEN inc.province_ref ELSE sites.province END) = province.id
+LEFT JOIN object_164 district
+  ON (CASE WHEN sites.id IS NULL THEN inc.district ELSE sites.district END) = district.id
+LEFT JOIN object_166 commune
+  ON (CASE WHEN sites.id IS NULL THEN inc.commune ELSE sites.commune END) = commune.id
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE inc.status IN ('new', 'in_progress')
 ORDER BY inc.issue_occurred_at DESC NULLS FIRST;

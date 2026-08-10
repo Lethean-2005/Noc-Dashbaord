@@ -2,6 +2,7 @@
 bts_id -> site_name) locally so app/utils/get_processed_site.py can resolve Site Code
 in Python instead of Postgres calling get_processed_site() per row.
 """
+
 from unittest.mock import patch
 
 from app.services.site.site_lookup_sync_service import SiteLookupSyncService
@@ -24,7 +25,9 @@ class FakeCacheRepo:
 
 
 def test_sync_writes_normalized_rows():
-    source_rows = [{"sran_id": 1, "nodeb_id": 2, "bts_id": 3, "site_name": "AB1111", "extra": "ignored"}]
+    source_rows = [
+        {"sran_id": 1, "nodeb_id": 2, "bts_id": 3, "site_name": "AB1111", "extra": "ignored"}
+    ]
     cache_repo = FakeCacheRepo()
     svc = SiteLookupSyncService(FakeSiteLookupRepo(source_rows), cache_repo)
 

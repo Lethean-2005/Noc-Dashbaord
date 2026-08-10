@@ -35,8 +35,11 @@ ape_alarm.nms is the alarm's own raw numeric vendor code straight from
 object_138 — translated here via app/utils/nms.py's NMS_NAMES, same as
 every other drilldown in this project.
 """
+
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
-from app.repositories.incident.incident_site_down_cache_repository import IncidentSiteDownCacheRepository
+from app.repositories.incident.incident_site_down_cache_repository import (
+    IncidentSiteDownCacheRepository,
+)
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.utils.alarm_category import SITE_DOWN_EVENTS, site_down_technology
@@ -118,7 +121,9 @@ class AlarmSiteDownService:
         FALSE — see module docstring) if any, plus Hub Site/Site
         Grade/Province and outage_min computed at read time — optionally
         narrowed to one badge (matches get_counts()'s categorization)."""
-        site_down_incidents = self.incident_site_down_cache_repository.fetch_all(_INCIDENT_SITE_DOWN_TABLE)
+        site_down_incidents = self.incident_site_down_cache_repository.fetch_all(
+            _INCIDENT_SITE_DOWN_TABLE
+        )
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(site_down_incidents)
 
         rows = []
@@ -137,14 +142,17 @@ class AlarmSiteDownService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms"))
+            row["nms"] = inc.get("nms") or NMS_NAMES.get(
+                str(row.get("nms") or "").strip(), row.get("nms")
+            )
             rows.append(row)
 
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
             rows = [
-                r for r in rows
+                r
+                for r in rows
                 if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
             ]
         return rows

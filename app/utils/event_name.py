@@ -14,6 +14,7 @@ app/services/ran/ran_main_ac_alarm_service.py and
 app/services/vip/vip_alarm_service.py (both display event_name from data
 that ultimately comes from the same ape_alarm cache), so it lives here once.
 """
+
 import re
 
 _NOISY_PREFIX_RE = re.compile(r"^[A-Z0-9 &/_-]+:::")

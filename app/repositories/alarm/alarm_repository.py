@@ -1,4 +1,5 @@
 """Data access for the MSSQL-backed alarm cards (ISP POP / EZE / TCT / IT NODE)."""
+
 from app.database.mssql import run_mssql_query, run_mssql_write
 
 

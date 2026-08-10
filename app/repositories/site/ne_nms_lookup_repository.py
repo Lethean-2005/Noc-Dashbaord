@@ -1,4 +1,5 @@
 """Data access for the site -> NMS vendor code lookup (object_227) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 

@@ -1,4 +1,5 @@
 """Data access for the broader NE/connectivity alarm feed (object_138) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 

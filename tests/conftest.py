@@ -9,6 +9,7 @@ sqlite3-backed local cache (instance/localstorage.db — see
 app/database/cache.py) starts out empty instead of reading whatever real
 data happens to be synced into the dev machine's actual cache file.
 """
+
 import tempfile
 
 import pytest

@@ -9,6 +9,7 @@ drilldown rows with the site's current **Power**-category Incident/INC-WO
 from incident_by_status (not any open incident) plus a "Site down" Remark
 flag when that same site also has an open **Site Down**-category incident.
 """
+
 from app.services.ran.ran_main_ac_alarm_service import RanMainAcAlarmService
 
 
@@ -58,7 +59,9 @@ def test_get_counts_matches_messy_real_world_main_failure_variants():
         _alarm_row("S1", event_name="Door Alarm"),  # not a main failure, excluded
     ]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -69,7 +72,9 @@ def test_get_counts_matches_messy_real_world_main_failure_variants():
 def test_get_counts_hub_site_takes_priority_over_grade_for_the_same_alarm():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -79,7 +84,9 @@ def test_get_counts_hub_site_takes_priority_over_grade_for_the_same_alarm():
 
 def test_get_counts_ignores_alarms_with_no_matching_site():
     alarm_rows = [_alarm_row("UNKNOWN")]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -88,8 +95,17 @@ def test_get_counts_ignores_alarms_with_no_matching_site():
 
 def test_get_details_enriches_rows_with_site_and_computes_outage_min():
     alarm_rows = [_alarm_row("S1", occurred_at="2020-01-01 00:00:00")]
-    site_rows = [{"standard_code": "S1", "hub_site": "Hub-Router", "site_grade": "silver", "province": "Phnom Penh"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    site_rows = [
+        {
+            "standard_code": "S1",
+            "hub_site": "Hub-Router",
+            "site_grade": "silver",
+            "province": "Phnom Penh",
+        }
+    ]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details()
 
@@ -102,13 +118,22 @@ def test_get_details_enriches_rows_with_site_and_computes_outage_min():
 def test_get_details_enriches_rows_with_current_power_incident_and_inc_wo():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    incident_rows = [{
-        "site_code": "S1", "incident_id": "INC1", "incident_numeric_id": 1,
-        "wo_id": "WO1", "wo_numeric_id": 1, "wo_created_at": "2026-01-01 00:00:00",
-        "wo_status": "New", "category": "Power",
-    }]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "incident_id": "INC1",
+            "incident_numeric_id": 1,
+            "wo_id": "WO1",
+            "wo_numeric_id": 1,
+            "wo_created_at": "2026-01-01 00:00:00",
+            "wo_status": "New",
+            "category": "Power",
+        }
+    ]
     svc = RanMainAcAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -121,12 +146,18 @@ def test_get_details_enriches_rows_with_current_power_incident_and_inc_wo():
 def test_get_details_ignores_non_power_incidents_for_incident_wo_enrichment():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    incident_rows = [{
-        "site_code": "S1", "incident_id": "INC1", "wo_id": "WO1",
-        "category": "BSS Hardware",
-    }]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "incident_id": "INC1",
+            "wo_id": "WO1",
+            "category": "BSS Hardware",
+        }
+    ]
     svc = RanMainAcAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -135,36 +166,90 @@ def test_get_details_ignores_non_power_incidents_for_incident_wo_enrichment():
     assert row["wo_id"] == ""
 
 
-def test_get_details_remark_flags_a_site_with_an_open_site_down_incident():
+def test_get_details_remark_shows_site_down_category_for_a_site_down_incident():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     incident_rows = [{"site_code": "S1", "category": "Site Down"}]
     svc = RanMainAcAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
 
-    assert row["remark"] == "Site down"
+    assert row["remark"] == "Site Down"
 
 
-def test_get_details_remark_blank_when_no_open_site_down_incident():
+def test_get_details_remark_shows_power_category_for_a_power_incident():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     incident_rows = [{"site_code": "S1", "category": "Power"}]
     svc = RanMainAcAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
 
-    assert row["remark"] == ""
+    assert row["remark"] == "Power"
+
+
+def test_get_details_falls_back_to_site_down_incident_when_no_power_incident():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "incident_id": "INC1",
+            "incident_numeric_id": 1,
+            "wo_id": "WO1",
+            "wo_numeric_id": 1,
+            "wo_created_at": "2026-01-01 00:00:00",
+            "wo_status": "New",
+            "category": "Site Down",
+        }
+    ]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["incident_id"] == "INC1"
+    assert row["wo_id"] == "WO1"
+    assert row["remark"] == "Site Down"
+
+
+def test_get_details_prefers_power_incident_over_site_down_when_both_exist():
+    alarm_rows = [_alarm_row("S1")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [
+        {"site_code": "S1", "incident_id": "INC-POWER", "wo_id": "WO-POWER", "category": "Power"},
+        {"site_code": "S1", "incident_id": "INC-DOWN", "wo_id": "WO-DOWN", "category": "Site Down"},
+    ]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["incident_id"] == "INC-POWER"
+    assert row["wo_id"] == "WO-POWER"
+    assert row["remark"] == "Power"
 
 
 def test_get_details_defaults_incident_fields_to_empty_when_no_match():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -174,9 +259,13 @@ def test_get_details_defaults_incident_fields_to_empty_when_no_match():
 
 
 def test_get_details_strips_noisy_vendor_prefix_from_event_name():
-    alarm_rows = [_alarm_row("S1", event_name="BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure")]
+    alarm_rows = [
+        _alarm_row("S1", event_name="BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure")
+    ]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -186,17 +275,44 @@ def test_get_details_strips_noisy_vendor_prefix_from_event_name():
 def test_get_details_leaves_clean_event_names_unchanged():
     alarm_rows = [_alarm_row("S1", event_name="Main Failure Alarm")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
     assert row["event_name"] == "Main Failure Alarm"
 
 
+def test_get_details_excludes_rows_with_no_matching_site_cache_record():
+    """A site missing from site_cache (off_air, or genuinely unmapped) is
+    dropped instead of showing with blank Hub/Grade/Province — same
+    exclusion as alarm_main_failure_service.py / alarm_site_down_service.py."""
+    alarm_rows = [_alarm_row("OFF_AIR_SITE")]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([])
+    )
+
+    assert svc.get_details() == []
+
+
+def test_get_counts_excludes_sites_with_no_matching_site_cache_record():
+    alarm_rows = [_alarm_row("OFF_AIR_SITE")]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([])
+    )
+
+    counts = svc.get_counts()
+
+    assert all(n == 0 for n in counts.values())
+
+
 def test_get_details_translates_known_nms_code_to_vendor_name():
     alarm_rows = [_alarm_row("S1", nms="7")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -206,7 +322,9 @@ def test_get_details_translates_known_nms_code_to_vendor_name():
 def test_get_details_leaves_unknown_nms_code_unchanged():
     alarm_rows = [_alarm_row("S1", nms="999")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -218,7 +336,9 @@ def test_get_details_prefers_incidents_own_nms_over_ape_alarms_code():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     incident_rows = [{"site_code": "S1", "nms": "Huawei", "category": "Power"}]
     svc = RanMainAcAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -232,7 +352,9 @@ def test_get_details_filters_by_badge_type():
         {"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Gold")
 
@@ -246,7 +368,9 @@ def test_get_details_filters_by_hub_site_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Hub-Site")
 
@@ -260,7 +384,9 @@ def test_get_details_excludes_hub_site_from_its_grade_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
     ]
-    svc = RanMainAcAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Gold")
 

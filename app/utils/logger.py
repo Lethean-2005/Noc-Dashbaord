@@ -52,6 +52,7 @@ this is a one-time check, so it would never fall back to the redirect.
 "pytest" is already imported by the time collection starts, so it's set
 for this whole process's lifetime instead.
 """
+
 import logging
 import logging.handlers
 import os
@@ -127,7 +128,9 @@ _JOB_WIDTH = 30
 # "Dashboard data as of: ..." line maps to DATA the same way.
 _ALL_TASKS_THREAD_NAME = "all-tasks-summary"  # must match all_tasks_scheduler.py's thread_name
 _DASHBOARD_LOGGER_NAME = "app.routes.dashboard"  # must match dashboard.py's get_logger(__name__)
-_TELEGRAM_LOGGER_NAME = "app.services.telegram.telegram_alert"  # must match telegram_alert.py's get_logger(__name__)
+_TELEGRAM_LOGGER_NAME = (
+    "app.services.telegram.telegram_alert"  # must match telegram_alert.py's get_logger(__name__)
+)
 _WEBHOOK_LOGGER_NAME = "webhook"  # must match webhook/__init__.py's get_logger(__name__)
 
 
@@ -136,7 +139,9 @@ def _is_retry_record(message):
     per-attempt warning, its eventual success, and the failed-after-
     exhaustion error that can follow instead."""
     return message.startswith("Postgres ") and (
-        " sync attempt " in message or " sync succeeded on " in message or " sync failed after " in message
+        " sync attempt " in message
+        or " sync succeeded on " in message
+        or " sync failed after " in message
     )
 
 
@@ -207,7 +212,9 @@ class _ConsoleFormatter(_BaseTableFormatter):
     def format(self, record):
         timestamp, label, job_name, message = self._format_parts(record)
         color = _LABEL_COLOR.get(label, "")
-        text = f"{timestamp} {color}{label:<{_LABEL_WIDTH}}{_RESET} {job_name:<{_JOB_WIDTH}} {message}"
+        text = (
+            f"{timestamp} {color}{label:<{_LABEL_WIDTH}}{_RESET} {job_name:<{_JOB_WIDTH}} {message}"
+        )
         if record.exc_info:
             text += "\n" + self.formatException(record.exc_info)
         return text
@@ -239,7 +246,9 @@ def _console_stream():
         if hasattr(sys.stdout, "buffer"):
             import io
 
-            return io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", newline="\n")
+            return io.TextIOWrapper(
+                sys.stdout.buffer, encoding="utf-8", errors="replace", newline="\n"
+            )
         return sys.stdout
 
 

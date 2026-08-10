@@ -36,6 +36,7 @@ ape_alarm.nms is the alarm's own raw numeric vendor code straight from
 object_138 — translated here via app/utils/nms.py's NMS_NAMES, same as
 every other drilldown in this project.
 """
+
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
@@ -69,7 +70,9 @@ class AlarmMainFailureService:
     ):
         self.ape_alarm_cache_repository = ape_alarm_cache_repository or ApeAlarmCacheRepository()
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()
-        self.incident_status_cache_repository = incident_status_cache_repository or IncidentStatusCacheRepository()
+        self.incident_status_cache_repository = (
+            incident_status_cache_repository or IncidentStatusCacheRepository()
+        )
 
     def _main_failure_rows_with_site(self):
         alarm_rows = self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
@@ -110,7 +113,9 @@ class AlarmMainFailureService:
         optionally narrowed to one badge (matches get_counts()'s
         categorization)."""
         all_incidents = self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
-        power_incidents = [r for r in all_incidents if (r.get("category") or "").strip().lower() == _POWER_CATEGORY]
+        power_incidents = [
+            r for r in all_incidents if (r.get("category") or "").strip().lower() == _POWER_CATEGORY
+        ]
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(power_incidents)
 
         rows = []
@@ -128,14 +133,17 @@ class AlarmMainFailureService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms"))
+            row["nms"] = inc.get("nms") or NMS_NAMES.get(
+                str(row.get("nms") or "").strip(), row.get("nms")
+            )
             rows.append(row)
 
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
             rows = [
-                r for r in rows
+                r
+                for r in rows
                 if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
             ]
         return rows

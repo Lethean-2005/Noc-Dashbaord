@@ -6,6 +6,7 @@ function used to query internally (once per row of object_138) — see
 app/utils/get_processed_site.py for the Python port of that function's logic, which
 reads this cache instead of Postgres doing the lookup per-row.
 """
+
 from app.repositories.site.site_lookup_cache_repository import SiteLookupCacheRepository
 from app.repositories.site.site_lookup_repository import SiteLookupRepository
 from app.services.postgres_sync_utils import retry_fetch

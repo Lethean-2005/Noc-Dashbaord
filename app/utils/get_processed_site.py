@@ -23,6 +23,7 @@ Step order (must match the original function exactly):
   6. Fallback pattern in `additional_info`: 6 letters, 4 digits, 3 letters.
   Otherwise "" (the original function returns NULL).
 """
+
 import re
 
 _SRAN_ID_RE = re.compile(r"PLMN-PLMN/MRBTS-(\d{4})(?!\d)")

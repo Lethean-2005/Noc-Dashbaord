@@ -9,7 +9,10 @@ REQUESTS/The link between the server and the ME is broken ("SRAN", the
 shared baseband) count as taking down every technology the site has — an
 exact mapping given directly by the user, not a substring heuristic.
 """
-from app.services.alarm_site_down.alarm_completely_site_down_service import AlarmCompletelySiteDownService
+
+from app.services.alarm_site_down.alarm_completely_site_down_service import (
+    AlarmCompletelySiteDownService,
+)
 
 
 class FakeApeAlarmRepo:
@@ -68,8 +71,10 @@ def test_generic_event_counts_all_technologies_down():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -82,8 +87,10 @@ def test_single_generation_alarm_does_not_cover_a_multi_tech_site():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -99,8 +106,10 @@ def test_covering_every_generation_alarm_counts_as_completely_down():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "silver"}]
     tech_rows = _tech_rows("S1", "3g", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -117,8 +126,10 @@ def test_csl_fault_maps_to_2g_not_sran():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -131,8 +142,10 @@ def test_csl_fault_completely_covers_a_2g_only_site():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -144,8 +157,10 @@ def test_site_with_no_known_technology_inventory_never_counts():
     alarm_rows = [_alarm_row("S1", event_name="NE Is Disconnected")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo([]), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo([]),
+        FakeIncidentSiteDownRepo([]),
     )
 
     counts = svc.get_counts()
@@ -164,8 +179,10 @@ def test_get_details_only_includes_completely_down_sites():
     ]
     tech_rows = _tech_rows("S1", "2g", "4g") + _tech_rows("S2", "2g", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     rows = svc.get_details()
@@ -179,8 +196,10 @@ def test_get_details_includes_radio_technology():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     tech_rows = _tech_rows("S1", "2g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     row = svc.get_details()[0]
@@ -194,8 +213,10 @@ def test_get_details_enriches_with_incident_site_down():
     tech_rows = _tech_rows("S1", "2g")
     incident_rows = [{"site_code": "S1", "incident_id": "INC1", "wo_id": "WO1"}]
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -215,8 +236,10 @@ def test_get_details_filters_by_badge():
     ]
     tech_rows = _tech_rows("S1", "4g") + _tech_rows("S2", "4g")
     svc = AlarmCompletelySiteDownService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows),
-        FakeSiteTechnologyRepo(tech_rows), FakeIncidentSiteDownRepo([]),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeSiteTechnologyRepo(tech_rows),
+        FakeIncidentSiteDownRepo([]),
     )
 
     rows = svc.get_details("Bronze")

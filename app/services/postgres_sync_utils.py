@@ -6,6 +6,7 @@ vip_alarm_sync_service.py, and incident_sync_service.py — factored here so a
 future tuning change (retry budget, timezone handling) only needs to happen
 once instead of in three files kept in lockstep by hand.
 """
+
 import time
 from datetime import timezone
 from zoneinfo import ZoneInfo
@@ -20,7 +21,12 @@ FETCH_MAX_ATTEMPTS = 6
 FETCH_MAX_RETRY_DELAY_SECONDS = 30
 
 
-def retry_fetch(fetch_fn, label, max_attempts=FETCH_MAX_ATTEMPTS, max_delay_seconds=FETCH_MAX_RETRY_DELAY_SECONDS):
+def retry_fetch(
+    fetch_fn,
+    label,
+    max_attempts=FETCH_MAX_ATTEMPTS,
+    max_delay_seconds=FETCH_MAX_RETRY_DELAY_SECONDS,
+):
     """Calls fetch_fn() with retry + capped exponential backoff on failure
     (2s, 4s, 8s, 16s, 30s, ...) — mitigates "conflict with recovery" (the
     hot-standby replica's WAL-replay race) without hammering the replica on
@@ -41,7 +47,7 @@ def retry_fetch(fetch_fn, label, max_attempts=FETCH_MAX_ATTEMPTS, max_delay_seco
         except Exception as e:
             last_error = e
             if attempt < max_attempts:
-                wait = min(2 ** attempt, max_delay_seconds)
+                wait = min(2**attempt, max_delay_seconds)
                 logger.warning(
                     f"Postgres {label} sync attempt {attempt}/{max_attempts} failed, "
                     f"retrying in {wait}s: {e}"

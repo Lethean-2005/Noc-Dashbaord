@@ -5,6 +5,7 @@ whitelist, insert columns, and fetch_all() ordering actually differing —
 this pulls that shared logic into one place so each repository is just a
 handful of lines declaring its own three attributes.
 """
+
 from datetime import datetime
 
 from app.database.cache import get_cache_conn
@@ -12,13 +13,14 @@ from app.database.cache import get_cache_conn
 
 class BaseCacheRepository:
     """Subclasses set:
-      valid_tables — tuple of table names this repository is allowed to
-                      touch (from app/database/cache.py)
-      columns      — tuple of column names, matching the table's schema,
-                      used to build the INSERT in replace_all()
-      order_by     — the ORDER BY clause fetch_all() uses (no "ORDER BY"
-                      prefix), e.g. "occurred_at DESC" or "site_name"
+    valid_tables — tuple of table names this repository is allowed to
+                    touch (from app/database/cache.py)
+    columns      — tuple of column names, matching the table's schema,
+                    used to build the INSERT in replace_all()
+    order_by     — the ORDER BY clause fetch_all() uses (no "ORDER BY"
+                    prefix), e.g. "occurred_at DESC" or "site_name"
     """
+
     valid_tables = ()
     columns = ()
     order_by = "rowid"

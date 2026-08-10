@@ -4,6 +4,7 @@ project. This table holds site codes the user has explicitly typed in or
 uploaded via the Mentor Site page (app/routes/mentor.py); see
 app/database/cache.py's init_cache_db() for why it's never auto-dropped.
 """
+
 from datetime import datetime
 
 from app.database.cache import get_cache_conn

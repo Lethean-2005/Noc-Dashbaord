@@ -3,14 +3,17 @@ webhook/inc_wo_site.py — INC-WO Site Down work orders -> Teams.
 Run:  python webhook/inc_wo_site.py           (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_INC_WO_SITE_DOWN in .env
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.incwo.incwo_service import IncWoService
+
     return IncWoService().get_site_down_details()
 
 

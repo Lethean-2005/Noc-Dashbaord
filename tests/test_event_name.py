@@ -5,15 +5,22 @@ boilerplate prefix generically (shape: "CATEGORY NAME:::real name"),
 covering all 16 distinct prefixes found in real production data plus any
 new ones that show up later.
 """
+
 from app.utils.event_name import clean_event_name
 
 
 def test_strips_the_originally_reported_prefix():
-    assert clean_event_name("BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure") == "Main Failure"
+    assert (
+        clean_event_name("BASE STATION EXTERNAL ALARM NOTIFICATION:::Main Failure")
+        == "Main Failure"
+    )
 
 
 def test_strips_other_real_world_prefix_variants_generically():
-    assert clean_event_name("BASE STATION CONNECTIVITY PROBLEM:::GTP-U Path Failure") == "GTP-U Path Failure"
+    assert (
+        clean_event_name("BASE STATION CONNECTIVITY PROBLEM:::GTP-U Path Failure")
+        == "GTP-U Path Failure"
+    )
     assert clean_event_name("CELL FAULTY:::Cell Down") == "Cell Down"
     assert clean_event_name("FILE SYSTEM USAGE OVER LIMIT:::Disk Full") == "Disk Full"
     assert clean_event_name("BASE STATION/UNIT AUTONOMOUS RESET NOTIFICATION:::Reset") == "Reset"

@@ -20,6 +20,16 @@
 -- NMS/Province/District/Commune resolve the same way (through the joined
 -- Site), and one row per INC-WO comes for free since this queries
 -- object_324 directly (no LATERAL "latest one" needed).
+--
+-- "Other Site" fallback: an INC-WO's own `site` FK is null whenever its
+-- parent Incident is an "Other Site" case (see incident_by_status.sql's
+-- COALESCE note) — confirmed live: INC-WO-P-0098795 (parent
+-- INC-0000223251) has site=NULL, same as its parent incident. Falls back
+-- to the parent Incident's own site_code/province_ref/district/commune
+-- (Site Code via COALESCE; Province/District/Commune via a CASE keyed on
+-- sites.id IS NULL, not just a blank field, same reasoning as
+-- incident_by_status.sql) so these still show a real Site Code/Province/
+-- District/Commune instead of blank.
 -- ==============================================================
 
 -- name: inc_wo_by_status
@@ -41,7 +51,7 @@ SELECT
   wo.resolved_at AS "Resolved At",
   INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS "Incident Category",
   ploc.fra_site_name AS "Site Name",
-  sites.standard_code AS "Site Code",
+  COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level
     WHEN 'l2_on_site' THEN 'L2 On-Site'
@@ -57,9 +67,12 @@ SELECT
 FROM object_324 wo
 LEFT JOIN object_322 inc ON wo.parent_incident = inc.id
 LEFT JOIN object_160 sites ON wo.site = sites.id
-LEFT JOIN object_162 province ON sites.province = province.id
-LEFT JOIN object_164 district ON sites.district = district.id
-LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_162 province
+  ON (CASE WHEN sites.id IS NULL THEN inc.province_ref ELSE sites.province END) = province.id
+LEFT JOIN object_164 district
+  ON (CASE WHEN sites.id IS NULL THEN inc.district ELSE sites.district END) = district.id
+LEFT JOIN object_166 commune
+  ON (CASE WHEN sites.id IS NULL THEN inc.commune ELSE sites.commune END) = commune.id
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE wo.status != 'closed'
 AND inc.status != 'closed'

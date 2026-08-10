@@ -18,13 +18,25 @@ WHERE id = <the number from object_N>;
 
 ## Known tables
 
-| Table       | Real name              | Alias      |
-|-------------|-------------------------|------------|
-| `object_138`| [APE] Alarm             | `alarm`    |
-| `object_160`| Site                    | `site`     |
-| `object_227`| NE - Logical Technology | `ne`       |
-| `object_322`| Incident                | `incident` |
-| `object_324`| INC-WO                  | `inc_wo`   |
+| Table        | Real name               | Alias      |
+|--------------|--------------------------|------------|
+| `object_138` | [APE] Alarm              | `alarm`    |
+| `object_160` | Site                     | `site`     |
+| `object_162` | Province                 | `province` |
+| `object_164` | District                 | `district` |
+| `object_166` | Commune                  | `commune`  |
+| `object_168` | Village                  | `village`  |
+| `object_227` | NE - Logical Technology  | `ne`       |
+| `object_308` | Physical Location        | `ploc`     |
+| `object_322` | Incident                 | `incident` |
+| `object_324` | INC-WO                   | `inc_wo`   |
 
-Nothing here is wired into the Noc-Dashboard app yet — this is a reference
-for manually exploring the database, not a config the app reads.
+All of these are actively queried by the app — see the matching `.sql`
+file under `app/database/queries/` for exactly which columns each one
+pulls (e.g. `object_138` → `ape_alarm.sql`, `object_322` →
+`incident_by_status.sql`/`incident_site_down.sql`). Each is synced on its
+own background schedule into a local SQLite cache table
+(`app/database/cache.py`) — pages never query these directly. This file
+stays useful beyond that as a quick reference for manually exploring the
+database (e.g. finding a new `object_N` table's real name via `object_1`
+below) when wiring up something new.

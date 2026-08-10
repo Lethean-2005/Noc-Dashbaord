@@ -3,14 +3,17 @@ webhook/main_failure.py — RAN/Alarm Main Failure alarms -> Teams.
 Run:  python webhook/main_failure.py          (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_MAIN_FAILURE in .env
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.alarm_main_failure.alarm_main_failure_service import AlarmMainFailureService
+
     return AlarmMainFailureService().get_details()
 
 

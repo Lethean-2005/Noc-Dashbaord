@@ -27,6 +27,7 @@ see _seconds_until_next_aligned_time(). This also means restarting the dev
 server (which happens often) can't immediately resend an alert, since the
 next aligned time is never right now.
 """
+
 import io
 import os
 from datetime import datetime
@@ -34,7 +35,9 @@ from datetime import datetime
 import requests
 from flask import current_app
 
-from app.repositories.incident.incident_site_down_cache_repository import IncidentSiteDownCacheRepository
+from app.repositories.incident.incident_site_down_cache_repository import (
+    IncidentSiteDownCacheRepository,
+)
 from app.repositories.telegram.telegram_alert_cache_repository import TelegramAlertCacheRepository
 from app.services.scheduler_utils import seconds_until_next_aligned_time, start_singleton_loop
 from app.utils.datetime import elapsed_minutes
@@ -42,6 +45,7 @@ from app.utils.logger import get_logger
 
 try:
     from PIL import Image, ImageDraw, ImageFont
+
     _HAS_PIL = True
 except ImportError:
     _HAS_PIL = False
@@ -75,14 +79,18 @@ def _cache_telegram_rows(rows, cache_repository):
         logger.error(f"telegram_alert_cache write failed: {e}")
 
 
-def _site_down_over_threshold(threshold_min, incident_site_down_cache_repository=None, cache_repository=None):
+def _site_down_over_threshold(
+    threshold_min, incident_site_down_cache_repository=None, cache_repository=None
+):
     """Every Site Down incident not yet Closed whose alarm hasn't cleared
     (per incident_site_down.sql), read from the already-synced incident_site_down
     cache, and whose outage has passed `threshold_min` minutes, longest-
     outage first. outage_min is computed for every row (not just the ones
     over threshold) before caching, so telegram_alert_cache always has each
     incident's current outage duration — see _cache_telegram_rows()."""
-    incident_site_down_cache_repository = incident_site_down_cache_repository or IncidentSiteDownCacheRepository()
+    incident_site_down_cache_repository = (
+        incident_site_down_cache_repository or IncidentSiteDownCacheRepository()
+    )
     rows = incident_site_down_cache_repository.fetch_all("incident_site_down")
     for row in rows:
         row["outage_min"] = elapsed_minutes(row.get("occurred_at"))
@@ -141,7 +149,13 @@ def _render_table_image(rows, title):
     FONT_SIZE, TITLE_SIZE = 28 * SCALE, 34 * SCALE
     CELL_PAD_X, CELL_PAD_Y = 20 * SCALE, 20 * SCALE
     HEADER_H, BASE_ROW_H = 80 * SCALE, 80 * SCALE
-    FRAME, PAD_X, PAD_TOP, PAD_BOT, TITLE_H = 2 * SCALE, 28 * SCALE, 24 * SCALE, 24 * SCALE, 64 * SCALE
+    FRAME, PAD_X, PAD_TOP, PAD_BOT, TITLE_H = (
+        2 * SCALE,
+        28 * SCALE,
+        24 * SCALE,
+        24 * SCALE,
+        64 * SCALE,
+    )
 
     BG, HEADER_BG, HEADER_TEXT = "#FFFFFF", "#1A3A5C", "#FFFFFF"
     TEXT_COLOR, GRID_COLOR, TITLE_COLOR, FRAME_COLOR = "#000000", "#000000", "#1A2B3C", "#F0F2F5"
@@ -150,8 +164,16 @@ def _render_table_image(rows, title):
     title_font = ImageFont.truetype(_FONT_BOLD_PATH, TITLE_SIZE)
     char_w = int(font.getlength("M"))
 
-    headers = ["Incident ID", "Site Name", "Site Code", "Occurred At",
-               "Outage", "INC-WO ID", "INC-WO Status", "Last Comment"]
+    headers = [
+        "Incident ID",
+        "Site Name",
+        "Site Code",
+        "Occurred At",
+        "Outage",
+        "INC-WO ID",
+        "INC-WO Status",
+        "Last Comment",
+    ]
     col_w_chars = [16, 18, 10, 16, 7, 20, 16, 44]
     col_w_px = [chars * char_w + CELL_PAD_X * 2 for chars in col_w_chars]
     table_w = sum(col_w_px)
@@ -160,17 +182,26 @@ def _render_table_image(rows, title):
     for row in rows:
         comment = (row.get("last_comments") or "").replace("\n", " ").strip()
         comment_lines = _wrap_text_px(comment, font, col_w_px[7] - CELL_PAD_X * 2)[:5]
-        data_rows.append([
-            str(row.get("incident_id") or ""),
-            str(row.get("site_name") or "—"),
-            str(row.get("site_code") or "—"),
-            (row.get("occurred_at") or "")[:16],
-            _format_outage(row["outage_min"]),
-            str(row.get("wo_id") or "—"),
-            str(row.get("wo_status") or "—"),
-            comment_lines,
-        ])
-        row_heights.append(max(BASE_ROW_H, CELL_PAD_Y * 2 + len(comment_lines) * FONT_SIZE + (len(comment_lines) - 1) * (6 * SCALE)))
+        data_rows.append(
+            [
+                str(row.get("incident_id") or ""),
+                str(row.get("site_name") or "—"),
+                str(row.get("site_code") or "—"),
+                (row.get("occurred_at") or "")[:16],
+                _format_outage(row["outage_min"]),
+                str(row.get("wo_id") or "—"),
+                str(row.get("wo_status") or "—"),
+                comment_lines,
+            ]
+        )
+        row_heights.append(
+            max(
+                BASE_ROW_H,
+                CELL_PAD_Y * 2
+                + len(comment_lines) * FONT_SIZE
+                + (len(comment_lines) - 1) * (6 * SCALE),
+            )
+        )
 
     img_w = table_w + (PAD_X + FRAME) * 2
     img_h = FRAME * 2 + PAD_TOP + TITLE_H + HEADER_H + sum(row_heights) + PAD_BOT
@@ -191,8 +222,12 @@ def _render_table_image(rows, title):
     for i, header in enumerate(headers):
         col_w = col_w_px[i]
         h_w = int(font.getlength(header))
-        draw.text((cx + max(CELL_PAD_X, (col_w - h_w) // 2), ty + (HEADER_H - FONT_SIZE) // 2),
-                  header, fill=HEADER_TEXT, font=font)
+        draw.text(
+            (cx + max(CELL_PAD_X, (col_w - h_w) // 2), ty + (HEADER_H - FONT_SIZE) // 2),
+            header,
+            fill=HEADER_TEXT,
+            font=font,
+        )
         cx += col_w
 
     cy = ty + HEADER_H
@@ -210,8 +245,12 @@ def _render_table_image(rows, title):
             draw.text((x, cy + (row_h - FONT_SIZE) // 2), value, fill=TEXT_COLOR, font=font)
             cx += col_w
         for li, line in enumerate(values[7]):
-            draw.text((cx + CELL_PAD_X, cy + CELL_PAD_Y + li * (FONT_SIZE + 4 * SCALE)),
-                      line, fill=TEXT_COLOR, font=font)
+            draw.text(
+                (cx + CELL_PAD_X, cy + CELL_PAD_Y + li * (FONT_SIZE + 4 * SCALE)),
+                line,
+                fill=TEXT_COLOR,
+                font=font,
+            )
         cy += row_h
 
     cy = ty + HEADER_H
@@ -259,7 +298,9 @@ def _send_telegram_text(token, chat_ids, text):
     return sent
 
 
-def send_site_down_alert(threshold_min=None, incident_site_down_cache_repository=None, cache_repository=None):
+def send_site_down_alert(
+    threshold_min=None, incident_site_down_cache_repository=None, cache_repository=None
+):
     """Send one Telegram alert listing every Incident Site Down whose
     outage has passed `threshold_min` (defaults to
     app.config['ALERT_THRESHOLD_MIN']) — as a table image, or plain text if
@@ -275,7 +316,9 @@ def send_site_down_alert(threshold_min=None, incident_site_down_cache_repository
     if threshold_min is None:
         threshold_min = current_app.config["ALERT_THRESHOLD_MIN"]
 
-    rows = _site_down_over_threshold(threshold_min, incident_site_down_cache_repository, cache_repository)
+    rows = _site_down_over_threshold(
+        threshold_min, incident_site_down_cache_repository, cache_repository
+    )
     if not rows:
         logger.info(f"No Incident Site Down over {threshold_min} minutes — nothing to send")
         return {"sent": False, "count": 0}
@@ -286,7 +329,9 @@ def send_site_down_alert(threshold_min=None, incident_site_down_cache_repository
     else:
         sent = _send_telegram_text(token, chat_ids, _format_message(rows, threshold_min))
 
-    logger.info(f"Sent Telegram Site Down alert — {len(rows)} incident(s) to {len(chat_ids)} chat(s)")
+    logger.info(
+        f"Sent Telegram Site Down alert — {len(rows)} incident(s) to {len(chat_ids)} chat(s)"
+    )
     return {"sent": sent, "count": len(rows)}
 
 
@@ -313,10 +358,12 @@ def start(app, interval_seconds=None):
     tz_name = app.config["TIMEZONE"]
     delay = seconds_until_next_aligned_time(wait, tz_name)
     start_singleton_loop(
-        app, _work, wait,
+        app,
+        _work,
+        wait,
         thread_name="telegram-site-down-alert",
         log_message=f"Telegram Site Down alert scheduler started (every {wait}s, "
-                     f"first run in {delay:.0f}s)",
+        f"first run in {delay:.0f}s)",
         first_run_delay=delay,
         next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name),
     )

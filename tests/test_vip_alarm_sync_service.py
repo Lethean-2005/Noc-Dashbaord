@@ -5,6 +5,7 @@ resolves Site Code locally (app/utils/get_processed_site.py), so this benefits f
 that for free. These tests lock in that VIP/VVIP filtering and field
 carry-through behave correctly for this purely local derivation.
 """
+
 from app.services.vip.vip_alarm_sync_service import VipAlarmSyncService
 
 
@@ -61,7 +62,9 @@ def test_sync_keeps_only_vip_and_vvip_sites(app):
             {"standard_code": "NORMAL1", "site_strategic_type": "Normal"},
         ]
         cache_repo = FakeCacheRepo()
-        svc = VipAlarmSyncService(FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows))
+        svc = VipAlarmSyncService(
+            FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows)
+        )
 
         svc.sync()
 
@@ -74,7 +77,9 @@ def test_sync_carries_through_ape_alarm_fields_and_adds_strategic_type(app):
         ape_alarm_rows = [_ape_alarm_row("VIP1", event_name="Door Alarm", occurrence_count=5)]
         site_rows = [{"standard_code": "VIP1", "site_strategic_type": "VIP"}]
         cache_repo = FakeCacheRepo()
-        svc = VipAlarmSyncService(FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows))
+        svc = VipAlarmSyncService(
+            FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows)
+        )
 
         svc.sync()
 
@@ -89,7 +94,9 @@ def test_sync_writes_empty_list_when_no_vip_sites_match(app):
         ape_alarm_rows = [_ape_alarm_row("NORMAL1")]
         site_rows = [{"standard_code": "NORMAL1", "site_strategic_type": "Normal"}]
         cache_repo = FakeCacheRepo()
-        svc = VipAlarmSyncService(FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows))
+        svc = VipAlarmSyncService(
+            FakeApeAlarmRepo(ape_alarm_rows), cache_repo, FakeSiteRepo(site_rows)
+        )
 
         svc.sync()
 

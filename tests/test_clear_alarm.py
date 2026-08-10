@@ -7,6 +7,7 @@ its own terms elsewhere. Deliberately no test here ever calls the real
 AlarmRepository/MSSQL write path — same as test_acknowledge_alarm.py, this
 stays at the fake-service level only.
 """
+
 from app.routes import dashboard
 
 

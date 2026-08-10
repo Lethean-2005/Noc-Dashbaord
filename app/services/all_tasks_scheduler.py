@@ -14,6 +14,7 @@ kept up to date by every repository's replace_all().
 start() is called once from app/__init__.py::create_app(). See
 scheduler_utils.py for the shared loop/guard logic.
 """
+
 from app.database.cache import get_cache_conn
 from app.services.scheduler_utils import seconds_until_next_aligned_time, start_singleton_loop
 from app.utils.logger import get_logger
@@ -33,12 +34,18 @@ def _total_rows():
     any table_name that no longer actually exists, instead of erroring."""
     conn = get_cache_conn()
     try:
-        existing = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        existing = {
+            r[0]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        }
         tables = [
-            r["table_name"] for r in conn.execute("SELECT table_name FROM sync_meta").fetchall()
+            r["table_name"]
+            for r in conn.execute("SELECT table_name FROM sync_meta").fetchall()
             if r["table_name"] in existing
         ]
-        total = sum(conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"] for table in tables)
+        total = sum(
+            conn.execute(f"SELECT COUNT(*) AS n FROM {table}").fetchone()["n"] for table in tables
+        )
         return total, len(tables)
     finally:
         conn.close()
@@ -51,9 +58,18 @@ def start(app, interval_seconds):
         total, _count = _total_rows()
         return total
 
+    # first_run_delay applies the same offset to the first run too, not
+    # just later cycles — see site_scheduler.py's start() for why.
     start_singleton_loop(
-        app, _work, interval_seconds,
+        app,
+        _work,
+        interval_seconds,
         thread_name="all-tasks-summary",
         log_message=str(interval_seconds),
-        next_delay_fn=lambda: seconds_until_next_aligned_time(interval_seconds, tz_name),
+        first_run_delay=seconds_until_next_aligned_time(
+            interval_seconds, tz_name, offset_seconds=90
+        ),
+        next_delay_fn=lambda: seconds_until_next_aligned_time(
+            interval_seconds, tz_name, offset_seconds=90
+        ),
     )

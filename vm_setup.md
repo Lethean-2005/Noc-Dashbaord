@@ -119,3 +119,47 @@ saves back to `.env`.
 
 `.env` already has this deployment's real database credentials — no
 changes needed unless this VM should point at different databases.
+
+## 9. Optional: auto-start on VM boot/reboot
+
+By default the dashboard only starts when someone double-clicks the
+**Noc Dashboard** shortcut. If the VM reboots (Windows update, host
+restart, power loss) and nobody logs in and starts it manually, the
+dashboard — and all its background sync jobs — stay down until someone
+does. Pick one of the two options below to fix that.
+
+### Option A — Task Scheduler (needs admin rights, recommended)
+
+Starts the dashboard automatically at boot, even if nobody logs in.
+
+1. Open **Task Scheduler** (`taskschd.msc`)
+2. **Create Task** (not "Create Basic Task")
+3. **General** tab:
+   - Name: `Noc Dashboard`
+   - Check **"Run whether user is logged on or not"**
+   - Check **"Run with highest privileges"**
+4. **Triggers** tab → **New** → Begin the task: **"At startup"**
+5. **Actions** tab → **New** → Start a program:
+   - Program/script: full path to `scripts\start_dashboard.bat`
+     (e.g. `E:\Noc-Dashboard\scripts\start_dashboard.bat`)
+   - Start in: the project root folder (e.g. `E:\Noc-Dashboard`) —
+     required, otherwise the `.bat` can't find the venv/app
+6. Save — enter the VM account's password when prompted
+7. Test: right-click the task → **Run**, confirm the dashboard starts
+
+Equivalent one-line version (run from an elevated Command Prompt):
+```
+schtasks /create /tn "Noc Dashboard" /tr "E:\Noc-Dashboard\scripts\start_dashboard.bat" /sc onstart /ru SYSTEM
+```
+(adjust the path to wherever this VM's copy actually lives)
+
+### Option B — Startup folder shortcut (no admin needed)
+
+Simpler, but only starts the dashboard when that specific Windows
+account logs in — not on an unattended reboot.
+
+1. Press `Win + R`, type `shell:startup`, press Enter — this opens the
+   Startup folder for the current user
+2. Copy the **Noc Dashboard** desktop shortcut (created by
+   `scripts/create_shortcuts.bat` in step 7) into that folder
+3. Done — it now starts automatically the next time this account logs in

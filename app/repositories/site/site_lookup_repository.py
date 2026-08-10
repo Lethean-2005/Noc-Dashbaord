@@ -1,4 +1,5 @@
 """Data access for site_lookup_mv (sran_id/nodeb_id/bts_id -> site_name) on PostgreSQL."""
+
 from app.database.connection import run_query
 
 

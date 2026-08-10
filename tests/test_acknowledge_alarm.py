@@ -5,6 +5,7 @@ this route's own job is just validating the incoming form and forwarding it
 to AlarmService.acknowledge_note(), which is already covered on its own
 terms elsewhere.
 """
+
 from app.routes import dashboard
 
 
@@ -21,9 +22,15 @@ def test_acknowledge_alarm_forwards_valid_form_to_service(client, monkeypatch):
     fake = FakeAlarmService()
     monkeypatch.setattr(dashboard, "alarm_service", fake)
 
-    response = client.post("/alarms/acknowledge", data={
-        "id": "row-1", "tt_inc_wo_id": "TT-1", "note": "checked", "username": "slethean",
-    })
+    response = client.post(
+        "/alarms/acknowledge",
+        data={
+            "id": "row-1",
+            "tt_inc_wo_id": "TT-1",
+            "note": "checked",
+            "username": "slethean",
+        },
+    )
 
     assert response.status_code == 302
     assert fake.calls == [("row-1", "TT-1", "checked", "slethean")]
@@ -33,9 +40,15 @@ def test_acknowledge_alarm_skips_service_call_when_username_missing(client, monk
     fake = FakeAlarmService()
     monkeypatch.setattr(dashboard, "alarm_service", fake)
 
-    response = client.post("/alarms/acknowledge", data={
-        "id": "row-1", "tt_inc_wo_id": "TT-1", "note": "checked", "username": "",
-    })
+    response = client.post(
+        "/alarms/acknowledge",
+        data={
+            "id": "row-1",
+            "tt_inc_wo_id": "TT-1",
+            "note": "checked",
+            "username": "",
+        },
+    )
 
     assert response.status_code == 302
     assert fake.calls == []
@@ -45,21 +58,35 @@ def test_acknowledge_alarm_skips_service_call_when_id_missing(client, monkeypatc
     fake = FakeAlarmService()
     monkeypatch.setattr(dashboard, "alarm_service", fake)
 
-    response = client.post("/alarms/acknowledge", data={
-        "id": "", "tt_inc_wo_id": "TT-1", "note": "checked", "username": "slethean",
-    })
+    response = client.post(
+        "/alarms/acknowledge",
+        data={
+            "id": "",
+            "tt_inc_wo_id": "TT-1",
+            "note": "checked",
+            "username": "slethean",
+        },
+    )
 
     assert response.status_code == 302
     assert fake.calls == []
 
 
-def test_acknowledge_alarm_skips_service_call_when_note_and_tt_inc_wo_both_blank(client, monkeypatch):
+def test_acknowledge_alarm_skips_service_call_when_note_and_tt_inc_wo_both_blank(
+    client, monkeypatch
+):
     fake = FakeAlarmService()
     monkeypatch.setattr(dashboard, "alarm_service", fake)
 
-    response = client.post("/alarms/acknowledge", data={
-        "id": "row-1", "tt_inc_wo_id": "", "note": "", "username": "slethean",
-    })
+    response = client.post(
+        "/alarms/acknowledge",
+        data={
+            "id": "row-1",
+            "tt_inc_wo_id": "",
+            "note": "",
+            "username": "slethean",
+        },
+    )
 
     assert response.status_code == 302
     assert fake.calls == []

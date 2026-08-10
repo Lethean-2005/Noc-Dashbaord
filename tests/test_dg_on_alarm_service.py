@@ -9,6 +9,7 @@ drilldown rows with the site's current Power-category Incident/INC-WO —
 no site-down Remark flag here, unlike RanMainAcAlarmService (not part of
 this card's column list).
 """
+
 from app.services.dg_on.dg_on_alarm_service import DgOnAlarmService
 
 
@@ -52,9 +53,14 @@ def _alarm_row(site_code, event_name="DG on Alarm", additional_info="", **overri
 
 
 def test_get_counts_matches_dg_on_in_event_name():
-    alarm_rows = [_alarm_row("S1", event_name="DG on Alarm"), _alarm_row("S1", event_name="Door Alarm")]
+    alarm_rows = [
+        _alarm_row("S1", event_name="DG on Alarm"),
+        _alarm_row("S1", event_name="Door Alarm"),
+    ]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -62,9 +68,13 @@ def test_get_counts_matches_dg_on_in_event_name():
 
 
 def test_get_counts_matches_dg_on_in_additional_info_too():
-    alarm_rows = [_alarm_row("S1", event_name="Generator Event", additional_info="Status=DG On;Fuel=80%")]
+    alarm_rows = [
+        _alarm_row("S1", event_name="Generator Event", additional_info="Status=DG On;Fuel=80%")
+    ]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "silver"}]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -74,7 +84,9 @@ def test_get_counts_matches_dg_on_in_additional_info_too():
 def test_get_counts_hub_takes_priority_over_grade_for_the_same_alarm():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "diamond"}]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     counts = svc.get_counts()
 
@@ -85,11 +97,19 @@ def test_get_counts_hub_takes_priority_over_grade_for_the_same_alarm():
 def test_get_details_enriches_rows_with_current_power_incident():
     alarm_rows = [_alarm_row("S1")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    incident_rows = [{
-        "site_code": "S1", "incident_id": "INC1", "wo_id": "WO1", "wo_status": "New", "category": "Power",
-    }]
+    incident_rows = [
+        {
+            "site_code": "S1",
+            "incident_id": "INC1",
+            "wo_id": "WO1",
+            "wo_status": "New",
+            "category": "Power",
+        }
+    ]
     svc = DgOnAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -103,7 +123,9 @@ def test_get_details_ignores_non_power_incidents():
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     incident_rows = [{"site_code": "S1", "incident_id": "INC1", "category": "BSS Hardware"}]
     svc = DgOnAlarmService(
-        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo(incident_rows),
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
     )
 
     row = svc.get_details()[0]
@@ -114,7 +136,9 @@ def test_get_details_ignores_non_power_incidents():
 def test_get_details_translates_nms_code():
     alarm_rows = [_alarm_row("S1", nms="7")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     row = svc.get_details()[0]
 
@@ -127,7 +151,9 @@ def test_get_details_filters_by_hub_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Hub")
 
@@ -141,12 +167,37 @@ def test_get_details_excludes_hub_from_its_grade_badge():
         {"standard_code": "S1", "hub_site": "Hub-MW", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "gold"},
     ]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Gold")
 
     assert len(rows) == 1
     assert rows[0]["site_code"] == "S2"
+
+
+def test_get_details_excludes_rows_with_no_matching_site_cache_record():
+    """A site missing from site_cache (off_air, or genuinely unmapped) is
+    dropped instead of showing with blank Hub/Grade/Province — same
+    exclusion as alarm_main_failure_service.py / alarm_site_down_service.py."""
+    alarm_rows = [_alarm_row("OFF_AIR_SITE")]
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([])
+    )
+
+    assert svc.get_details() == []
+
+
+def test_get_counts_excludes_sites_with_no_matching_site_cache_record():
+    alarm_rows = [_alarm_row("OFF_AIR_SITE")]
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo([]), FakeIncidentStatusRepo([])
+    )
+
+    counts = svc.get_counts()
+
+    assert all(n == 0 for n in counts.values())
 
 
 def test_get_details_filters_by_grade_badge():
@@ -155,7 +206,9 @@ def test_get_details_filters_by_grade_badge():
         {"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"},
         {"standard_code": "S2", "hub_site": "Not Hub", "site_grade": "bronze"},
     ]
-    svc = DgOnAlarmService(FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([]))
+    svc = DgOnAlarmService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentStatusRepo([])
+    )
 
     rows = svc.get_details("Bronze")
 

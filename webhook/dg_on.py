@@ -3,14 +3,17 @@ webhook/dg_on.py — Alarm DG On alarms -> Teams.
 Run:  python webhook/dg_on.py                 (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_DG_ON in .env
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.dg_on.dg_on_alarm_service import DgOnAlarmService
+
     return DgOnAlarmService().get_details()
 
 

@@ -14,6 +14,11 @@ cached, same as ape_alarm), so the badge categories below are derived
 here, at read time, by matching event_name/additional_info against the
 same keyword patterns ape_alarm.sql uses to build its own curated filter.
 
+Only rows whose site_code has a matching site_cache record are shown —
+that cache already excludes off_air sites, same "an off_air site isn't
+legitimately down" call already made for the Custom Dashboard/RAN Status
+alarm cards (see _rows_with_site()).
+
 get_details()'s Incident/INC-WO enrichment reads from vip_incident_status,
 NOT incident_by_status — that one only keeps 'new'/'in_progress' (shared by
 IncidentService and MentorSiteService, both of which need Resolved
@@ -24,10 +29,13 @@ Resolved incidents (only excludes Closed) — safe to widen that way here
 specifically because it's scoped to 33 of 4,360 sites, unlike
 incident_by_status which covers every site company-wide.
 """
+
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.repositories.vip.vip_alarm_cache_repository import VipAlarmCacheRepository
-from app.repositories.vip.vip_incident_status_cache_repository import VipIncidentStatusCacheRepository
+from app.repositories.vip.vip_incident_status_cache_repository import (
+    VipIncidentStatusCacheRepository,
+)
 from app.utils.alarm_category import SITE_DOWN_EVENTS
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
@@ -38,8 +46,14 @@ _VIP_INCIDENT_STATUS_TABLE = "vip_incident_status"
 _SITE_TABLE = "site_cache"
 
 BADGE_TYPES = (
-    "Site Down", "Main AC Failure", "Low DC Voltage", "High DC Voltage",
-    "DG-On", "RECT Failure", "Door Alarm", "Other",
+    "Site Down",
+    "Main AC Failure",
+    "Low DC Voltage",
+    "High DC Voltage",
+    "DG-On",
+    "RECT Failure",
+    "Door Alarm",
+    "Other",
 )
 
 # vip_alarm.nms is the alarm's own raw numeric vendor code straight from
@@ -70,26 +84,49 @@ def _categorize(event_name, additional_info):
 
 
 class VipAlarmService:
-    def __init__(self, cache_repository=None, vip_incident_status_cache_repository=None, site_cache_repository=None):
+    def __init__(
+        self,
+        cache_repository=None,
+        vip_incident_status_cache_repository=None,
+        site_cache_repository=None,
+    ):
         self.cache_repository = cache_repository or VipAlarmCacheRepository()
         self.vip_incident_status_cache_repository = (
             vip_incident_status_cache_repository or VipIncidentStatusCacheRepository()
         )
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()
 
+    def _rows_with_site(self):
+        """Only rows whose site_code has a matching site_cache record —
+        that cache already excludes off_air sites (see site_cache.sql), so
+        this also drops alarms still open against a VIP/VVIP site the
+        master data marks decommissioned, plus any alarm whose site_code
+        couldn't be resolved to any site at all. Same "off_air isn't
+        really down" call already made for the Custom Dashboard/RAN Status
+        alarm cards."""
+        rows = self.cache_repository.fetch_all(_TABLE)
+        site_by_code = {
+            r["standard_code"]: r
+            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
+            if r.get("standard_code")
+        }
+        result = []
+        for row in rows:
+            site = site_by_code.get(row.get("site_code"))
+            if site is None:
+                continue
+            result.append((row, site))
+        return result
+
     def get_counts(self):
         """{'Site Down': n, 'Main AC Failure': n, ...} for the VVIP Site
         badges — n is the number of DISTINCT SITES with at least one
         matching alarm, not the number of alarm rows (a site with 3 Main
         Failure alarms still counts once toward "Main AC Failure", not 3)."""
-        rows = self.cache_repository.fetch_all(_TABLE)
         sites_by_category = {t: set() for t in BADGE_TYPES}
-        for r in rows:
-            site_code = r.get("site_code")
-            if not site_code:
-                continue
-            category = _categorize(r.get("event_name"), r.get("additional_info"))
-            sites_by_category[category].add(site_code)
+        for row, _site in self._rows_with_site():
+            category = _categorize(row.get("event_name"), row.get("additional_info"))
+            sites_by_category[category].add(row.get("site_code"))
         return {category: len(sites) for category, sites in sites_by_category.items()}
 
     def get_details(self, alarm_type=None):
@@ -98,25 +135,18 @@ class VipAlarmService:
         categorization), and enriched with each site's current Incident/
         INC-WO (including Resolved, not just New/In Progress — see module
         docstring) plus Hub Site/Site Grade/Province — all resolved locally
-        against vip_incident_status/site_cache (same reasoning as
-        app/services/vip/vip_incident_alarm_sync_service.py: no Postgres
-        call needed since both are already synced separately)."""
-        rows = self.cache_repository.fetch_all(_TABLE)
+        against vip_incident_status/site_cache, both already synced
+        separately, so no extra Postgres call is needed here either."""
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(
             self.vip_incident_status_cache_repository.fetch_all(_VIP_INCIDENT_STATUS_TABLE)
         )
-        site_by_code = {
-            r["standard_code"]: r
-            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
-            if r.get("standard_code")
-        }
-        for r in rows:
+        rows = []
+        for r, site in self._rows_with_site():
             r["outage_min"] = elapsed_minutes(r.get("occurred_at"))
             r["badge_type"] = _categorize(r.get("event_name"), r.get("additional_info"))
             r["event_name"] = clean_event_name(r.get("event_name"))
             site_code = r.get("site_code") or ""
             inc = incident_by_site.get(site_code) or {}
-            site = site_by_code.get(site_code) or {}
             r["incident_id"] = inc.get("incident_id") or ""
             r["incident_numeric_id"] = inc.get("incident_numeric_id")
             r["wo_id"] = inc.get("wo_id") or ""
@@ -128,7 +158,10 @@ class VipAlarmService:
             r["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             r["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             r["province"] = inc.get("province") or site.get("province") or ""
-            r["nms"] = inc.get("nms") or NMS_NAMES.get(str(r.get("nms") or "").strip(), r.get("nms"))
+            r["nms"] = inc.get("nms") or NMS_NAMES.get(
+                str(r.get("nms") or "").strip(), r.get("nms")
+            )
+            rows.append(r)
         if alarm_type:
             rows = [r for r in rows if r["badge_type"] == alarm_type]
         return rows

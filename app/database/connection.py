@@ -3,6 +3,7 @@
 Named queries live as plain .sql files under app/database/queries/<domain>.sql,
 separated by `-- name: <query_name>` marker comments, so SQL stays out of Python code.
 """
+
 from sqlalchemy import text
 
 from app.database.sql_loader import load_queries

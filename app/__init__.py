@@ -1,4 +1,5 @@
 """Application factory."""
+
 import os
 from importlib import import_module
 
@@ -35,6 +36,7 @@ def create_app(env=None, instance_path=None):
     _init_cache_db(app)
     _start_background_jobs(app)
     _init_telegram_alert(app)
+    _init_inc_wo_telegram_alert(app)
     _init_webhook_alerts(app)
 
     return app
@@ -92,7 +94,6 @@ _BACKGROUND_JOBS = (
     ("app.services.incident.incident_scheduler", "INCIDENT_SYNC_INTERVAL_SECONDS"),
     ("app.services.ape_alarm.ape_alarm_scheduler", "APE_ALARM_SYNC_INTERVAL_SECONDS"),
     ("app.services.vip.vip_alarm_scheduler", "VIP_ALARM_SYNC_INTERVAL_SECONDS"),
-    ("app.services.vip.vip_incident_alarm_scheduler", "VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS"),
     ("app.services.vip.vip_site_scheduler", "VIP_SITE_SYNC_INTERVAL_SECONDS"),
     ("app.services.all_tasks_scheduler", "ALL_TASKS_SUMMARY_INTERVAL_SECONDS"),
     ("app.routes.dashboard", "DASHBOARD_LOG_INTERVAL_SECONDS"),
@@ -158,6 +159,33 @@ def _init_telegram_alert(app):
             _start_telegram()
         else:
             wait_for_leadership(_start_telegram)
+
+
+def _init_inc_wo_telegram_alert(app):
+    """Start the background Telegram INC-WO Site Down alert loop (every
+    INC_WO_ALERT_INTERVAL_SECONDS). Same skip conditions as
+    _init_telegram_alert() above, but gated on
+    TELEGRAM_BOT_INC_WO_TOKEN/TELEGRAM_CHAT_IDS_INC_WO instead of
+    TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS — a separate bot posting to its
+    own chat, independent of whether the Site Down alert above is
+    configured. See app/services/telegram/telegram_inc_wo_alert.py."""
+    if app.testing:
+        return
+    if not app.config.get("TELEGRAM_BOT_INC_WO_TOKEN") or not app.config.get(
+        "TELEGRAM_CHAT_IDS_INC_WO"
+    ):
+        return
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from app.services.leader_lock import is_leader, wait_for_leadership
+        from app.services.telegram.telegram_inc_wo_alert import start
+
+        def _start_inc_wo_telegram():
+            start(app, app.config["INC_WO_ALERT_INTERVAL_SECONDS"])
+
+        if is_leader():
+            _start_inc_wo_telegram()
+        else:
+            wait_for_leadership(_start_inc_wo_telegram)
 
 
 def _init_webhook_alerts(app):

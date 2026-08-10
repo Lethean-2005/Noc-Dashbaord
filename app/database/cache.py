@@ -5,6 +5,7 @@ drilldown tables, CSV export) never hit MSSQL directly; app/services/alarm/alarm
 keeps it in sync in the background. Same role as Autonoc-Dashboard's
 app/cache/localstorage.db, one file per project.
 """
+
 import re
 import sqlite3
 from pathlib import Path
@@ -16,7 +17,12 @@ from flask import current_app
 # it_node_alarm_cache is the "IT NODE" card on the Custom Dashboard
 # (reports/index.html) — same shape, device_name/ip_address/pop_name/
 # pop_code/province just stay blank since IT_NODE alarms carry none of that.
-ALARM_CACHE_TABLES = ("isp_pop_alarm_cache", "eze_alarm_cache", "tct_alarm_cache", "it_node_alarm_cache")
+ALARM_CACHE_TABLES = (
+    "isp_pop_alarm_cache",
+    "eze_alarm_cache",
+    "tct_alarm_cache",
+    "it_node_alarm_cache",
+)
 
 _ALARM_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
@@ -28,10 +34,25 @@ _ALARM_TABLE_SCHEMA = """
 """
 
 _ALARM_CACHE_COLUMNS = {
-    "id", "alarm", "alarm_name", "device_name", "ip_address", "pop_name",
-    "pop_code", "province", "down_time", "root_cause", "rtid",
-    "interface", "source_group", "additional_info", "note",
-    "ack", "ab", "mb", "md",
+    "id",
+    "alarm",
+    "alarm_name",
+    "device_name",
+    "ip_address",
+    "pop_name",
+    "pop_code",
+    "province",
+    "down_time",
+    "root_cause",
+    "rtid",
+    "interface",
+    "source_group",
+    "additional_info",
+    "note",
+    "ack",
+    "ab",
+    "mb",
+    "md",
 }
 
 # One row per Site (object_160 on PostgreSQL), curated down to the columns
@@ -53,10 +74,25 @@ _SITE_TABLE_SCHEMA = """
 """
 
 _SITE_CACHE_COLUMNS = {
-    "id", "name", "status", "type", "site_grade", "fra_site_name", "standard_code",
-    "site_priority", "site_strategic_type", "province", "district", "commune", "village",
-    "physical_location", "physical_location_name", "physical_location_address",
-    "p_lat", "p_lon", "hub_site",
+    "id",
+    "name",
+    "status",
+    "type",
+    "site_grade",
+    "fra_site_name",
+    "standard_code",
+    "site_priority",
+    "site_strategic_type",
+    "province",
+    "district",
+    "commune",
+    "village",
+    "physical_location",
+    "physical_location_name",
+    "physical_location_address",
+    "p_lat",
+    "p_lon",
+    "hub_site",
 }
 
 # One row per (Incident, Site) pair currently in 'new' or 'in_progress'
@@ -79,10 +115,26 @@ _INCIDENT_STATUS_TABLE_SCHEMA = """
 """
 
 _INCIDENT_STATUS_CACHE_COLUMNS = {
-    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "resolved_at", "site_name", "site_code", "occurred_at", "overdue", "category",
-    "l1_noc_investigation_result", "nms", "hub_site", "site_grade",
-    "province", "district", "commune",
+    "incident_id",
+    "incident_numeric_id",
+    "incident_status",
+    "wo_id",
+    "wo_numeric_id",
+    "wo_created_at",
+    "wo_status",
+    "resolved_at",
+    "site_name",
+    "site_code",
+    "occurred_at",
+    "overdue",
+    "category",
+    "l1_noc_investigation_result",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # Same shape as incident_by_status above, but scoped to ONLY VIP/VVIP sites
@@ -111,10 +163,26 @@ _VIP_INCIDENT_STATUS_TABLE_SCHEMA = """
 """
 
 _VIP_INCIDENT_STATUS_CACHE_COLUMNS = {
-    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "resolved_at", "site_name", "site_code", "occurred_at", "overdue", "category",
-    "l1_noc_investigation_result", "nms", "hub_site", "site_grade",
-    "province", "district", "commune",
+    "incident_id",
+    "incident_numeric_id",
+    "incident_status",
+    "wo_id",
+    "wo_numeric_id",
+    "wo_created_at",
+    "wo_status",
+    "resolved_at",
+    "site_name",
+    "site_code",
+    "occurred_at",
+    "overdue",
+    "category",
+    "l1_noc_investigation_result",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # One row per INC-WO not yet 'closed' — the full joined drilldown detail
@@ -141,10 +209,26 @@ _INC_WO_STATUS_TABLE_SCHEMA = """
 """
 
 _INC_WO_STATUS_CACHE_COLUMNS = {
-    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "resolved_at", "incident_category", "site_name", "site_code", "overdue", "support_level",
-    "fault_description", "nms", "hub_site", "site_grade",
-    "province", "district", "commune",
+    "incident_id",
+    "incident_numeric_id",
+    "incident_status",
+    "wo_id",
+    "wo_numeric_id",
+    "wo_created_at",
+    "wo_status",
+    "resolved_at",
+    "incident_category",
+    "site_name",
+    "site_code",
+    "overdue",
+    "support_level",
+    "fault_description",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # One row per INC-WO that's Resolved while its parent Incident is still
@@ -165,9 +249,25 @@ _INC_WO_RESOLVED_TABLE_SCHEMA = """
 """
 
 _INC_WO_RESOLVED_CACHE_COLUMNS = {
-    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "resolved_at", "site_name", "site_code", "overdue", "support_level", "fault_description",
-    "nms", "hub_site", "site_grade", "province", "district", "commune",
+    "incident_id",
+    "incident_numeric_id",
+    "incident_status",
+    "wo_id",
+    "wo_numeric_id",
+    "wo_created_at",
+    "wo_status",
+    "resolved_at",
+    "site_name",
+    "site_code",
+    "overdue",
+    "support_level",
+    "fault_description",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # One row per VIP/VVIP Site (SITE_INFO on MSSQL) — see
@@ -187,9 +287,23 @@ _VIP_SITE_TABLE_SCHEMA = """
 """
 
 _VIP_SITE_CACHE_COLUMNS = {
-    "id", "site_code", "site_name", "bts_name", "vip", "province", "district",
-    "commune", "village", "location", "site_grade", "on_air", "product",
-    "tech", "site_id", "lat", "long",
+    "id",
+    "site_code",
+    "site_name",
+    "bts_name",
+    "vip",
+    "province",
+    "district",
+    "commune",
+    "village",
+    "location",
+    "site_grade",
+    "on_air",
+    "product",
+    "tech",
+    "site_id",
+    "lat",
+    "long",
 }
 
 # One row per (Site Down incident, Site) pair not yet Closed whose alarm
@@ -214,9 +328,24 @@ _INCIDENT_SITE_DOWN_TABLE_SCHEMA = """
 """
 
 _INCIDENT_SITE_DOWN_CACHE_COLUMNS = {
-    "incident_id", "incident_numeric_id", "incident_status", "wo_id", "wo_numeric_id", "wo_created_at", "wo_status",
-    "site_name", "site_code", "occurred_at", "l1_noc_investigation_result", "last_comments", "nms",
-    "hub_site", "site_grade", "province", "district", "commune",
+    "incident_id",
+    "incident_numeric_id",
+    "incident_status",
+    "wo_id",
+    "wo_numeric_id",
+    "wo_created_at",
+    "wo_status",
+    "site_name",
+    "site_code",
+    "occurred_at",
+    "l1_noc_investigation_result",
+    "last_comments",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # One row per Site Down incident found on the Telegram alert's last run
@@ -240,9 +369,61 @@ _TELEGRAM_ALERT_TABLE_SCHEMA = """
 """
 
 _TELEGRAM_ALERT_CACHE_COLUMNS = {
-    "incident_id", "incident_status", "wo_id", "wo_created_at", "wo_status",
-    "site_name", "site_code", "occurred_at", "outage_min", "l1_noc_investigation_result",
-    "last_comments", "nms", "hub_site", "site_grade", "province", "district", "commune",
+    "incident_id",
+    "incident_status",
+    "wo_id",
+    "wo_created_at",
+    "wo_status",
+    "site_name",
+    "site_code",
+    "occurred_at",
+    "outage_min",
+    "l1_noc_investigation_result",
+    "last_comments",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
+}
+
+# Same "every row seen on the alert's last run, not just the ones over
+# threshold" role as telegram_alert_cache above, but for the INC-WO Site
+# Down Telegram alert (app/services/telegram/telegram_inc_wo_alert.py) —
+# kept as its own table since replace_all() wipes the whole table on every
+# run, and this alert reads a different source (inc_wo_site_down) with a
+# different row shape (wo_created_at instead of occurred_at as the "age"
+# field, fault_description instead of l1_noc_investigation_result/
+# last_comments) — sharing telegram_alert_cache would silently overwrite
+# the other alert's last-run snapshot with this one's.
+TELEGRAM_INC_WO_ALERT_CACHE_TABLES = ("telegram_inc_wo_alert_cache",)
+
+_TELEGRAM_INC_WO_ALERT_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        incident_id TEXT, incident_status TEXT, wo_id TEXT PRIMARY KEY,
+        wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
+        outage_min INTEGER, fault_description TEXT,
+        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
+    )
+"""
+
+_TELEGRAM_INC_WO_ALERT_CACHE_COLUMNS = {
+    "incident_id",
+    "incident_status",
+    "wo_id",
+    "wo_created_at",
+    "wo_status",
+    "site_name",
+    "site_code",
+    "outage_min",
+    "fault_description",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
 }
 
 # One row per active NE/connectivity alarm (object_138) — the broader
@@ -263,7 +444,13 @@ _APE_ALARM_TABLE_SCHEMA = """
 """
 
 _APE_ALARM_CACHE_COLUMNS = {
-    "occurred_at", "event_name", "additional_info", "nms", "technology", "site_code", "site_name",
+    "occurred_at",
+    "event_name",
+    "additional_info",
+    "nms",
+    "technology",
+    "site_code",
+    "site_name",
     "occurrence_count",
 }
 
@@ -283,31 +470,15 @@ _VIP_ALARM_TABLE_SCHEMA = """
 """
 
 _VIP_ALARM_CACHE_COLUMNS = {
-    "occurred_at", "event_name", "additional_info", "nms", "technology", "site_code", "site_name",
-    "site_strategic_type", "occurrence_count",
-}
-
-# One row per VIP/VVIP alarm (from vip_alarm), joined to its site's current
-# Incident/INC-WO (from incident_by_status) if any — a purely LOCAL join,
-# unlike every other table above. All three source tables (vip_alarm,
-# incident_by_status, site_cache) are already synced from Postgres/MSSQL
-# separately; this just combines what's already on disk, so it never
-# touches Postgres itself and needs no retry logic — see
-# app/services/vip/vip_incident_alarm_sync_service.py.
-VIP_INCIDENT_ALARM_CACHE_TABLES = ("vip_incident_alarm",)
-
-_VIP_INCIDENT_ALARM_TABLE_SCHEMA = """
-    CREATE TABLE IF NOT EXISTS {table} (
-        incident_id TEXT, wo_id TEXT, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT,
-        site_name TEXT, site_code TEXT, occurred_at TEXT, event_name TEXT, category TEXT,
-        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT
-    )
-"""
-
-_VIP_INCIDENT_ALARM_CACHE_COLUMNS = {
-    "incident_id", "wo_id", "wo_created_at", "wo_status", "resolved_at",
-    "site_name", "site_code", "occurred_at", "event_name", "category",
-    "nms", "hub_site", "site_grade", "province",
+    "occurred_at",
+    "event_name",
+    "additional_info",
+    "nms",
+    "technology",
+    "site_code",
+    "site_name",
+    "site_strategic_type",
+    "occurrence_count",
 }
 
 # Mirrors PostgreSQL's site_lookup_mv (sran_id/nodeb_id/bts_id -> site_name)
@@ -367,15 +538,27 @@ _CACHE_DEFINITIONS = (
     (ALARM_CACHE_TABLES, _ALARM_TABLE_SCHEMA, _ALARM_CACHE_COLUMNS),
     (SITE_CACHE_TABLES, _SITE_TABLE_SCHEMA, _SITE_CACHE_COLUMNS),
     (INCIDENT_STATUS_CACHE_TABLES, _INCIDENT_STATUS_TABLE_SCHEMA, _INCIDENT_STATUS_CACHE_COLUMNS),
-    (VIP_INCIDENT_STATUS_CACHE_TABLES, _VIP_INCIDENT_STATUS_TABLE_SCHEMA, _VIP_INCIDENT_STATUS_CACHE_COLUMNS),
+    (
+        VIP_INCIDENT_STATUS_CACHE_TABLES,
+        _VIP_INCIDENT_STATUS_TABLE_SCHEMA,
+        _VIP_INCIDENT_STATUS_CACHE_COLUMNS,
+    ),
     (INC_WO_STATUS_CACHE_TABLES, _INC_WO_STATUS_TABLE_SCHEMA, _INC_WO_STATUS_CACHE_COLUMNS),
     (INC_WO_RESOLVED_CACHE_TABLES, _INC_WO_RESOLVED_TABLE_SCHEMA, _INC_WO_RESOLVED_CACHE_COLUMNS),
     (VIP_SITE_CACHE_TABLES, _VIP_SITE_TABLE_SCHEMA, _VIP_SITE_CACHE_COLUMNS),
-    (INCIDENT_SITE_DOWN_CACHE_TABLES, _INCIDENT_SITE_DOWN_TABLE_SCHEMA, _INCIDENT_SITE_DOWN_CACHE_COLUMNS),
+    (
+        INCIDENT_SITE_DOWN_CACHE_TABLES,
+        _INCIDENT_SITE_DOWN_TABLE_SCHEMA,
+        _INCIDENT_SITE_DOWN_CACHE_COLUMNS,
+    ),
     (TELEGRAM_ALERT_CACHE_TABLES, _TELEGRAM_ALERT_TABLE_SCHEMA, _TELEGRAM_ALERT_CACHE_COLUMNS),
+    (
+        TELEGRAM_INC_WO_ALERT_CACHE_TABLES,
+        _TELEGRAM_INC_WO_ALERT_TABLE_SCHEMA,
+        _TELEGRAM_INC_WO_ALERT_CACHE_COLUMNS,
+    ),
     (APE_ALARM_CACHE_TABLES, _APE_ALARM_TABLE_SCHEMA, _APE_ALARM_CACHE_COLUMNS),
     (VIP_ALARM_CACHE_TABLES, _VIP_ALARM_TABLE_SCHEMA, _VIP_ALARM_CACHE_COLUMNS),
-    (VIP_INCIDENT_ALARM_CACHE_TABLES, _VIP_INCIDENT_ALARM_TABLE_SCHEMA, _VIP_INCIDENT_ALARM_CACHE_COLUMNS),
     (SITE_LOOKUP_CACHE_TABLES, _SITE_LOOKUP_TABLE_SCHEMA, _SITE_LOOKUP_CACHE_COLUMNS),
     (SITE_TECHNOLOGY_CACHE_TABLES, _SITE_TECHNOLOGY_TABLE_SCHEMA, _SITE_TECHNOLOGY_CACHE_COLUMNS),
     (NE_NMS_LOOKUP_CACHE_TABLES, _NE_NMS_LOOKUP_TABLE_SCHEMA, _NE_NMS_LOOKUP_CACHE_COLUMNS),
@@ -384,8 +567,12 @@ _CACHE_DEFINITIONS = (
 # Tables no longer synced by anything — dropped on startup so an existing
 # instance/localstorage.db doesn't keep stale, unread data around forever.
 _RETIRED_TABLES = (
-    "incident_cache", "winauth_registered_user", "incident_closed_site",
-    "incident_wo_site", "vip_customer_complaint",
+    "incident_cache",
+    "winauth_registered_user",
+    "incident_closed_site",
+    "incident_wo_site",
+    "vip_customer_complaint",
+    "vip_incident_alarm",
 )
 
 
@@ -436,9 +623,8 @@ def init_cache_db() -> None:
     conn = get_cache_conn()
     try:
         existing = {
-            r[0] for r in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            r[0]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         }
         for table in _RETIRED_TABLES:
             if table in existing:

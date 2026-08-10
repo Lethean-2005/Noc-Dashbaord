@@ -11,6 +11,7 @@ get_feature_flags() below for that.
 DevelopmentConfig / TestingConfig / ProductionConfig only override what
 differs from the base Config; config_map picks one by APP_ENV.
 """
+
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -131,7 +132,9 @@ class Config:
     # lookup table Postgres's own get_processed_site() function used to
     # query per-row inside ape_alarm.sql — see app/utils/get_processed_site.py.
     # Changes about as rarely as Site data, so it shares SITE's interval.
-    SITE_LOOKUP_SYNC_INTERVAL_SECONDS = int(os.environ.get("SITE_LOOKUP_SYNC_INTERVAL_SECONDS", 300))
+    SITE_LOOKUP_SYNC_INTERVAL_SECONDS = int(
+        os.environ.get("SITE_LOOKUP_SYNC_INTERVAL_SECONDS", 300)
+    )
 
     # ── Incident cache — Incident table (object_322) on PostgreSQL ──
     # Read by app/repositories/incident/incident_repository.py. A background job
@@ -167,15 +170,6 @@ class Config:
     # app/services/vip/vip_alarm_sync_service.py.
     VIP_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_ALARM_SYNC_INTERVAL_SECONDS", 300))
 
-    # ── vip_incident_alarm cache — purely local join of vip_alarm +
-    # incident_by_status + site_cache (no Postgres call, no replica risk) ──
-    # Read by app/repositories/vip/vip_incident_alarm_cache_repository.py. A
-    # background job (app/services/vip/vip_incident_alarm_scheduler.py) rebuilds
-    # this from the other three (already-synced) local tables every
-    # VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS — short by default since this
-    # is cheap, in-process work, not a Postgres round trip.
-    VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_INCIDENT_ALARM_SYNC_INTERVAL_SECONDS", 60))
-
     # ── vip_site cache — VIP/VVIP Site master data, pulled directly from
     # MSSQL's SITE_INFO (see app/services/vip/vip_site_sync_service.py) ──
     # A background job (app/services/vip/vip_site_scheduler.py) refreshes
@@ -185,7 +179,9 @@ class Config:
     # ── all-tasks summary — one combined "Total" log line across every
     # cache table (app/services/all_tasks_scheduler.py), on its own timer
     # independent of each job's own sync interval above ──
-    ALL_TASKS_SUMMARY_INTERVAL_SECONDS = int(os.environ.get("ALL_TASKS_SUMMARY_INTERVAL_SECONDS", 300))
+    ALL_TASKS_SUMMARY_INTERVAL_SECONDS = int(
+        os.environ.get("ALL_TASKS_SUMMARY_INTERVAL_SECONDS", 300)
+    )
 
     # ── Dashboard behavior ───────────────────────────────────────
     TIMEZONE = os.environ.get("TIMEZONE", "UTC")
@@ -226,6 +222,27 @@ class Config:
     # ALERT_THRESHOLD_MIN, every ALERT_INTERVAL_SECONDS.
     ALERT_THRESHOLD_MIN = int(os.environ.get("ALERT_THRESHOLD_MIN", 240))
     ALERT_INTERVAL_SECONDS = int(os.environ.get("ALERT_INTERVAL_SECONDS", 14400))
+
+    # ── INC-WO Site Down Telegram alert
+    # (app/services/telegram/telegram_inc_wo_alert.py) ──
+    # Same shape as the alert above, but for the "INC-WO Site Down" card
+    # (inc_wo_site_down cache) instead of "Incident Site Down", sent via a
+    # SEPARATE bot (TELEGRAM_BOT_INC_WO_TOKEN) to its OWN chat/group
+    # (TELEGRAM_CHAT_IDS_INC_WO) — a different bot posting to a different
+    # group entirely, independent of TELEGRAM_CHAT_IDS above. Never starts
+    # unless both TELEGRAM_BOT_INC_WO_TOKEN and TELEGRAM_CHAT_IDS_INC_WO
+    # are set, independent of whether the Site Down alert above is
+    # configured.
+    #
+    # Deliberately different defaults from the Site Down alert above:
+    # threshold 0 (every current INC-WO Site Down row gets sent, not just
+    # ones open past a threshold) and interval 900s/15min (not 4h) — this
+    # alert is meant to read as "here's the current INC-WO Site Down list
+    # right now", refreshed often, not "here's what's been open too long".
+    TELEGRAM_BOT_INC_WO_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_TOKEN", "")
+    TELEGRAM_CHAT_IDS_INC_WO = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO", "")
+    INC_WO_ALERT_THRESHOLD_MIN = int(os.environ.get("INC_WO_ALERT_THRESHOLD_MIN", 0))
+    INC_WO_ALERT_INTERVAL_SECONDS = int(os.environ.get("INC_WO_ALERT_INTERVAL_SECONDS", 900))
 
     # ── Teams webhook alerts (webhook/ package) ─────────────────────
     # Master on/off for the scheduled Teams sends (webhook.start(), called

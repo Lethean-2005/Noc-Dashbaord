@@ -9,55 +9,68 @@ there, and the plain blocks are Eraser's own diagram-as-code syntax.
 
 ## 1. Overall Request / Data Flow
 
+Every card is live — MSSQL backs ISP POP/EZE/TCT/IT NODE, PostgreSQL backs
+everything else (RAN, Incident/INC-WO, VVIP, Mentor, Alarm Site
+Down/Main Failure/DG On). Neither is ever queried by a page directly —
+both flow into the same local SQLite cache through their own set of
+background schedulers, and pages only ever read that cache.
+
 ```mermaid
 flowchart TD
     Browser["Browser"]
 
     subgraph Flask["Flask App (Noc-Dashboard)"]
         direction TB
-        Routes["Routes\n(dashboard / reports / mentor / api blueprints)"]
+        Routes["Routes\n(dashboard / reports / mentor blueprints)"]
         Services["Services\n(business logic, no SQL)"]
         Repositories["Repositories\n(one method per query)"]
     end
 
-    subgraph DataLive["Live Data — ISP POP / EZE / TCT"]
+    SQLiteCache[("SQLite cache\ninstance/localstorage.db\n~15 tables, one per synced domain")]
+
+    subgraph MssqlSide["MSSQL — ISP POP / EZE / TCT / IT NODE"]
         direction TB
         MSSQL[("MSSQL\nnoc.TBL_PPD")]
-        Scheduler["alarm_scheduler.py\n(background thread, every\nMSSQL_SYNC_INTERVAL_SECONDS)"]
-        SyncService["alarm_sync_service.py"]
-        SQLiteCache[("SQLite cache\ninstance/localstorage.db")]
+        AlarmScheduler["alarm_scheduler.py\n(every MSSQL_SYNC_INTERVAL_SECONDS,\ndefault 10s)"]
     end
 
-    subgraph DataStatic["Static / Placeholder Pages"]
+    subgraph PgSide["PostgreSQL — every other card"]
         direction TB
-        Postgres[("PostgreSQL\n(configured, not yet wired to real data)")]
+        Postgres[("PostgreSQL foreign tables\nobject_138/160/227/322/324/...")]
+        PgSchedulers["site / site_lookup / incident /\nape_alarm / vip_alarm / vip_site\nschedulers (each its own interval,\nstaggered via offset_seconds)"]
     end
 
     Browser -->|"HTTP request"| Routes
     Routes -->|"calls"| Services
     Services -->|"calls"| Repositories
-    Repositories -->|"reads"| SQLiteCache
-    Repositories -->|"reads"| Postgres
-    Routes -->|"renders template / JSON"| Browser
+    Repositories -->|"reads only"| SQLiteCache
+    Routes -->|"renders template / CSV"| Browser
 
-    Scheduler -->|"triggers sync_all() on a loop"| SyncService
-    SyncService -->|"fetch active alarms"| MSSQL
-    SyncService -->|"normalize + replace_all()"| SQLiteCache
+    AlarmScheduler -->|"sync_all() on a loop"| MSSQL
+    MSSQL -->|"normalize + replace_all()"| SQLiteCache
 
-    style DataLive fill:#fff7ed,stroke:#f59e0b
-    style DataStatic fill:#f1f5f9,stroke:#94a3b8
-    style Flask fill:#eef2ff,stroke:#6366f1
+    PgSchedulers -->|"sync() on each own loop"| Postgres
+    Postgres -->|"normalize + replace_all()\n(retry_fetch() on 'conflict\nwith recovery' replica errors)"| SQLiteCache
+
+    style MssqlSide fill:#fff7ed,stroke:#f59e0b
+    style PgSide fill:#eef2ff,stroke:#6366f1
+    style Flask fill:#f0fdf4,stroke:#22c55e
 ```
 
 ---
 
 ## 2. Entity Relationship Diagram
 
-Built from the real `.sql` files in `app/database/queries/`.
+Built from the real `.sql` files in `app/database/queries/`. Only the
+MSSQL group has real foreign keys — the Postgres group and the SQLite
+cache group are separate databases with no enforced FKs between them;
+relationships there are join conditions inside the `.sql` queries
+(source system) or plain Python dict lookups by site_code (cache reads).
 
 ```mermaid
 erDiagram
     %% MSSQL — live alarm source (noc schema), read by app/database/mssql.py
+    %% Backs ISP POP / EZE / TCT / IT NODE only.
     TBL_PPD {
         string AlarmName
         string DeviceName
@@ -84,73 +97,87 @@ erDiagram
     TBL_PPD }o--|| TBL_ISPDEV : "IPAddress = IP"
     TBL_ISPDEV }o--|| TBL_POP : "CODE = NCODE"
 
-    %% SQLite cache — instance/localstorage.db, mirrors TBL_PPD per card
+    %% PostgreSQL — foreign tables, backs every other card. Generically
+    %% named object_N on the wire; see docs/postgres-object-tables.md for
+    %% the object_1 -> real-name lookup.
+    object_138_alarm {
+        string event_name
+        string site_code
+        string additional_info
+        string nms
+        datetime occurred_at
+    }
+    object_160_site {
+        int id PK
+        string standard_code
+        string status "excludes off_air everywhere it's read"
+        string site_grade
+        string hub_site
+        int province FK
+        int district FK
+        int commune FK
+        int physical_location FK
+    }
+    object_162_province { int id PK }
+    object_164_district { int id PK }
+    object_166_commune { int id PK }
+    object_308_physical_location { int id PK }
+    object_227_ne {
+        string site_name FK
+        string technology
+        string nms_name
+    }
+    object_322_incident {
+        string incident_id PK
+        string status
+        string site_text "free text, parsed to match Site.standard_code"
+        string incident_category
+        bool overdue
+    }
+    object_324_inc_wo {
+        string wo_id PK
+        int parent_incident FK
+        int site FK
+        string status
+        datetime created_at
+    }
+    object_138_alarm }o--o| object_160_site : "site_code = standard_code (Python join)"
+    object_227_ne }o--|| object_160_site : "site_name = id"
+    object_322_incident }o--o{ object_160_site : "site_text parsed = standard_code"
+    object_324_inc_wo }o--|| object_322_incident : "parent_incident = id"
+    object_160_site }o--|| object_162_province : "province = id"
+    object_160_site }o--|| object_164_district : "district = id"
+    object_160_site }o--|| object_166_commune : "commune = id"
+    object_160_site }o--|| object_308_physical_location : "physical_location = id"
+
+    %% SQLite cache — instance/localstorage.db, one table per synced
+    %% domain (app/database/cache.py). Pages read only from here.
     isp_pop_alarm_cache {
         string alarm
         string alarm_name
-        string device_name
-        string ip_address
         string pop_name
         string pop_code
-        string province
-        string down_time
-        string root_cause
-        string rtid
-        string interface
-        string source_group
-        string additional_info
-        string note
-    }
-    eze_alarm_cache {
-        string alarm
-        string alarm_name
-        string device_name
-        string ip_address
-        string pop_name
-        string pop_code
-        string province
         string down_time
     }
-    tct_alarm_cache {
-        string alarm
-        string alarm_name
-        string device_name
-        string ip_address
-        string pop_name
-        string pop_code
-        string province
-        string down_time
-    }
+    eze_alarm_cache { string alarm }
+    tct_alarm_cache { string alarm }
+    it_node_alarm_cache { string alarm }
+    ape_alarm { string event_name "the broader Postgres alarm feed" }
+    site_cache { string standard_code "off_air already excluded" }
+    site_technology_cache { string site_code "off_air already excluded" }
+    incident_by_status { string incident_id }
+    incident_site_down { string incident_id }
+    inc_wo_by_status { string wo_id }
+    inc_wo_resolved { string wo_id }
+    vip_alarm { string site_code }
+    vip_site_cache { string site_code }
+    vip_incident_status { string incident_id }
+    ne_nms_lookup_cache { string site_code }
     sync_meta {
         string table_name PK
         string last_synced_at
     }
-
-    %% PostgreSQL — configured but not yet wired to real data (still static pages)
-    incidents {
-        int id PK
-        string status
-        datetime created_at
-    }
-    mentor_sessions {
-        int id PK
-        string mentee
-        string mentor
-        datetime scheduled_at
-        string status
-    }
-    reports {
-        int id PK
-        string title
-        string status
-        datetime created_at
-    }
 ```
-
-Note: the three groups (MSSQL / SQLite cache / Postgres) are separate
-databases with no real foreign keys between them — only the MSSQL group has
-actual joins. `eze_alarm_cache`/`tct_alarm_cache` share the identical
-14-column schema shown in full on `isp_pop_alarm_cache`.
 
 ---
 
@@ -167,22 +194,42 @@ Flask App [icon: server] {
   Repositories [icon: layers]
 }
 
-Background Sync [color: orange] {
-  Scheduler [icon: clock]
-  Sync Service [icon: refresh-cw]
+MSSQL Sync [color: orange] {
+  Alarm Scheduler [icon: clock]
+  Alarm Sync Service [icon: refresh-cw]
+}
+
+Postgres Sync [color: indigo] {
+  Site/Incident/Ape-Alarm/VIP Schedulers [icon: clock]
+  Sync Services [icon: refresh-cw]
 }
 
 MSSQL [icon: database, color: blue]
 SQLite Cache [icon: database]
 PostgreSQL [icon: database, color: grey]
 
+Teams Webhook Alerts [icon: send]
+Telegram Alert [icon: send]
+
 Browser > Routes
 Routes > Services > Repositories
 Repositories > SQLite Cache
-Repositories > PostgreSQL
-Scheduler > Sync Service > MSSQL
-Sync Service > SQLite Cache
+
+Alarm Scheduler > Alarm Sync Service > MSSQL
+Alarm Sync Service > SQLite Cache
+
+Site/Incident/Ape-Alarm/VIP Schedulers > Sync Services > PostgreSQL
+Sync Services > SQLite Cache
+
+SQLite Cache > Teams Webhook Alerts
+SQLite Cache > Telegram Alert
 ```
+
+Note: repositories never query MSSQL/PostgreSQL directly on a page
+request — only the sync services do, on their own background schedules.
+`Teams Webhook Alerts` and `Telegram Alert` are two more, independent
+readers of the same cache (see `webhook/README.md`), not part of the
+request/response path.
 
 ---
 
@@ -292,12 +339,22 @@ Sleep Interval Seconds > Loop Forever
 
 Key points:
 - Both the fetch step and the cache-write step are wrapped in their own
-  try/except (`app/services/alarm_sync_service.py::_sync_one()`) — a
+  try/except (`app/services/alarm/alarm_sync_service.py::_sync_one()`) — a
   failure in either one logs an error and safely continues the loop,
   instead of crashing the background thread forever.
 - The sleep is unconditional — success or failure, the loop always waits
   `MSSQL_SYNC_INTERVAL_SECONDS` (10s by default) before the next cycle, so
   it can never spin in a tight error loop hammering MSSQL.
+- Every scheduler's sleep is clock-aligned with its own `offset_seconds`
+  (`app/services/scheduler_utils.py::seconds_until_next_aligned_time()`),
+  not just a plain fixed-length sleep — so the ~9 background jobs don't
+  all land on the same instant and spike CPU/DB load together.
+
+**Postgres sync services follow this same shape**, with one addition: the
+fetch step is wrapped in `app/services/postgres_sync_utils.py::retry_fetch()`,
+which retries on Postgres's "conflict with recovery" error — a hot-standby
+replica occasionally killing a read mid-query when the primary's WAL
+replay needs that data — instead of treating it as a hard failure.
 
 ---
 

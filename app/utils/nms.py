@@ -6,4 +6,5 @@ incident_site_down.sql), plus a second, independent copy in vip_alarm_service.py
 Every query now selects the raw code and this one dict resolves it
 wherever a display name is needed.
 """
+
 NMS_NAMES = {"3": "ZTE", "5": "Huawei", "7": "Nokia"}

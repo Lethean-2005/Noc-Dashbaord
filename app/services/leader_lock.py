@@ -27,6 +27,7 @@ restart to get background sync running again. wait_for_leadership() below
 fixes that: a follower keeps retrying in the background and automatically
 takes over (starting its own schedulers) the moment the lock frees up.
 """
+
 import socket
 import threading
 import time
@@ -77,6 +78,7 @@ def wait_for_leadership(on_acquired, retry_seconds=_RETRY_SECONDS):
     the leader stops holding the port (crashed, was closed, restarted).
     Only call this once you've already confirmed is_leader() is False;
     it does not check whether this process is already the leader."""
+
     def _poll():
         while not is_leader():
             time.sleep(retry_seconds)

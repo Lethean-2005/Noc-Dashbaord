@@ -6,6 +6,7 @@ reliable site identity, so both fields together are the site key, scoped
 only to get_isp_pop_counts(). EZE/TCT count distinct devices instead (via
 the shared _typed_counts()), not the raw row count either.
 """
+
 from app.services.alarm.alarm_service import AlarmService, EZE_TYPES
 
 

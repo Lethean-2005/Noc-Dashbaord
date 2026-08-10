@@ -3,14 +3,17 @@ webhook/eze_alarm.py — EZE active alarms -> Teams.
 Run:  python webhook/eze_alarm.py            (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_EZE_ALERTS in .env  (falls back to TEAMS_WEBHOOK_URL)
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli, send
 
 
 def _fetch():
     from app.services.alarm.alarm_service import AlarmService
+
     return AlarmService().get_eze_details()
 
 

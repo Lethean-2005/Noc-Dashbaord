@@ -5,8 +5,10 @@ posted to the Current Sites Outage channel instead.
 Run:  python webhook/current_site_outage.py   (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_CURRENT_SITES_OUTAGE in .env
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 from webhook.current_site_down import SPEC as _CURRENT_SITE_DOWN

@@ -3,14 +3,17 @@ webhook/tct_alarm.py — TCT active alarms -> Teams.
 Run:  python webhook/tct_alarm.py            (or --dry-run to preview)
 URL:  TEAMS_WEBHOOK_TCT_DOWN in .env
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from webhook.common import AlertSpec, run_cli
 
 
 def _fetch():
     from app.services.alarm.alarm_service import AlarmService
+
     return AlarmService().get_tct_details()
 
 

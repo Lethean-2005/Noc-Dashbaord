@@ -9,6 +9,7 @@ the loop runs on its own thread, outside any request, so Flask has no
 shared shape into one place — each scheduler file now only says *what* to run
 and *how often*, not how to run it forever.
 """
+
 import threading
 import time
 from datetime import datetime
@@ -37,23 +38,34 @@ def total_duration():
         return sum(_last_durations.values())
 
 
-def seconds_until_next_aligned_time(interval_seconds, tz_name):
+def seconds_until_next_aligned_time(interval_seconds, tz_name, offset_seconds=0):
     """Seconds from now until the next clock time that's a multiple of
-    `interval_seconds` since local midnight in `tz_name` — e.g. with a 300s
-    (5 min) interval: 00:00, 00:05, 00:10, ... Pure modular arithmetic on
-    seconds-since-midnight, so it needs no special-casing for the day
-    boundary. Originally telegram_alert.py's own
-    _seconds_until_next_aligned_time() — moved here once every other
-    scheduler needed the same "stay pinned to the clock, don't drift"
-    behavior, not just the Telegram alert loop."""
+    `interval_seconds` since local midnight in `tz_name` (plus
+    `offset_seconds`, default 0) — e.g. with a 300s (5 min) interval:
+    00:00, 00:05, 00:10, ... Pure modular arithmetic on seconds-since-
+    midnight, so it needs no special-casing for the day boundary.
+    Originally telegram_alert.py's own _seconds_until_next_aligned_time()
+    — moved here once every other scheduler needed the same "stay pinned
+    to the clock, don't drift" behavior, not just the Telegram alert loop.
+
+    `offset_seconds` staggers a job's own landing point within the shared
+    cycle (e.g. offset=30 lands on 00:00:30, 00:05:30, ... instead of
+    00:00:00, 00:05:00) — every 300s-interval job used to target the exact
+    same instant, which meant they (and every open browser tab's own
+    auto-reload, see dashboard.py's index()) could all start real work at
+    once, real staff traffic hitting the page right as several background
+    jobs' local database writes collided. Distinct offsets per job spread
+    that work across the cycle instead of concentrating it in one moment.
+    """
     now = datetime.now(ZoneInfo(tz_name))
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
     seconds_since_midnight = (now - midnight).total_seconds()
-    return interval_seconds - (seconds_since_midnight % interval_seconds)
+    return interval_seconds - ((seconds_since_midnight - offset_seconds) % interval_seconds)
 
 
-def start_singleton_loop(app, work, interval_seconds, thread_name, log_message, first_run_delay=None,
-                          next_delay_fn=None):
+def start_singleton_loop(
+    app, work, interval_seconds, thread_name, log_message, first_run_delay=None, next_delay_fn=None
+):
     """Run `work()` forever on a daemon thread named `thread_name`, every
     `interval_seconds`, guarded so a second call with the same `thread_name`
     in this process is a no-op.
@@ -127,7 +139,9 @@ def start_singleton_loop(app, work, interval_seconds, thread_name, log_message, 
                             _last_durations[thread_name] = elapsed
                     if isinstance(result, int):
                         if thread_name == "all-tasks-summary":
-                            logger.info(f"Total: Synced {result:,} row(s) in {total_duration():.2f}s")
+                            logger.info(
+                                f"Total: Synced {result:,} row(s) in {total_duration():.2f}s"
+                            )
                         else:
                             logger.info(f"Total: synced {result} row(s) in {elapsed:.2f}s")
             time.sleep(next_delay_fn() if next_delay_fn else interval_seconds)

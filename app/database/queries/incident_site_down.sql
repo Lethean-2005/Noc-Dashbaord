@@ -20,7 +20,10 @@
 --
 -- Same Site/NMS/Province/District/Commune join as incident_by_status.sql —
 -- see that file for the join reasoning, including why site_text is split
--- into one row per site instead of taking only the first one. The "latest
+-- into one row per site instead of taking only the first one, and the
+-- "Other Site" fallback (falls back to inc.site_code/province_ref/
+-- district/commune, keyed on sites.id IS NULL rather than a blank field,
+-- when the site isn't in the registered Site list at all). The "latest
 -- INC-WO per (incident, site)" is resolved the same batched way
 -- incident_by_status.sql now uses — see that file's header for why (a
 -- per-row LATERAL against the foreign object_324 table was ~100x slower).
@@ -36,7 +39,7 @@ SELECT
   END AS "Incident Status",
   ploc.fra_site_name AS "Site Name",
   sites.id AS "Site Numeric ID",
-  sites.standard_code AS "Site Code",
+  COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
   inc.last_comments AS "Last Comments",
@@ -58,9 +61,12 @@ LEFT JOIN LATERAL (
   FROM UNNEST(STRING_TO_ARRAY(inc.site_text, ',')) AS site_part
 ) site ON TRUE
 LEFT JOIN object_160 sites ON site.site_code = sites.standard_code
-LEFT JOIN object_162 province ON sites.province = province.id
-LEFT JOIN object_164 district ON sites.district = district.id
-LEFT JOIN object_166 commune ON sites.commune = commune.id
+LEFT JOIN object_162 province
+  ON (CASE WHEN sites.id IS NULL THEN inc.province_ref ELSE sites.province END) = province.id
+LEFT JOIN object_164 district
+  ON (CASE WHEN sites.id IS NULL THEN inc.district ELSE sites.district END) = district.id
+LEFT JOIN object_166 commune
+  ON (CASE WHEN sites.id IS NULL THEN inc.commune ELSE sites.commune END) = commune.id
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE inc.incident_category = 'site_down'
   AND inc.status != 'closed'

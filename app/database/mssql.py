@@ -5,6 +5,7 @@ these alarms live on a separate MSSQL server (noc.TBL_PPD) reached via pymssql,
 so they get their own connection + named-query loader following the same
 `-- name:` .sql convention as the Postgres queries.
 """
+
 import time
 
 import pymssql

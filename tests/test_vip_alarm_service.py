@@ -5,6 +5,7 @@ carries the same noisy vendor prefix on some rows
 (_categorize(), badge_type) must keep matching the full raw text — only the
 displayed event_name should be cleaned, and only after categorization runs.
 """
+
 from app.services.vip.vip_alarm_service import VipAlarmService
 
 
@@ -48,8 +49,16 @@ def _vip_alarm_row(**overrides):
     return row
 
 
+def _site_row(code):
+    return {"standard_code": code, "hub_site": "Not Hub", "site_grade": "gold"}
+
+
 def test_get_details_strips_noisy_prefix_from_displayed_event_name():
-    svc = VipAlarmService(FakeCacheRepo([_vip_alarm_row()]), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row()]),
+        FakeIncidentStatusRepo([]),
+        FakeSiteRepo([_site_row("S1")]),
+    )
 
     row = svc.get_details()[0]
 
@@ -57,7 +66,11 @@ def test_get_details_strips_noisy_prefix_from_displayed_event_name():
 
 
 def test_get_details_categorizes_using_the_full_raw_event_name():
-    svc = VipAlarmService(FakeCacheRepo([_vip_alarm_row()]), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row()]),
+        FakeIncidentStatusRepo([]),
+        FakeSiteRepo([_site_row("S1")]),
+    )
 
     row = svc.get_details()[0]
 
@@ -68,7 +81,9 @@ def test_get_details_categorizes_using_the_full_raw_event_name():
 
 def test_get_details_leaves_clean_event_names_unchanged():
     svc = VipAlarmService(
-        FakeCacheRepo([_vip_alarm_row(event_name="Door Alarm")]), FakeIncidentStatusRepo([]), FakeSiteRepo([]),
+        FakeCacheRepo([_vip_alarm_row(event_name="Door Alarm")]),
+        FakeIncidentStatusRepo([]),
+        FakeSiteRepo([_site_row("S1")]),
     )
 
     row = svc.get_details()[0]
@@ -83,7 +98,11 @@ def test_get_counts_counts_distinct_sites_not_alarm_rows():
         _vip_alarm_row(site_code="S1", event_name="Main Failure Alarm again"),
         _vip_alarm_row(site_code="S2", event_name="Main Failure Alarm"),
     ]
-    svc = VipAlarmService(FakeCacheRepo(rows), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
+    svc = VipAlarmService(
+        FakeCacheRepo(rows),
+        FakeIncidentStatusRepo([]),
+        FakeSiteRepo([_site_row("S1"), _site_row("S2")]),
+    )
 
     counts = svc.get_counts()
 
@@ -93,6 +112,28 @@ def test_get_counts_counts_distinct_sites_not_alarm_rows():
 
 def test_get_counts_ignores_rows_with_no_site_code():
     rows = [_vip_alarm_row(site_code="", event_name="Main Failure Alarm")]
+    svc = VipAlarmService(
+        FakeCacheRepo(rows), FakeIncidentStatusRepo([]), FakeSiteRepo([_site_row("S1")])
+    )
+
+    counts = svc.get_counts()
+
+    assert counts["Main AC Failure"] == 0
+
+
+def test_get_details_excludes_rows_with_no_matching_site_cache_record():
+    """Same "off_air isn't legitimately down" exclusion as the other alarm
+    cards — a site missing from site_cache (off_air, or unmapped) is
+    dropped instead of showing with blank Hub/Grade/Province."""
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row()]), FakeIncidentStatusRepo([]), FakeSiteRepo([])
+    )
+
+    assert svc.get_details() == []
+
+
+def test_get_counts_excludes_sites_with_no_matching_site_cache_record():
+    rows = [_vip_alarm_row(site_code="S1", event_name="Main Failure Alarm")]
     svc = VipAlarmService(FakeCacheRepo(rows), FakeIncidentStatusRepo([]), FakeSiteRepo([]))
 
     counts = svc.get_counts()

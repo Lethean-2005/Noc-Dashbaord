@@ -3,6 +3,7 @@
 Instantiated here (unbound) and initialized against the app in the
 application factory, so they can be imported anywhere without circular imports.
 """
+
 from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect

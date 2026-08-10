@@ -21,12 +21,19 @@ never also double-counts under its grade badge) and the Incident/INC-WO
 enrichment follow the same conventions as alarm_site_down_service.py — see
 that file for the fuller reasoning.
 """
+
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
-from app.repositories.incident.incident_site_down_cache_repository import IncidentSiteDownCacheRepository
+from app.repositories.incident.incident_site_down_cache_repository import (
+    IncidentSiteDownCacheRepository,
+)
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
 from app.repositories.site.site_technology_cache_repository import SiteTechnologyCacheRepository
-from app.utils.alarm_category import SITE_DOWN_EVENTS, classify_site_technology_coverage, site_down_technology
+from app.utils.alarm_category import (
+    SITE_DOWN_EVENTS,
+    classify_site_technology_coverage,
+    site_down_technology,
+)
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
 from app.utils.nms import NMS_NAMES
@@ -75,7 +82,8 @@ class AlarmCompletelySiteDownService:
 
     def _completely_down_site_codes(self):
         alarm_rows = [
-            row for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
+            row
+            for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
             if _is_site_down(row.get("event_name"))
         ]
         completely_down, _partially_down = classify_site_technology_coverage(
@@ -126,7 +134,9 @@ class AlarmCompletelySiteDownService:
         incident_site_down if any, plus Hub Site/Site Grade/Province and
         outage_min computed at read time — optionally narrowed to one badge
         (matches get_counts()'s categorization)."""
-        site_down_incidents = self.incident_site_down_cache_repository.fetch_all(_INCIDENT_SITE_DOWN_TABLE)
+        site_down_incidents = self.incident_site_down_cache_repository.fetch_all(
+            _INCIDENT_SITE_DOWN_TABLE
+        )
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(site_down_incidents)
 
         rows = []
@@ -145,14 +155,17 @@ class AlarmCompletelySiteDownService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms"))
+            row["nms"] = inc.get("nms") or NMS_NAMES.get(
+                str(row.get("nms") or "").strip(), row.get("nms")
+            )
             rows.append(row)
 
         if badge_type == "Hub":
             rows = [r for r in rows if r["hub_site"].lower() in _HUB_SITE_VALUES]
         elif badge_type in _GRADE_BADGES.values():
             rows = [
-                r for r in rows
+                r
+                for r in rows
                 if r["site_grade"] == badge_type and r["hub_site"].lower() not in _HUB_SITE_VALUES
             ]
         return rows

@@ -15,6 +15,7 @@ Every command runs inside a Flask app context (see main() below) — every
 alert's fetch() reads a local SQLite cache through this project's
 Flask-SQLAlchemy repositories, which need `current_app`.
 """
+
 import argparse
 import json
 import sys
@@ -31,8 +32,10 @@ def _spec_by_key(key: str):
 def _print_result(spec, result: dict) -> None:
     """Print one 'sent/FAIL key count=… status=…' status line."""
     state = "sent" if result["sent"] else "FAIL"
-    print(f"{state}  {spec.key:22} count={result['count']} status={result['status']} "
-          f"({result.get('reason', '')})")
+    print(
+        f"{state}  {spec.key:22} count={result['count']} status={result['status']} "
+        f"({result.get('reason', '')})"
+    )
 
 
 def _unknown_key(key: str) -> int:
@@ -41,6 +44,7 @@ def _unknown_key(key: str) -> int:
 
 
 # ── Commands ──────────────────────────────────────────────────────────
+
 
 def cmd_list(_args) -> int:
     """List every alert with its URL status and env var."""
@@ -97,18 +101,19 @@ def cmd_preview(args) -> int:
 
 # ── Parser + entrypoint ───────────────────────────────────────────────
 
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m webhook",
         description="Send Microsoft Teams alert cards. Each alert reads its "
-                    "webhook URL from .env; alerts with no URL are skipped.",
+        "webhook URL from .env; alerts with no URL are skipped.",
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("list", help="show all alerts and whether their URL is set"
-                   ).set_defaults(func=cmd_list)
-    sub.add_parser("send-all", help="send every configured alert"
-                   ).set_defaults(func=cmd_send_all)
+    sub.add_parser("list", help="show all alerts and whether their URL is set").set_defaults(
+        func=cmd_list
+    )
+    sub.add_parser("send-all", help="send every configured alert").set_defaults(func=cmd_send_all)
 
     p_send = sub.add_parser("send", help="send one alert by key")
     p_send.add_argument("key", help="alert key, e.g. eze (see 'list')")
@@ -126,6 +131,7 @@ def main(argv=None) -> int:
     func = getattr(args, "func", cmd_send_all)  # no subcommand -> send all
 
     from app import create_app
+
     app = create_app()
     with app.app_context():
         return func(args)

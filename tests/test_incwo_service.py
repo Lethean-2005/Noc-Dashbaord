@@ -4,6 +4,7 @@ column drilldown. Same real bug as test_incident_service.py: the plain
 used to return None for ANY badge_type not in BADGE_FILTERS, including "",
 rendering the empty-state template instead of every INC-WO row.
 """
+
 from app.services.incwo.incwo_service import IncWoService
 
 
@@ -17,8 +18,12 @@ class FakeStatusRepo:
 
 def _row(wo_status="New", incident_status="New", overdue="No", **overrides):
     row = {
-        "incident_id": "INC1", "wo_id": "WO1", "wo_status": wo_status,
-        "incident_status": incident_status, "overdue": overdue, "site_code": "S1",
+        "incident_id": "INC1",
+        "wo_id": "WO1",
+        "wo_status": wo_status,
+        "incident_status": incident_status,
+        "overdue": overdue,
+        "site_code": "S1",
     }
     row.update(overrides)
     return row
@@ -103,7 +108,13 @@ def test_overdue_includes_other_categories_even_when_resolved():
 
 
 def test_overdue_includes_customer_complaint_when_not_resolved():
-    rows = [_overdue_row(support_level=None, incident_category="Customer Complaint", incident_status="In Progress")]
+    rows = [
+        _overdue_row(
+            support_level=None,
+            incident_category="Customer Complaint",
+            incident_status="In Progress",
+        )
+    ]
     svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
 
     result = svc.get_details("overdue")
@@ -112,7 +123,11 @@ def test_overdue_includes_customer_complaint_when_not_resolved():
 
 
 def test_overdue_l2_excludes_resolved_customer_complaint():
-    rows = [_overdue_row("L2 On-Site", incident_category="Customer Complaint", incident_status="Resolved")]
+    rows = [
+        _overdue_row(
+            "L2 On-Site", incident_category="Customer Complaint", incident_status="Resolved"
+        )
+    ]
     svc = IncWoService(FakeStatusRepo(rows), FakeStatusRepo([]))
 
     assert svc.get_details("overdue_l2") == []

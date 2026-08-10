@@ -3,6 +3,7 @@ local cache (instance/localstorage.db). Mirrors the MSSQL alarm sync in
 app/services/alarm/alarm_sync_service.py, but for the Postgres-backed Site table —
 kept separate since the two sources are unrelated.
 """
+
 from app.repositories.site.ne_nms_lookup_cache_repository import NeNmsLookupCacheRepository
 from app.repositories.site.ne_nms_lookup_repository import NeNmsLookupRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
@@ -20,9 +21,15 @@ _NE_NMS_LOOKUP_TABLE = "ne_nms_lookup_cache"
 
 
 class SiteSyncService:
-    def __init__(self, site_repository=None, cache_repository=None,
-                 site_technology_repository=None, site_technology_cache_repository=None,
-                 ne_nms_lookup_repository=None, ne_nms_lookup_cache_repository=None):
+    def __init__(
+        self,
+        site_repository=None,
+        cache_repository=None,
+        site_technology_repository=None,
+        site_technology_cache_repository=None,
+        ne_nms_lookup_repository=None,
+        ne_nms_lookup_cache_repository=None,
+    ):
         self.site_repository = site_repository or SiteRepository()
         self.cache_repository = cache_repository or SiteCacheRepository()
         self.site_technology_repository = site_technology_repository or SiteTechnologyRepository()

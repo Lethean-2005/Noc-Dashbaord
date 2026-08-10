@@ -6,22 +6,30 @@ Both badge counts and drilldown detail read from local caches
 app/services/incident/incident_scheduler.py keeps in sync with PostgreSQL in the
 background — the dashboard never waits on a live Postgres query.
 """
-from app.repositories.incident.incident_site_down_cache_repository import IncidentSiteDownCacheRepository
+
+from app.repositories.incident.incident_site_down_cache_repository import (
+    IncidentSiteDownCacheRepository,
+)
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
 from app.utils.datetime import elapsed_minutes
 
 _STATUS_TABLE = "incident_by_status"
 _SITE_DOWN_TABLE = "incident_site_down"
-
 # badge `type` (from the drilldown URL / badge count key) -> the exact
 # field/value pairs to match in incident_by_status (already formatted by
 # incident_by_status.sql, e.g. 'site_down' -> 'Site Down', overdue -> 'Yes').
 # Add the next badge here the same way.
 #
-# Counts here are per (incident, site) pair, not per distinct incident_id —
-# a multi-site incident (e.g. one incident covering 2 sites) is 2 rows in
-# incident_by_status, one per site, and counts toward a badge twice. See
-# incident_by_status.sql's header comment for why.
+# incident_by_status has one row per (incident, site) pair — a multi-site
+# incident (e.g. one incident covering 2 sites) is 2 rows, one per site
+# (see incident_by_status.sql's header comment for why). get_details()
+# below still returns every one of those rows (each affected site should
+# still show its own line in the drilldown table), but get_incident_counts()
+# counts DISTINCT incident_id per badge — matching Streamline's own count
+# (confirmed live: Streamline showed 341 In-Progress, this cache had 380
+# rows for the same status, entirely from multi-site incidents each adding
+# one extra row per additional site) — a badge number should read as "how
+# many tickets", not "how many ticket-site pairs".
 BADGE_FILTERS = {
     "new": {"incident_status": "New"},
     "new_site_down": {"incident_status": "New", "category": "Site Down"},
@@ -59,14 +67,18 @@ def _matches_site_down_badge(row, badge_type):
 class IncidentService:
     def __init__(self, status_cache_repository=None, site_down_cache_repository=None):
         self.status_cache_repository = status_cache_repository or IncidentStatusCacheRepository()
-        self.site_down_cache_repository = site_down_cache_repository or IncidentSiteDownCacheRepository()
+        self.site_down_cache_repository = (
+            site_down_cache_repository or IncidentSiteDownCacheRepository()
+        )
 
     def get_incident_counts(self):
         """Badge counts for every Incident-column badge (New, New Site-Down,
-        In-Progress, In-Progress Site-Down, Overdue, Overdue Site-Down)."""
+        In-Progress, In-Progress Site-Down, Overdue, Overdue Site-Down) —
+        counts DISTINCT incidents per badge (see BADGE_FILTERS comment),
+        not incident-site rows, so a multi-site incident only counts once."""
         rows = self.status_cache_repository.fetch_all(_STATUS_TABLE)
         return {
-            badge_type: sum(1 for r in rows if _matches(r, filters))
+            badge_type: len({r["incident_id"] for r in rows if _matches(r, filters)})
             for badge_type, filters in BADGE_FILTERS.items()
         }
 

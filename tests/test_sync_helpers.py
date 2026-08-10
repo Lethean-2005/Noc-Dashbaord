@@ -5,6 +5,7 @@ real logic (retry/backoff, timezone math, "keep the latest row per site"),
 so they're worth locking in with tests instead of only being exercised
 indirectly through the full sync services.
 """
+
 from datetime import datetime, timezone
 
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository

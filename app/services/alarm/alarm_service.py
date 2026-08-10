@@ -6,18 +6,36 @@ never wait on a live MSSQL query. Each card always reports its full fixed set
 of alarm types: a type with no active alarms comes back as 0 (rendered green)
 instead of disappearing, so the card layout never shifts.
 """
+
 from app.repositories.alarm.alarm_cache_repository import AlarmCacheRepository
 from app.repositories.alarm.alarm_repository import AlarmRepository
 from app.utils.datetime import elapsed_minutes
 
 EZE_TYPES = (
-    "BANDWIDTH", "CPU", "CRC", "DOOR", "PORT",
-    "RECTIFIER_BATTERY_TEMPERATURE", "TEMPERATURE",
+    "BANDWIDTH",
+    "CPU",
+    "CRC",
+    "DOOR",
+    "PORT",
+    "RECTIFIER_BATTERY_TEMPERATURE",
+    "TEMPERATURE",
 )
 TCT_TYPES = (
-    "bandwidth", "bgp", "congestion", "cpu", "crc", "dldp",
-    "memory", "node", "port", "storm", "switch_signal_low",
-    "tx_ofa_port", "tx_otu/eth", "tx_temperature", "zero_traffic",
+    "bandwidth",
+    "bgp",
+    "congestion",
+    "cpu",
+    "crc",
+    "dldp",
+    "memory",
+    "node",
+    "port",
+    "storm",
+    "switch_signal_low",
+    "tx_ofa_port",
+    "tx_otu/eth",
+    "tx_temperature",
+    "zero_traffic",
 )
 
 

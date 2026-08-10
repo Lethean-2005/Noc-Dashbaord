@@ -4,6 +4,7 @@ raw `site`/`additional_info` and this service resolves Site Code locally via
 app/utils/get_processed_site.py (see tests/test_get_processed_site.py for that logic's own
 tests) using the site_lookup cache for the sran_id/nodeb_id/bts_id lookups.
 """
+
 from app.services.ape_alarm.ape_alarm_sync_service import ApeAlarmSyncService
 
 
@@ -59,7 +60,10 @@ def test_sync_resolves_site_code_via_raw_site_regex(app):
         site_rows = [{"standard_code": "1234", "physical_location_name": "Site 1234"}]
         cache_repo = FakeCacheRepo()
         svc = ApeAlarmSyncService(
-            FakeApeAlarmRepo(source_rows), cache_repo, FakeSiteCacheRepo(site_rows), FakeSiteLookupCacheRepo([]),
+            FakeApeAlarmRepo(source_rows),
+            cache_repo,
+            FakeSiteCacheRepo(site_rows),
+            FakeSiteLookupCacheRepo([]),
         )
 
         svc.sync()
@@ -71,11 +75,18 @@ def test_sync_resolves_site_code_via_raw_site_regex(app):
 
 def test_sync_resolves_site_code_via_site_lookup_cache(app):
     with app.app_context():
-        source_rows = [_source_row(**{"Raw Site": "NoDigitsHere", "Additional Info": "UIubLink=5555;"})]
-        site_lookup_rows = [{"sran_id": None, "nodeb_id": 5555, "bts_id": None, "site_name": "YY7777"}]
+        source_rows = [
+            _source_row(**{"Raw Site": "NoDigitsHere", "Additional Info": "UIubLink=5555;"})
+        ]
+        site_lookup_rows = [
+            {"sran_id": None, "nodeb_id": 5555, "bts_id": None, "site_name": "YY7777"}
+        ]
         cache_repo = FakeCacheRepo()
         svc = ApeAlarmSyncService(
-            FakeApeAlarmRepo(source_rows), cache_repo, FakeSiteCacheRepo([]), FakeSiteLookupCacheRepo(site_lookup_rows),
+            FakeApeAlarmRepo(source_rows),
+            cache_repo,
+            FakeSiteCacheRepo([]),
+            FakeSiteLookupCacheRepo(site_lookup_rows),
         )
 
         svc.sync()
@@ -88,7 +99,10 @@ def test_sync_carries_through_alarm_fields(app):
         source_rows = [_source_row(**{"Event Name": "Door Alarm", "Occurrence Count": 5})]
         cache_repo = FakeCacheRepo()
         svc = ApeAlarmSyncService(
-            FakeApeAlarmRepo(source_rows), cache_repo, FakeSiteCacheRepo([]), FakeSiteLookupCacheRepo([]),
+            FakeApeAlarmRepo(source_rows),
+            cache_repo,
+            FakeSiteCacheRepo([]),
+            FakeSiteLookupCacheRepo([]),
         )
 
         svc.sync()
@@ -102,7 +116,10 @@ def test_sync_writes_empty_list_when_no_rows(app):
     with app.app_context():
         cache_repo = FakeCacheRepo()
         svc = ApeAlarmSyncService(
-            FakeApeAlarmRepo([]), cache_repo, FakeSiteCacheRepo([]), FakeSiteLookupCacheRepo([]),
+            FakeApeAlarmRepo([]),
+            cache_repo,
+            FakeSiteCacheRepo([]),
+            FakeSiteLookupCacheRepo([]),
         )
 
         svc.sync()

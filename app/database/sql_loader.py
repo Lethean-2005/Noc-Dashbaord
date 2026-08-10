@@ -5,6 +5,7 @@ parse their queries the same way — split a domain's .sql file on `-- name:`
 marker comments — so that parsing logic lives here once instead of being
 copy-pasted in both places.
 """
+
 from functools import lru_cache
 from pathlib import Path
 

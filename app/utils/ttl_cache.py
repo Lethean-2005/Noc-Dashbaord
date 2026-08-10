@@ -13,6 +13,7 @@ cached value on the instance itself (not a shared module-level dict) also
 means distinct instances never share state, so it's still safe with
 short-lived instances like the ones those tests create.
 """
+
 import time
 from functools import wraps
 

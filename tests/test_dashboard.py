@@ -4,13 +4,17 @@ def test_index_returns_200(client):
 
 
 def test_drilldown_returns_200(client):
-    response = client.get("/drilldown?title=VVIP+Door+Alarm&label=Door+Alarm&value=0&scope=VVIP+Site")
+    response = client.get(
+        "/drilldown?title=VVIP+Door+Alarm&label=Door+Alarm&value=0&scope=VVIP+Site"
+    )
     assert response.status_code == 200
     assert b"No VIP/VVIP site alarms found" in response.data
 
 
 def test_dc_low_high_drilldown_returns_200(client):
-    response = client.get("/drilldown?title=DC+Low%2FHigh&label=DC+Low%2FHigh&value=0&scope=DC+Low%2FHigh")
+    response = client.get(
+        "/drilldown?title=DC+Low%2FHigh&label=DC+Low%2FHigh&value=0&scope=DC+Low%2FHigh"
+    )
     assert response.status_code == 200
     assert b"No DC Low/High found" in response.data
 

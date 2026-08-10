@@ -18,6 +18,7 @@ with recovery" — see app/database/queries/ape_alarm.sql's header); the
 retry/backoff that mitigates it lives in app/services/postgres_sync_utils.py
 (shared with vip_alarm_sync_service.py and incident_sync_service.py).
 """
+
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
 from app.repositories.ape_alarm.ape_alarm_repository import ApeAlarmRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
@@ -44,7 +45,9 @@ class ApeAlarmSyncService:
         self.ape_alarm_repository = ape_alarm_repository or ApeAlarmRepository()
         self.cache_repository = cache_repository or ApeAlarmCacheRepository()
         self.site_cache_repository = site_cache_repository or SiteCacheRepository()
-        self.site_lookup_cache_repository = site_lookup_cache_repository or SiteLookupCacheRepository()
+        self.site_lookup_cache_repository = (
+            site_lookup_cache_repository or SiteLookupCacheRepository()
+        )
 
     def sync(self):
         """Refresh ape_alarm from PostgreSQL. Wrapped in try/except-per-step,
@@ -64,8 +67,10 @@ class ApeAlarmSyncService:
         whether to retry sooner than the normal interval after a failed
         cycle."""
         alarm_rows = retry_fetch(
-            self.ape_alarm_repository.fetch_active, "ape_alarm",
-            max_attempts=8, max_delay_seconds=30,
+            self.ape_alarm_repository.fetch_active,
+            "ape_alarm",
+            max_attempts=8,
+            max_delay_seconds=30,
         )
         if alarm_rows is None:
             return None

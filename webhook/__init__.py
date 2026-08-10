@@ -12,9 +12,19 @@ start() runs send_all() on a background loop every TEAMS_ALERT_INTERVAL_SECONDS
 (default 900s / 15 min) — called once from app/__init__.py::create_app(), same
 pattern as app/services/telegram/telegram_alert.py's own start().
 """
-from . import (eze_alarm, tct_alarm, pop_down, pop_main_failure, main_failure,
-               current_site_down, cso_sub_con, current_site_outage, dg_on,
-               inc_wo_site)
+
+from . import (
+    eze_alarm,
+    tct_alarm,
+    pop_down,
+    pop_main_failure,
+    main_failure,
+    current_site_down,
+    cso_sub_con,
+    current_site_outage,
+    dg_on,
+    inc_wo_site,
+)
 
 from app.services.scheduler_utils import seconds_until_next_aligned_time, start_singleton_loop
 from app.utils.logger import get_logger
@@ -22,10 +32,21 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 # All alert specs, in send order.
-SPECS = [m.SPEC for m in (
-    eze_alarm, tct_alarm, pop_down, pop_main_failure, main_failure,
-    current_site_down, cso_sub_con, current_site_outage, dg_on, inc_wo_site,
-)]
+SPECS = [
+    m.SPEC
+    for m in (
+        eze_alarm,
+        tct_alarm,
+        pop_down,
+        pop_main_failure,
+        main_failure,
+        current_site_down,
+        cso_sub_con,
+        current_site_outage,
+        dg_on,
+        inc_wo_site,
+    )
+]
 
 
 def send_all() -> list[dict]:
@@ -34,6 +55,7 @@ def send_all() -> list[dict]:
     WEBHOOK_SEND_EMPTY=true. Called by the scheduler and the CLI's send-all.
     Returns a list of per-webhook result dicts."""
     from webhook.common import send
+
     results = []
     for spec in SPECS:
         try:
@@ -61,14 +83,16 @@ def start(app, interval_seconds=None):
     reasoning as telegram_alert.py's own start()."""
     wait = interval_seconds or app.config["TEAMS_ALERT_INTERVAL_SECONDS"]
     tz_name = app.config["TIMEZONE"]
-    delay = seconds_until_next_aligned_time(wait, tz_name)
+    delay = seconds_until_next_aligned_time(wait, tz_name, offset_seconds=105)
     start_singleton_loop(
-        app, _work, wait,
+        app,
+        _work,
+        wait,
         thread_name="teams-webhook-alerts",
         log_message=f"Teams webhook alert scheduler started (every {wait}s, "
-                     f"first run in {delay:.0f}s)",
+        f"first run in {delay:.0f}s)",
         first_run_delay=delay,
-        next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name),
+        next_delay_fn=lambda: seconds_until_next_aligned_time(wait, tz_name, offset_seconds=105),
     )
 
 

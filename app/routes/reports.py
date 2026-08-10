@@ -1,8 +1,11 @@
 """Custom Dashboard page routes."""
+
 from flask import Blueprint, render_template
 
 from app.services.alarm.alarm_service import AlarmService
-from app.services.alarm_site_down.alarm_completely_site_down_service import AlarmCompletelySiteDownService
+from app.services.alarm_site_down.alarm_completely_site_down_service import (
+    AlarmCompletelySiteDownService,
+)
 from app.services.alarm_site_down.alarm_site_down_service import AlarmSiteDownService
 from app.services.alarm_main_failure.alarm_main_failure_service import AlarmMainFailureService
 from app.services.dg_on.dg_on_alarm_service import DgOnAlarmService
