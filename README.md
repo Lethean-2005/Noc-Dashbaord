@@ -58,9 +58,26 @@ once in `create_app()`:
 Two independent outbound alert channels, both reading the same local caches
 (no extra Postgres/MSSQL load):
 
-- **Telegram** (`app/services/telegram/telegram_alert.py`) — one alert,
-  Incident Site Down over a configurable outage threshold, sent as a table
-  image every `ALERT_INTERVAL_SECONDS` (default 4h), clock-aligned.
+- **Telegram** — three independent alerts, each its own bot/chat/schedule,
+  none starts unless its own credentials are set in `.env`:
+  - `app/services/telegram/telegram_alert.py` — Incident Site Down over a
+    configurable outage threshold (`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_IDS`,
+    `ALERT_THRESHOLD_MIN`/`ALERT_INTERVAL_SECONDS`, default 4h).
+  - `app/services/telegram/telegram_inc_wo_alert.py` — the current INC-WO
+    Site Down list, refreshed on its own interval rather than threshold-gated
+    (`TELEGRAM_BOT_INC_WO_TOKEN`/`TELEGRAM_CHAT_IDS_INC_WO`,
+    `INC_WO_ALERT_THRESHOLD_MIN`/`INC_WO_ALERT_INTERVAL_SECONDS`, default
+    0min/15min — 0 threshold means every open row, not just ones over a
+    threshold).
+  - `app/services/telegram/telegram_inc_wo_power_alert.py` — same shape as
+    the INC-WO Site Down alert, but for category='power' work orders
+    instead of 'site_down' (`TELEGRAM_BOT_INC_WO_POWER_TOKEN`/
+    `TELEGRAM_CHAT_IDS_INC_WO_POWER`,
+    `INC_WO_POWER_ALERT_THRESHOLD_MIN`/`INC_WO_POWER_ALERT_INTERVAL_SECONDS`,
+    same 0min/15min default). Telegram-only — no dashboard card behind it.
+  - All three send as a table image (Pillow) with a plain-text fallback, and
+    all three can be configured from `configurator.py`'s General tab
+    instead of hand-editing `.env`.
 - **Microsoft Teams** (`webhook/` — see `webhook/README.md`) — one card per
   alarm type (EZE, TCT, POP Down/Power, Main Failure, DG On, Site Down,
   INC-WO Site Down, ...), sent every `TEAMS_ALERT_INTERVAL_SECONDS`

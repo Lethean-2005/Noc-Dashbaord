@@ -3,6 +3,7 @@
 APP_ENV (set in .env) selects the config class from app/config.py, which
 determines the database connection, debug mode, and host/port.
 """
+
 import os
 
 from app import create_app
@@ -27,4 +28,9 @@ if __name__ == "__main__":
         # WAITRESS_THREADS for why that's too few here).
         from waitress import serve
 
-        serve(app, host=app.config["HOST"], port=app.config["PORT"], threads=app.config["WAITRESS_THREADS"])
+        serve(
+            app,
+            host=app.config["HOST"],
+            port=app.config["PORT"],
+            threads=app.config["WAITRESS_THREADS"],
+        )

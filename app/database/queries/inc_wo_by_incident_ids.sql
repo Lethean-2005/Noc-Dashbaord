@@ -3,13 +3,12 @@
 -- round-trip — used by incident_by_status.sql/incident_site_down.sql/
 -- vip_incident_status.sql's sync to resolve "latest INC-WO per
 -- (incident, site)" without a per-row LATERAL subquery against the
--- foreign object_324 table (confirmed live via EXPLAIN ANALYZE to cost
--- one remote round-trip PER ROW — ~21ms x 356 rows = ~7.5s for what should
--- be a single query). No status filter here (matches the old LATERAL's
--- behavior exactly — it takes the single latest WO regardless of status,
--- including a Closed one, if that's genuinely the most recent); "latest
--- per (incident, site)" itself is picked in Python afterward — see
--- IncidentSyncService._latest_wo_by_incident_site().
+-- foreign object_324 table. No status filter (a Closed WO can still be
+-- the latest one); "latest per (incident, site)" is picked in Python
+-- afterward — see IncidentSyncService._latest_wo_by_incident_site().
+--
+-- Responsible Team is the WO's own team (object_310 FK), not the parent
+-- Incident's — used to enrich VipAlarmService/MentorSiteService's rows.
 -- ==============================================================
 
 -- name: inc_wo_by_incident_ids
@@ -24,6 +23,13 @@ SELECT
     WHEN 'on_hold' THEN 'On Hold'
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
-  wo.resolved_at AS "Resolved At"
+  wo.resolved_at AS "Resolved At",
+  team.name AS "Responsible Team",
+  CASE wo.support_level
+    WHEN 'l2_on_site' THEN 'L2 On-Site'
+    WHEN 'l3_internal_support' THEN 'L3 Internal Support'
+    ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
+  END AS "Support Level"
 FROM object_324 wo
+LEFT JOIN object_310 team ON wo.responsible_team = team.id
 WHERE wo.parent_incident = ANY(:incident_ids);

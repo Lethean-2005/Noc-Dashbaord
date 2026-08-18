@@ -21,6 +21,11 @@ app/database/cache.py's comment for why) before the threshold filter
 runs, so this alert's last run is inspectable independent of whether
 anything was actually over-threshold.
 
+Every send also attaches a second document: the same rows as a styled
+.xlsx (via openpyxl, see telegram_alert.py's _build_excel_bytes()) — the
+image stays the at-a-glance view, the Excel file is the "open this in a
+spreadsheet" copy.
+
 Sent via a SEPARATE Telegram bot (TELEGRAM_BOT_INC_WO_TOKEN) to its OWN
 chat/group (TELEGRAM_CHAT_IDS_INC_WO), independent of the Site Down
 alert's TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS above. Never runs unless both
@@ -30,10 +35,9 @@ Request: chat not found" otherwise, even with a correct token/chat id.
 
 start() runs this on its own background loop, once every
 INC_WO_ALERT_INTERVAL_SECONDS (default 900s / 15min), clock-aligned the
-same way telegram_alert.py's own loop is — offset by _OFFSET_SECONDS so
-this and any other clock-aligned job landing on the same interval don't
-all fire in the same instant (same "thundering herd" reasoning as every
-other scheduler in app/services/scheduler_utils.py).
+same way telegram_alert.py's own loop is — deliberately landing at the
+exact same instant as every other Telegram alert (_OFFSET_SECONDS=0 on
+all of them, per explicit request), not staggered.
 """
 
 import io
@@ -51,10 +55,15 @@ from app.services.scheduler_utils import seconds_until_next_aligned_time, start_
 from app.services.telegram.telegram_alert import (
     _FONT_DIR,
     _TELEGRAM_SEND_DOCUMENT_URL,
+    _build_excel_bytes,
     _chat_ids,
+    _error_detail,
     _format_outage,
+    _inc_wo_link,
+    _incident_link,
+    _is_l2_support,
+    _send_telegram_excel,
     _send_telegram_text,
-    _wrap_text_px,
 )
 from app.utils.datetime import elapsed_minutes
 from app.utils.logger import get_logger
@@ -84,10 +93,14 @@ logger = get_logger(__name__)
 _SITE_DOWN_TABLE = "inc_wo_site_down"
 _CACHE_TABLE = "telegram_inc_wo_alert_cache"
 
-# Staggers this alert's clock-aligned send time away from telegram_alert.py's
-# own (which uses offset_seconds=0, i.e. lands exactly on the interval
-# boundary) — see module docstring.
-_OFFSET_SECONDS = 120
+# 0 — lands exactly on the interval boundary (:00/:15/:30/:45), same as
+# every other Telegram alert. All of them read the already-synced local
+# cache and only call out to Telegram's API (no live Postgres/MSSQL
+# query), so firing them all at once isn't the kind of DB-write collision
+# risk seconds_until_next_aligned_time()'s own docstring warns about for
+# the 300s sync schedulers — deliberately NOT staggered, per explicit
+# request.
+_OFFSET_SECONDS = 0
 
 
 def _cache_telegram_rows(rows, cache_repository=None):
@@ -111,14 +124,25 @@ def _inc_wo_site_down_over_threshold(
     — has passed `threshold_min` minutes, longest-open first. outage_min
     is computed for every row (not just the ones over threshold) before
     caching, same convention as telegram_alert.py's own
-    _site_down_over_threshold()."""
+    _site_down_over_threshold().
+
+    Rows with no wo_id yet (see IncWoService.get_site_down_details()) or
+    whose Support Level isn't L2 (this alert is for the L2 On-Site team
+    only) are excluded from what gets sent, but still mirrored into the
+    raw cache below as an audit trail of what was fetched."""
     status_cache_repository = status_cache_repository or IncWoStatusCacheRepository()
     rows = status_cache_repository.fetch_all(_SITE_DOWN_TABLE)
     for row in rows:
         row["outage_min"] = elapsed_minutes(row.get("wo_created_at"))
     _cache_telegram_rows(rows, cache_repository)
 
-    over_threshold = [row for row in rows if row["outage_min"] >= threshold_min]
+    over_threshold = [
+        row
+        for row in rows
+        if row.get("wo_id")
+        and row["outage_min"] >= threshold_min
+        and _is_l2_support(row)
+    ]
     over_threshold.sort(key=lambda row: row["outage_min"], reverse=True)
     return over_threshold
 
@@ -140,27 +164,74 @@ def _format_message(rows, threshold_min):
 # (header, char width, row key) — one entry per column, in display order,
 # matching the dashboard's own INC-WO Site Down drilldown/CSV column order
 # exactly, all in one row per record (per explicit request — the earlier
-# two-line-per-record layout was reverted). "Fault Description" is the
-# one wrapped, multi-line column (_WRAP_COLUMN_INDEX below).
+# two-line-per-record layout was reverted). "Fault Description" used to be
+# a wrapped, multi-line column — changed to single-line-with-"..." instead
+# (see _truncate_text_px() below) per explicit request, so every row is a
+# uniform height again.
 _COLUMNS = (
-    ("Incident ID", 16, "incident_id"),
-    ("INC-WO ID", 20, "wo_id"),
+    ("Incident ID", 14, "incident_id"),
+    ("INC-WO ID", 15, "wo_id"),
     ("INC-WO Created At", 16, "wo_created_at"),
     ("INC-WO Status", 14, "wo_status"),
     ("Site Name", 14, "site_name"),
     ("Site Code", 8, "site_code"),
-    ("Overdue", 8, "overdue"),
-    ("Support Level", 18, "support_level"),
-    ("Fault Description", 40, "fault_description"),
+    ("Overdue", 5, "overdue"),
+    # 12 chars fits "L2 On-Site" (10) with a little room — the only value
+    # seen in real INC-WO Site Down data so far. "L3 Internal Support" (19
+    # chars, a valid value elsewhere in this same field) would visually
+    # clip at this width if it ever shows up here; sized this tight anyway
+    # per explicit request, since this column doesn't wrap like Fault
+    # Description does.
+    ("Support Level", 12, "support_level"),
+    ("Fault Description", 24, "fault_description"),
     ("NMS", 8, "nms"),
     ("Hub Site", 12, "hub_site"),
     ("Site Grade", 10, "site_grade"),
     ("Province", 14, "province"),
-    ("District", 16, "district"),
-    ("Commune", 18, "commune"),
 )
-_WRAP_COLUMN_INDEX = 8  # "Fault Description" — the only multi-line column
 _STATUS_COLUMN_INDEX = 3  # "INC-WO Status" — the only color-coded column
+
+# (header, extractor) pairs for the Excel attachment — same columns as
+# _COLUMNS above (dropping only the char-width used for the PNG's pixel
+# layout), with the same "Other Site" / newline-stripping special-cases
+# _render_inc_wo_table_image() applies, minus the pixel-width truncation
+# (Excel autosizes columns instead of clipping text with "..."). Shared by
+# all 3 alerts that use _render_inc_wo_table_image (Site Down, Power,
+# General) via import, same as that function itself.
+_EXCEL_SPECIAL_EXTRACTORS = {
+    "wo_created_at": lambda r: (r.get("wo_created_at") or "")[:16],
+    "site_name": lambda r: (
+        "—" if (r.get("site_name") or "").startswith("Other Site") else (r.get("site_name") or "—")
+    ),
+    "fault_description": lambda r: (r.get("fault_description") or "—").replace("\n", " ").strip(),
+}
+_EXCEL_COLUMNS = tuple(
+    (header, _EXCEL_SPECIAL_EXTRACTORS.get(key, key)) for header, _chars, key in _COLUMNS
+)
+
+# Every other column is centered — these are free-typed prose/long values,
+# not short fixed-width data, so centering makes them harder to read;
+# left-aligned per explicit request. Shared by all 3 alerts that use
+# _EXCEL_COLUMNS above.
+_EXCEL_LEFT_ALIGN_HEADERS = {"Fault Description", "Hub Site", "Province", "Site Name"}
+
+
+def _truncate_text_px(text, font, max_px):
+    """Cuts `text` down to fit `max_px` width using `font`, appending "..."
+    if anything was cut — character by character rather than word by word,
+    since a fault description is free-typed prose, not fixed-width data
+    (see _wrap_text_px() in telegram_alert.py for the word-wrapping
+    equivalent this replaced for this one column)."""
+    if not text or font.getlength(text) <= max_px:
+        return text
+    ellipsis_w = font.getlength("...")
+    truncated = ""
+    for ch in text:
+        if font.getlength(truncated + ch) + ellipsis_w > max_px:
+            break
+        truncated += ch
+    return truncated.rstrip() + "..."
+
 
 # Same colors as the dashboard's own status badge
 # (app/static/css/components/status_links.css's .status-badge.status-*
@@ -178,19 +249,24 @@ _STATUS_COLORS = {
     "Returned": "#ec4899",
 }
 
+# A record's site is "priority" for highlighting purposes if it's ANY kind
+# of hub, OR its grade is Gold/Diamond — either alone qualifies, matching
+# IncWoService._matches_site_down_badge's own hub_site/site_grade rules
+# (a non-hub Gold/Diamond site still counts).
+_TOP_SITE_GRADES = {"Gold", "Diamond"}
+_PRIORITY_ROW_BG = "#FFCDD2"
+
+
+def _is_priority_site(row):
+    hub = (row.get("hub_site") or "").strip()
+    return hub not in ("", "Not Hub") or row.get("site_grade") in _TOP_SITE_GRADES
+
 
 def _render_inc_wo_table_image(rows, title):
-    """Same rendering approach as telegram_alert.py's _render_table_image()
-    (same fonts/colors/layout constants, kept in that module and reused
-    here so the two alerts' images look identical apart from their
-    columns) — full column set per _COLUMNS above, one row per record,
-    matching the dashboard's own INC-WO Site Down table/CSV column order.
-    Text is sized larger than telegram_alert.py's own table for
-    readability, since this table has almost twice as many columns.
-    INC-WO Status is colored per _STATUS_COLORS, matching the dashboard's
-    own status badge colors, so "In Progress"/"Acknowledged"/etc. read the
-    same way here as on screen. Returns PNG bytes, or None if Pillow/the
-    font isn't available (caller falls back to plain text)."""
+    """Renders the INC-WO table (per _COLUMNS) as a PNG — shared by both
+    the Site Down and Category Power alerts. INC-WO Status is colored per
+    _STATUS_COLORS; a Hub/Gold/Diamond row is shaded _PRIORITY_ROW_BG.
+    Returns None if Pillow/the font isn't available."""
     if not _HAS_PIL or not os.path.exists(_FONT_PATH):
         return None
 
@@ -207,7 +283,7 @@ def _render_inc_wo_table_image(rows, title):
     # and the file size, not text quality once opened.
     SCALE = 1
     FONT_SIZE, TITLE_SIZE = 56 * SCALE, 62 * SCALE
-    CELL_PAD_X, CELL_PAD_Y = 26 * SCALE, 26 * SCALE
+    CELL_PAD_X = 26 * SCALE
     HEADER_H, BASE_ROW_H = 138 * SCALE, 138 * SCALE
     FRAME, PAD_X, PAD_TOP, PAD_BOT, TITLE_H = (
         2 * SCALE,
@@ -230,28 +306,31 @@ def _render_inc_wo_table_image(rows, title):
     col_w_px = [chars * char_w + CELL_PAD_X * 2 for _, chars, _ in _COLUMNS]
     table_w = sum(col_w_px)
 
-    data_rows, row_heights = [], []
+    data_rows = []
+    row_priority = []
     for row in rows:
+        row_priority.append(_is_priority_site(row))
         values = []
         for ci, (_header, _chars, key) in enumerate(_COLUMNS):
-            if ci == _WRAP_COLUMN_INDEX:
-                text = (row.get(key) or "").replace("\n", " ").strip()
-                values.append(_wrap_text_px(text, font, col_w_px[ci] - CELL_PAD_X * 2)[:5])
-            elif key == "wo_created_at":
+            if key == "wo_created_at":
                 values.append((row.get(key) or "")[:16])
+                continue
+            if key == "site_name":
+                # "Other Site (CODE)" overflowed this column into the next
+                # one. Site Code already has its own column, so leave Site
+                # Name blank here instead of repeating the code.
+                text = row.get(key) or "—"
+                if text.startswith("Other Site"):
+                    text = "—"
+            elif key == "fault_description":
+                text = (row.get(key) or "—").replace("\n", " ").strip()
             else:
-                values.append(str(row.get(key) or "—"))
+                text = str(row.get(key) or "—")
+            values.append(_truncate_text_px(text, font, col_w_px[ci] - CELL_PAD_X * 2))
         data_rows.append(values)
-        wrap_lines = values[_WRAP_COLUMN_INDEX]
-        row_heights.append(
-            max(
-                BASE_ROW_H,
-                CELL_PAD_Y * 2 + len(wrap_lines) * FONT_SIZE + (len(wrap_lines) - 1) * (6 * SCALE),
-            )
-        )
 
     img_w = table_w + (PAD_X + FRAME) * 2
-    img_h = FRAME * 2 + PAD_TOP + TITLE_H + HEADER_H + sum(row_heights) + PAD_BOT
+    img_h = FRAME * 2 + PAD_TOP + TITLE_H + HEADER_H + len(data_rows) * BASE_ROW_H + PAD_BOT
     img = Image.new("RGB", (img_w, img_h), FRAME_COLOR)
     draw = ImageDraw.Draw(img)
     draw.rectangle([FRAME, FRAME, img_w - FRAME - 1, img_h - FRAME - 1], fill=BG)
@@ -261,7 +340,7 @@ def _render_inc_wo_table_image(rows, title):
     draw.text((FRAME + PAD_X, title_y), f"{title}  —  {now_str}", fill=TITLE_COLOR, font=title_font)
 
     tx, ty = FRAME + PAD_X, FRAME + PAD_TOP + TITLE_H
-    table_h = HEADER_H + sum(row_heights)
+    table_h = HEADER_H + len(data_rows) * BASE_ROW_H
     draw.rectangle([tx, ty, tx + table_w, ty + table_h], fill=BG)
     draw.rectangle([tx, ty, tx + table_w, ty + HEADER_H], fill=HEADER_BG)
 
@@ -278,35 +357,27 @@ def _render_inc_wo_table_image(rows, title):
         cx += col_w
 
     cy = ty + HEADER_H
-    for ri, values in enumerate(data_rows):
-        row_h = row_heights[ri]
+    for values, is_priority in zip(data_rows, row_priority):
+        if is_priority:
+            draw.rectangle([tx, cy, tx + table_w, cy + BASE_ROW_H], fill=_PRIORITY_ROW_BG)
         cx = tx
         for ci, col_w in enumerate(col_w_px):
-            if ci == _WRAP_COLUMN_INDEX:
-                for li, line in enumerate(values[ci]):
-                    draw.text(
-                        (cx + CELL_PAD_X, cy + CELL_PAD_Y + li * (FONT_SIZE + 4 * SCALE)),
-                        line,
-                        fill=TEXT_COLOR,
-                        font=font,
-                    )
-            else:
-                color = TEXT_COLOR
-                if ci == _STATUS_COLUMN_INDEX:
-                    color = _STATUS_COLORS.get(values[ci], TEXT_COLOR)
-                draw.text(
-                    (cx + CELL_PAD_X, cy + (row_h - FONT_SIZE) // 2),
-                    values[ci],
-                    fill=color,
-                    font=font,
-                )
+            color = TEXT_COLOR
+            if ci == _STATUS_COLUMN_INDEX:
+                color = _STATUS_COLORS.get(values[ci], TEXT_COLOR)
+            draw.text(
+                (cx + CELL_PAD_X, cy + (BASE_ROW_H - FONT_SIZE) // 2),
+                values[ci],
+                fill=color,
+                font=font,
+            )
             cx += col_w
-        cy += row_h
+        cy += BASE_ROW_H
 
     cy = ty + HEADER_H
-    for row_h in row_heights:
+    for _ in range(len(data_rows)):
         draw.line([tx, cy, tx + table_w, cy], fill=GRID_COLOR, width=SCALE)
-        cy += row_h
+        cy += BASE_ROW_H
     cx = tx
     for col_w in col_w_px[:-1]:
         cx += col_w
@@ -336,7 +407,7 @@ def _send_telegram_document(token, chat_ids, photo_bytes):
             resp = requests.post(url, files=files, data={"chat_id": chat_id}, timeout=30)
             resp.raise_for_status()
         except Exception as e:
-            logger.error(f"Telegram image send failed for chat {chat_id}: {e}")
+            logger.error(f"Telegram image send failed for chat {chat_id}: {_error_detail(e)}")
             sent = False
     return sent
 
@@ -373,6 +444,19 @@ def send_inc_wo_site_down_alert(
         sent = _send_telegram_document(token, chat_ids, photo)
     else:
         sent = _send_telegram_text(token, chat_ids, _format_message(rows, threshold_min))
+
+    excel = _build_excel_bytes(
+        _EXCEL_COLUMNS,
+        rows,
+        "INC-WO Site Down Alerts",
+        status_key="INC-WO Status",
+        status_colors=_STATUS_COLORS,
+        priority_fn=_is_priority_site,
+        hyperlinks={"Incident ID": _incident_link, "INC-WO ID": _inc_wo_link},
+        left_align=_EXCEL_LEFT_ALIGN_HEADERS,
+    )
+    if excel:
+        sent = _send_telegram_excel(token, chat_ids, excel, "inc-wo-site-down-alert.xlsx") and sent
 
     logger.info(
         f"Sent Telegram INC-WO Site Down alert — {len(rows)} row(s) to {len(chat_ids)} chat(s)"

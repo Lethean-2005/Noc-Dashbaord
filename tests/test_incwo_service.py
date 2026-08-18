@@ -140,3 +140,36 @@ def test_overdue_l2_includes_other_categories_even_when_resolved():
     result = svc.get_details("overdue_l2")
 
     assert len(result) == 1
+
+
+def test_get_site_down_details_drops_rows_with_no_wo_id():
+    """A brand-new site_down WO (status='new') the source system hasn't
+    assigned an ID to yet has no site/support level/fault description
+    either — it'd only render as a row of dashes, so it's excluded here
+    rather than shown blank."""
+    rows = [
+        _row(wo_id=None, site_grade="Silver"),
+        _row(wo_id="WO2", site_grade="Silver"),
+    ]
+    svc = IncWoService(FakeStatusRepo([]), FakeStatusRepo([]))
+    svc.status_cache_repository = FakeStatusRepo(rows)
+
+    result = svc.get_site_down_details()
+
+    assert len(result) == 1
+    assert result[0]["wo_id"] == "WO2"
+
+
+def test_get_site_down_details_badge_filter_still_applies_after_wo_id_drop():
+    rows = [
+        _row(wo_id=None, site_grade="Gold"),
+        _row(wo_id="WO2", site_grade="Silver"),
+        _row(wo_id="WO3", site_grade="Gold"),
+    ]
+    svc = IncWoService(FakeStatusRepo([]), FakeStatusRepo([]))
+    svc.status_cache_repository = FakeStatusRepo(rows)
+
+    result = svc.get_site_down_details("gold")
+
+    assert len(result) == 1
+    assert result[0]["wo_id"] == "WO3"

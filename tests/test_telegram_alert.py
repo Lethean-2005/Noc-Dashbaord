@@ -5,7 +5,12 @@ lock in that the threshold filter, outage_min computation, and mirroring
 into telegram_alert_cache still work now that the data source changed.
 """
 
-from app.services.telegram.telegram_alert import _site_down_over_threshold
+from app.services.telegram.telegram_alert import (
+    _build_excel_bytes,
+    _inc_wo_link,
+    _incident_link,
+    _site_down_over_threshold,
+)
 
 
 class FakeIncidentSiteDownRepo:
@@ -104,3 +109,67 @@ def test_results_sorted_longest_outage_first(app):
         over_threshold = _site_down_over_threshold(1, source_repo, cache_repo)
 
         assert [row["incident_id"] for row in over_threshold] == ["LONG1", "SHORT1"]
+
+
+def test_build_excel_bytes_returns_a_valid_xlsx(app):
+    with app.app_context():
+        rows = [_site_down_row("OLD1", "2020-01-01 00:00:00")]
+        rows[0]["outage_min"] = 300
+        columns = (
+            ("Incident ID", "incident_id"),
+            ("Outage", lambda r: r["outage_min"]),
+        )
+
+        data = _build_excel_bytes(columns, rows, "Test Alert")
+
+        assert data is not None
+        assert data[:2] == b"PK"  # .xlsx is a zip archive
+
+
+def test_build_excel_bytes_with_no_rows_still_returns_a_header_only_sheet(app):
+    with app.app_context():
+        columns = (("Incident ID", "incident_id"),)
+
+        data = _build_excel_bytes(columns, [], "Test Alert")
+
+        assert data is not None
+        assert data[:2] == b"PK"
+
+
+def test_incident_link_builds_the_dashboard_form_url_when_numeric_id_present():
+    assert _incident_link({"incident_numeric_id": 123}) == (
+        "https://prd-web-mc.cellcard.com.kh/incident/form/123"
+    )
+
+
+def test_incident_link_is_none_without_a_numeric_id():
+    assert _incident_link({"incident_numeric_id": None}) is None
+    assert _incident_link({}) is None
+
+
+def test_inc_wo_link_builds_the_dashboard_form_url_when_numeric_id_present():
+    assert _inc_wo_link({"wo_numeric_id": 456}) == "https://prd-web-mc.cellcard.com.kh/inc_wo/form/456"
+
+
+def test_inc_wo_link_is_none_without_a_numeric_id():
+    assert _inc_wo_link({"wo_numeric_id": None}) is None
+
+
+def test_build_excel_bytes_hyperlinks_rows_with_a_numeric_id_only(app):
+    with app.app_context():
+        rows = [
+            _site_down_row("HASLINK", "2020-01-01 00:00:00", incident_numeric_id=1, wo_numeric_id=2),
+            _site_down_row("NOLINK", "2020-01-01 00:00:00", incident_numeric_id=None, wo_numeric_id=None),
+        ]
+        columns = (("Incident ID", "incident_id"), ("INC-WO ID", "wo_id"))
+
+        data = _build_excel_bytes(
+            columns, rows, "Test Alert", hyperlinks={"Incident ID": _incident_link, "INC-WO ID": _inc_wo_link}
+        )
+
+        from openpyxl import load_workbook
+        import io
+
+        ws = load_workbook(io.BytesIO(data)).active
+        assert ws.cell(row=3, column=1).hyperlink.target == "https://prd-web-mc.cellcard.com.kh/incident/form/1"
+        assert ws.cell(row=4, column=1).hyperlink is None

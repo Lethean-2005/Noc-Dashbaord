@@ -111,6 +111,55 @@ def test_normalize_status_row_does_not_cross_match_a_different_sites_wo():
     assert normalized["wo_id"] == ""
 
 
+def _incwo_source_row(**overrides):
+    row = {
+        "Incident ID": "INC1",
+        "Incident Numeric ID": 1,
+        "Incident Status": "New",
+        "INC-WO ID": "WO1",
+        "INC-WO Numeric ID": 1,
+        "INC-WO Created At": None,
+        "INC-WO Status": "New",
+        "Resolved At": None,
+        "Incident Category": "Site Down",
+        "Site Name": "Site A",
+        "Site Code": "S1",
+        "overdue": "No",
+        "Support Level": "",
+        "Responsible Team": "",
+        "Fault Description": "",
+        "Hub Site": "",
+        "Site Grade": "",
+        "Province": "",
+        "District": "",
+        "Commune": "",
+    }
+    row.update(overrides)
+    return row
+
+
+def test_normalize_incwo_row_keeps_real_site_name():
+    row = _incwo_source_row(**{"Site Name": "Real Site"})
+    normalized = IncidentSyncService._normalize_incwo_row(row, {})
+    assert normalized["site_name"] == "Real Site"
+
+
+def test_normalize_incwo_row_falls_back_to_site_code_when_site_name_blank():
+    """An "Other Site" WO (site not in the registered Site list) has no
+    Site Name from the source at all — Site Code does get a COALESCE
+    fallback to the parent Incident's own value (see inc_wo_by_status.sql),
+    so label with that instead of leaving Site Name blank."""
+    row = _incwo_source_row(**{"Site Name": "", "Site Code": "I0978"})
+    normalized = IncidentSyncService._normalize_incwo_row(row, {})
+    assert normalized["site_name"] == "Other Site (I0978)"
+
+
+def test_normalize_incwo_row_falls_back_to_plain_other_site_when_site_code_also_blank():
+    row = _incwo_source_row(**{"Site Name": "", "Site Code": ""})
+    normalized = IncidentSyncService._normalize_incwo_row(row, {})
+    assert normalized["site_name"] == "Other Site"
+
+
 def test_nms_by_site_reads_local_cache_keyed_by_site_code():
     class FakeNeNmsLookupCacheRepo:
         def fetch_all(self, table):

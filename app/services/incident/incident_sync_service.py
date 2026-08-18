@@ -14,6 +14,10 @@ Four separate tables get synced here, all on the same schedule
                             category='site_down' work orders not yet
                             resolved/closed — behind the "INC-WO Site Down"
                             card on the Custom Dashboard (reports/index.html).
+  - inc_wo_category_power — same join as inc_wo_by_status, narrowed to
+                            category='power' work orders not yet
+                            resolved/closed — no dashboard card, feeds only
+                            app/services/telegram/telegram_inc_wo_power_alert.py.
   - inc_wo_resolved       — INC-WO that are Resolved while their parent
                             Incident is still In-Progress overall — behind
                             the "INC-WO Resolved" card on the Custom Dashboard.
@@ -34,7 +38,7 @@ Four separate tables get synced here, all on the same schedule
 Only 'new'/'in_progress' (Incident) and not-yet-'closed' (INC-WO) get
 synced — resolved/closed records aren't shown on any badge, so there's no
 reason to cache them. vip_incident_status is the one deliberate exception,
-scoped narrowly enough (33 of 4,360 sites) to safely include Resolved.
+scoped narrowly enough (VIP/VVIP sites only) to safely include Resolved.
 """
 
 from app.repositories.incident.incident_repository import IncidentRepository
@@ -58,6 +62,7 @@ logger = get_logger(__name__)
 _STATUS_TABLE = "incident_by_status"
 _INC_WO_STATUS_TABLE = "inc_wo_by_status"
 _INC_WO_SITE_DOWN_TABLE = "inc_wo_site_down"
+_INC_WO_CATEGORY_POWER_TABLE = "inc_wo_category_power"
 _INC_WO_RESOLVED_TABLE = "inc_wo_resolved"
 _INCIDENT_SITE_DOWN_TABLE = "incident_site_down"
 _VIP_INCIDENT_STATUS_TABLE = "vip_incident_status"
@@ -262,6 +267,24 @@ class IncidentSyncService:
         logger.info(f"Synced {len(normalized)} row(s) into {_INC_WO_SITE_DOWN_TABLE}")
         return len(normalized)
 
+    def sync_inc_wo_category_power(self):
+        """Refresh inc_wo_category_power — same row shape as
+        inc_wo_by_status/inc_wo_site_down. No dashboard card reads this;
+        it only feeds telegram_inc_wo_power_alert.py."""
+        rows = retry_fetch(self.incwo_repository.fetch_category_power, "INC-WO-category-power")
+        if rows is None:
+            return None
+
+        nms_by_site = self._nms_by_site()
+        normalized = [self._normalize_incwo_row(r, nms_by_site) for r in rows]
+        try:
+            self.incwo_status_cache_repository.replace_all(_INC_WO_CATEGORY_POWER_TABLE, normalized)
+        except Exception as e:
+            logger.error(f"INC-WO-category-power cache write failed: {e}")
+            return None
+        logger.info(f"Synced {len(normalized)} row(s) into {_INC_WO_CATEGORY_POWER_TABLE}")
+        return len(normalized)
+
     def sync_inc_wo_resolved(self):
         """Refresh the local inc_wo_resolved cache from PostgreSQL. Same
         retry-then-try/except reasoning as sync_by_status() above."""
@@ -373,6 +396,7 @@ class IncidentSyncService:
             "wo_created_at": to_local_seconds(row.get("INC-WO Created At")),
             "wo_status": row.get("INC-WO Status") or "",
             "resolved_at": to_local_seconds(row.get("Resolved At")),
+            "responsible_team": row.get("Responsible Team") or "",
             "site_name": row.get("Site Name") or "",
             "site_code": row.get("Site Code") or "",
             "overdue": row.get("overdue") or "",
@@ -385,6 +409,17 @@ class IncidentSyncService:
             "district": row.get("District") or "",
             "commune": row.get("Commune") or "",
         }
+
+    @staticmethod
+    def _site_name_with_fallback(row):
+        """Unlike Site Code/Province/District/Commune, Site Name has no
+        source-side fallback — an "Other Site" WO gets it back as NULL.
+        Label it with the Site Code that IS available instead of a blank."""
+        site_name = row.get("Site Name") or ""
+        if site_name:
+            return site_name
+        site_code = row.get("Site Code") or ""
+        return f"Other Site ({site_code})" if site_code else "Other Site"
 
     @staticmethod
     def _normalize_incwo_row(row, nms_by_site):
@@ -410,10 +445,11 @@ class IncidentSyncService:
             "wo_status": row.get("INC-WO Status") or "",
             "resolved_at": to_local_seconds(row.get("Resolved At")),
             "incident_category": row.get("Incident Category") or "",
-            "site_name": row.get("Site Name") or "",
+            "site_name": IncidentSyncService._site_name_with_fallback(row),
             "site_code": row.get("Site Code") or "",
             "overdue": row.get("overdue") or "",
             "support_level": row.get("Support Level") or "",
+            "responsible_team": row.get("Responsible Team") or "",
             "fault_description": row.get("Fault Description") or "",
             "nms": NMS_NAMES.get(str(nms_by_site.get(row.get("Site Code")) or "").strip(), ""),
             "hub_site": row.get("Hub Site") or "",
@@ -441,6 +477,8 @@ class IncidentSyncService:
             "wo_created_at": to_local_seconds(wo.get("INC-WO Created At")),
             "wo_status": wo.get("INC-WO Status") or "",
             "resolved_at": to_local_seconds(wo.get("Resolved At")),
+            "responsible_team": wo.get("Responsible Team") or "",
+            "support_level": wo.get("Support Level") or "",
             "site_name": row.get("Site Name") or "",
             "site_code": row.get("Site Code") or "",
             "occurred_at": to_local_seconds(row.get("Occurred At")),

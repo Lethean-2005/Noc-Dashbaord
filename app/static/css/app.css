@@ -14,6 +14,18 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Nunito';
+  /* Variable font (weight axis) — one file covers every weight in the
+     200-1000 range below, so a normal font-weight: 700 etc. just works,
+     no separate Bold file needed (see app/services/telegram/telegram_inc_wo_alert.py's
+     own Inter variable-font comment for the same reasoning). */
+  src: url('../fonts/Nunito-Variable.ttf') format('truetype-variations');
+  font-weight: 200 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {

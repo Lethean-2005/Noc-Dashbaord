@@ -55,6 +55,13 @@
   color: var(--text-muted);
 }
 
+.row-cap-notice {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Poppins', sans-serif;
+  padding: 4px 0 8px;
+}
+
 .alarm-search:focus {
   border-color: var(--border-strong);
 }
@@ -353,7 +360,7 @@
 }
 
 /* Acknowledge/Modify icon button — EZE/TCT/ISP POP drilldown tables only,
-   see drilldown/_ack_button.html + app/static/js/acknowledge.js. */
+   see drilldown/_alarm_action_menu.html + app/static/js/acknowledge.js. */
 .alarm-table td.ack-cell {
   text-align: center;
   white-space: nowrap;

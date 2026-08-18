@@ -9,3 +9,4 @@ logs/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+deploy_zips/

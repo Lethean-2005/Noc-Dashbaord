@@ -205,12 +205,15 @@ _INCIDENT_CSV_COLUMNS = [
     ("wo_id", "INC-WO ID"),
     ("wo_created_at", "INC-WO Created At"),
     ("wo_status", "INC-WO Status"),
+    ("resolved_at", "Resolved At"),
     ("site_name", "Site Name"),
     ("site_code", "Site Code"),
     ("occurred_at", "Occurred At"),
     ("outage_min", "Outage(min)"),
     ("overdue", "Overdue"),
     ("category", "Category"),
+    ("responsible_team", "Responsible Team"),
+    ("support_level", "Support Level"),
     ("l1_noc_investigation_result", "L1 NOC Investigation Result"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
@@ -227,10 +230,12 @@ _INC_WO_CSV_COLUMNS = [
     ("wo_id", "INC-WO ID"),
     ("wo_created_at", "INC-WO Created At"),
     ("wo_status", "INC-WO Status"),
+    ("resolved_at", "Resolved At"),
     ("site_name", "Site Name"),
     ("site_code", "Site Code"),
     ("overdue", "Overdue"),
     ("support_level", "Support Level"),
+    ("responsible_team", "Responsible Team"),
     ("fault_description", "Fault Description"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
@@ -246,10 +251,12 @@ _INC_WO_RESOLVED_CSV_COLUMNS = [
     ("wo_id", "INC-WO ID"),
     ("wo_created_at", "INC-WO Created At"),
     ("wo_status", "INC-WO Status"),
+    ("resolved_at", "Resolved At"),
     ("site_name", "Site Name"),
     ("site_code", "Site Code"),
     ("overdue", "Overdue"),
     ("support_level", "Support Level"),
+    ("responsible_team", "Responsible Team"),
     ("fault_description", "Fault Description"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
@@ -271,6 +278,8 @@ _VIP_ALARM_CSV_COLUMNS = [
     ("outage_min", "Outage(min)"),
     ("event_name", "Event Name"),
     ("category", "Category"),
+    ("responsible_team", "Responsible Team"),
+    ("support_level", "Support Level"),
     ("nms", "NMS"),
     ("technology", "Technology"),
     ("hub_site", "Hub Site"),
@@ -424,6 +433,8 @@ _MENTOR_SITE_CSV_COLUMNS = [
     ("outage_min", "Outage(min)"),
     ("event_name", "Event Name"),
     ("category", "Category"),
+    ("responsible_team", "Responsible Team"),
+    ("support_level", "Support Level"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
     ("site_grade", "Site Grade"),
@@ -472,6 +483,10 @@ _SCOPE_HANDLERS = {
         "template": "drilldown/incwo.html",
         "csv_columns": _INC_WO_CSV_COLUMNS,
         "none_is_404": True,
+        # HTML render only (CSV export in drilldown_download() is never
+        # capped). The unfiltered "View INC-WO" link was rendering every
+        # non-closed row as one giant table, making the page feel stuck.
+        "row_cap": 500,
     },
     "INC-WO Site Down": {
         "fetch": lambda alarm_type: incwo_service.get_site_down_details(alarm_type),
@@ -762,6 +777,15 @@ def drilldown():
                     "date_to_display": format_short_date(date_to),
                     "date_range_label": _date_range_label(date_from, date_to),
                 }
+
+            row_cap = handler.get("row_cap")
+            if rows is not None and row_cap and len(rows) > row_cap:
+                extra["row_cap_notice"] = (
+                    f"Showing the newest {row_cap} of {len(rows)} rows — use a "
+                    "badge above or the date filter to narrow it down."
+                )
+                rows = rows[:row_cap]
+
             return render_template(
                 handler["template"], title=title, label=label, rows=rows, **extra
             )

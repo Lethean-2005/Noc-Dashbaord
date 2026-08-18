@@ -21,12 +21,15 @@
                 <th>INC-WO ID</th>
                 <th>INC-WO Created At</th>
                 <th>INC-WO Status</th>
+                <th>Resolved At</th>
                 <th>Site Name</th>
                 <th>Site Code</th>
                 <th>Occurred At</th>
                 <th>Outage(min)</th>
                 <th>Overdue</th>
                 <th>Category</th>
+                <th>Responsible Team</th>
+                <th>Support Level</th>
                 <th>L1 NOC Investigation Result</th>
                 <th>NMS</th>
                 <th>Hub Site</th>
@@ -44,12 +47,15 @@
                 <td>{% if row.wo_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/inc_wo/form/{{ row.wo_numeric_id }}" target="_blank" rel="noopener">{{ row.wo_id }}</a>{% else %}{{ row.wo_id }}{% endif %}</td>
                 <td>{{ row.wo_created_at }}</td>
                 <td>{{ row.wo_status }}</td>
+                <td>{{ row.resolved_at }}</td>
                 <td>{{ row.site_name }}</td>
                 <td>{{ row.site_code }}</td>
                 <td>{{ row.occurred_at }}</td>
                 <td class="right">{{ row.outage_min }}</td>
                 <td>{{ row.overdue }}</td>
                 <td>{{ row.category }}</td>
+                <td>{{ row.responsible_team }}</td>
+                <td>{{ row.support_level }}</td>
                 <td class="ellipsis">{{ row.l1_noc_investigation_result }}</td>
                 <td>{{ row.nms }}</td>
                 <td>{{ row.hub_site }}</td>
@@ -59,7 +65,7 @@
                 <td>{{ row.commune }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="18">No incidents found</td></tr>
+            <tr class="empty-row"><td colspan="21">No incidents found</td></tr>
             {% endfor %}
         </tbody>
     </table>

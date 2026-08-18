@@ -28,6 +28,7 @@ WHERE id = <the number from object_N>;
 | `object_168` | Village                  | `village`  |
 | `object_227` | NE - Logical Technology  | `ne`       |
 | `object_308` | Physical Location        | `ploc`     |
+| `object_310` | Team                     | `team`     |
 | `object_322` | Incident                 | `incident` |
 | `object_324` | INC-WO                   | `inc_wo`   |
 

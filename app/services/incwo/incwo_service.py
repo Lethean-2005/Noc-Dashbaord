@@ -158,12 +158,14 @@ class IncWoService:
         """Rows behind the "INC-WO Site Down" card. `badge_type`
         (hub_site/diamond/gold/silver/bronze) narrows to just that badge's
         rows, matching get_site_down_counts(); omit it (or pass "") for
-        every row."""
+        every row.
+
+        Rows with no wo_id yet (a brand-new WO the source hasn't assigned
+        one to) are dropped — nothing meaningful to show until then."""
         rows = self.status_cache_repository.fetch_all(_SITE_DOWN_TABLE)
+        rows = [r for r in rows if r.get("wo_id")]
         if badge_type:
             rows = [r for r in rows if _matches_site_down_badge(r, badge_type)]
-        for r in rows:
-            r["wo_id"] = r.get("wo_id") or ""
         return rows
 
     def get_resolved_count(self):

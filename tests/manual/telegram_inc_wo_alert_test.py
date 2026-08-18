@@ -14,6 +14,12 @@ sends is the scheduler's own 4-hour interval (see
 app/services/telegram/telegram_inc_wo_alert.py's start()), which this
 script bypasses entirely by calling the function directly.
 """
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from app import create_app
 from app.services.telegram.telegram_inc_wo_alert import send_inc_wo_site_down_alert
 

@@ -300,6 +300,8 @@ class MentorSiteService:
             row["wo_created_at"] = inc.get("wo_created_at") or ""
             row["wo_status"] = inc.get("wo_status") or ""
             row["resolved_at"] = inc.get("resolved_at") or ""
+            row["responsible_team"] = inc.get("responsible_team") or ""
+            row["support_level"] = inc.get("support_level") or ""
             row["category"] = inc.get("category") or ""
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()

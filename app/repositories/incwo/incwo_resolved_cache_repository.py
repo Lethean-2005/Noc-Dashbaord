@@ -21,6 +21,7 @@ class IncWoResolvedCacheRepository(BaseCacheRepository):
         "site_code",
         "overdue",
         "support_level",
+        "responsible_team",
         "fault_description",
         "nms",
         "hub_site",

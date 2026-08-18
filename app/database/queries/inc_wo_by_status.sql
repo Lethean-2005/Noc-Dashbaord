@@ -1,35 +1,17 @@
 -- ==============================================================
--- INC-WO drilldown detail, synced into the local "inc_wo_by_status" cache
--- table (see app/database/cache.py) every INCIDENT_SYNC_INTERVAL_SECONDS —
--- every INC-WO-column badge (New, Assigned, Acknowledged, In-Progress,
--- Resolved, Reopened, Returned, On-Hold, Overdue, Overdue L2, Overdue L3)
--- filters from this one cached table; 'overdue'/'support_level' are flags
--- on top of status, not separate status values.
+-- INC-WO drilldown detail, synced into inc_wo_by_status every
+-- INCIDENT_SYNC_INTERVAL_SECONDS — every INC-WO badge (see
+-- incwo_service.py's BADGE_FILTERS) filters from this one cached table.
+-- Only wo.status != 'closed' rows are kept.
 --
--- Only wo.status != 'closed' is cached — closed work orders aren't shown
--- on any badge.
+-- Resolved Incident + Customer Complaint rows are dropped here: that
+-- combination never matches any badge (see BADGE_FILTERS'
+-- _is_resolved_customer_complaint), so caching them is dead weight.
+-- Every other category keeps its Resolved-incident rows normally.
 --
--- "Incident Category" is included so the "Overdue"/"Overdue L2"/"Overdue L3"
--- badges (see app/services/incwo/incwo_service.py's BADGE_FILTERS) can drop
--- just the Customer Complaint-originated INC-WOs whose parent Incident is
--- already Resolved — every other category is kept regardless of resolved
--- status.
---
--- Unlike incident_by_status.sql, no site_text parsing is needed here —
--- INC-WO's own `site` column is a direct integer FK to Site (object_160.id).
--- NMS/Province/District/Commune resolve the same way (through the joined
--- Site), and one row per INC-WO comes for free since this queries
--- object_324 directly (no LATERAL "latest one" needed).
---
--- "Other Site" fallback: an INC-WO's own `site` FK is null whenever its
--- parent Incident is an "Other Site" case (see incident_by_status.sql's
--- COALESCE note) — confirmed live: INC-WO-P-0098795 (parent
--- INC-0000223251) has site=NULL, same as its parent incident. Falls back
--- to the parent Incident's own site_code/province_ref/district/commune
--- (Site Code via COALESCE; Province/District/Commune via a CASE keyed on
--- sites.id IS NULL, not just a blank field, same reasoning as
--- incident_by_status.sql) so these still show a real Site Code/Province/
--- District/Commune instead of blank.
+-- "Other Site" fallback: when an INC-WO's own `site` FK is null (its
+-- parent Incident is an "Other Site" case), Site Code/Province/District/
+-- Commune fall back to the parent Incident's own values instead of blank.
 -- ==============================================================
 
 -- name: inc_wo_by_status
@@ -58,6 +40,7 @@ SELECT
     WHEN 'l3_internal_support' THEN 'L3 Internal Support'
     ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
   END AS "Support Level",
+  team.name AS "Responsible Team",
   wo.fault_description AS "Fault Description",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
@@ -66,6 +49,7 @@ SELECT
   commune.name AS "Commune"
 FROM object_324 wo
 LEFT JOIN object_322 inc ON wo.parent_incident = inc.id
+LEFT JOIN object_310 team ON wo.responsible_team = team.id
 LEFT JOIN object_160 sites ON wo.site = sites.id
 LEFT JOIN object_162 province
   ON (CASE WHEN sites.id IS NULL THEN inc.province_ref ELSE sites.province END) = province.id
@@ -76,4 +60,5 @@ LEFT JOIN object_166 commune
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE wo.status != 'closed'
 AND inc.status != 'closed'
+AND NOT (inc.status = 'resolved' AND inc.incident_category = 'customer_complaint')
 ORDER BY wo.created_at DESC NULLS FIRST;

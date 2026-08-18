@@ -22,7 +22,7 @@ def create_app(env=None, instance_path=None):
     instead of reading whatever real data happens to be synced into the
     dev machine's instance/localstorage.db."""
     env = env or os.environ.get("APP_ENV", "default")
-
+    
     app = Flask(__name__, instance_relative_config=True, instance_path=instance_path)
     app.config.from_object(config_map[env])
 
@@ -37,6 +37,8 @@ def create_app(env=None, instance_path=None):
     _start_background_jobs(app)
     _init_telegram_alert(app)
     _init_inc_wo_telegram_alert(app)
+    _init_inc_wo_power_telegram_alert(app)
+    _init_inc_wo_general_telegram_alert(app)
     _init_webhook_alerts(app)
 
     return app
@@ -50,12 +52,14 @@ def _register_extensions(app):
 
 def _register_blueprints(app):
     from app.routes.dashboard import dashboard_bp
+    from app.routes.map_view import map_view_bp
     from app.routes.mentor import mentor_bp
     from app.routes.reports import reports_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(mentor_bp, url_prefix="/mentor")
+    app.register_blueprint(map_view_bp, url_prefix="/map")
 
 
 def _register_template_filters(app):
@@ -186,6 +190,54 @@ def _init_inc_wo_telegram_alert(app):
             _start_inc_wo_telegram()
         else:
             wait_for_leadership(_start_inc_wo_telegram)
+
+
+def _init_inc_wo_power_telegram_alert(app):
+    """Start the background Telegram INC-WO Category Power alert loop —
+    same skip conditions as _init_inc_wo_telegram_alert() above, but
+    gated on TELEGRAM_BOT_INC_WO_POWER_TOKEN/TELEGRAM_CHAT_IDS_INC_WO_POWER,
+    a third, separate bot/chat."""
+    if app.testing:
+        return
+    if not app.config.get("TELEGRAM_BOT_INC_WO_POWER_TOKEN") or not app.config.get(
+        "TELEGRAM_CHAT_IDS_INC_WO_POWER"
+    ):
+        return
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from app.services.leader_lock import is_leader, wait_for_leadership
+        from app.services.telegram.telegram_inc_wo_power_alert import start
+
+        def _start_inc_wo_power_telegram():
+            start(app, app.config["INC_WO_POWER_ALERT_INTERVAL_SECONDS"])
+
+        if is_leader():
+            _start_inc_wo_power_telegram()
+        else:
+            wait_for_leadership(_start_inc_wo_power_telegram)
+
+
+def _init_inc_wo_general_telegram_alert(app):
+    """Start the background Telegram INC-WO General alert loop — same
+    skip conditions as _init_inc_wo_power_telegram_alert() above, but
+    gated on TELEGRAM_BOT_INC_WO_GENERAL_TOKEN/TELEGRAM_CHAT_IDS_INC_WO_GENERAL,
+    a fourth, separate bot/chat."""
+    if app.testing:
+        return
+    if not app.config.get("TELEGRAM_BOT_INC_WO_GENERAL_TOKEN") or not app.config.get(
+        "TELEGRAM_CHAT_IDS_INC_WO_GENERAL"
+    ):
+        return
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        from app.services.leader_lock import is_leader, wait_for_leadership
+        from app.services.telegram.telegram_inc_wo_general_alert import start
+
+        def _start_inc_wo_general_telegram():
+            start(app, app.config["INC_WO_GENERAL_ALERT_INTERVAL_SECONDS"])
+
+        if is_leader():
+            _start_inc_wo_general_telegram()
+        else:
+            wait_for_leadership(_start_inc_wo_general_telegram)
 
 
 def _init_webhook_alerts(app):

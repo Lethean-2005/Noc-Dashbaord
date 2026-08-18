@@ -57,8 +57,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!table || !header || !header.classList.contains('alarm-header')) return;
     const countEl = header.querySelector('.alarm-row-count');
 
-    const dataRows = () => Array.from(table.querySelectorAll('tbody tr')).filter(r => !r.querySelector('.empty-row'));
-    if (!dataRows().length) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr')).filter(r => !r.querySelector('.empty-row'));
+    if (!rows.length) return;
+    // Precomputed once, not per keystroke — .textContent (unlike
+    // .innerText) doesn't force a layout reflow, so typing stays smooth
+    // even on a few hundred rows.
+    const rowText = rows.map(r => r.textContent.toLowerCase());
 
     const search = document.createElement('input');
     search.type = 'text';
@@ -66,15 +70,19 @@ document.addEventListener('DOMContentLoaded', () => {
     search.className = 'alarm-search';
     header.insertBefore(search, header.firstChild);
 
+    let debounceTimer;
     search.addEventListener('input', () => {
-      const q = search.value.trim().toLowerCase();
-      let visible = 0;
-      dataRows().forEach(row => {
-        const match = !q || row.innerText.toLowerCase().includes(q);
-        row.style.display = match ? '' : 'none';
-        if (match) visible++;
-      });
-      if (countEl) countEl.textContent = `${visible} record${visible === 1 ? '' : 's'}`;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const q = search.value.trim().toLowerCase();
+        let visible = 0;
+        rows.forEach((row, i) => {
+          const match = !q || rowText[i].includes(q);
+          row.style.display = match ? '' : 'none';
+          if (match) visible++;
+        });
+        if (countEl) countEl.textContent = `${visible} record${visible === 1 ? '' : 's'}`;
+      }, 120);
     });
   });
 });

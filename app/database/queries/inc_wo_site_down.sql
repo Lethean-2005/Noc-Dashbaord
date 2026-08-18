@@ -38,6 +38,7 @@ SELECT
     WHEN 'l3_internal_support' THEN 'L3 Internal Support'
     ELSE INITCAP(REPLACE(wo.support_level, '_', ' '))
   END AS "Support Level",
+  team.name AS "Responsible Team",
   wo.fault_description AS "Fault Description",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
@@ -46,6 +47,7 @@ SELECT
   commune.name AS "Commune"
 FROM object_324 wo
 LEFT JOIN object_322 inc ON wo.parent_incident = inc.id
+LEFT JOIN object_310 team ON wo.responsible_team = team.id
 LEFT JOIN object_160 sites ON wo.site = sites.id
 LEFT JOIN object_162 province
   ON (CASE WHEN sites.id IS NULL THEN inc.province_ref ELSE sites.province END) = province.id

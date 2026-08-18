@@ -101,12 +101,16 @@ _SITE_CACHE_COLUMNS = {
 # more than one row here, one per site, sharing the same incident_id — see
 # app/database/queries/incident_by_status.sql for the join logic and
 # app/services/incident/incident_sync_service.py for the sync.
+#
+# responsible_team/support_level are the WO's own fields, not the parent
+# Incident's — also used by MentorSiteService's enrichment.
 INCIDENT_STATUS_CACHE_TABLES = ("incident_by_status",)
 
 _INCIDENT_STATUS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
-        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
+        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, responsible_team TEXT,
+        support_level TEXT, site_name TEXT, site_code TEXT,
         occurred_at TEXT, overdue TEXT, category TEXT,
         l1_noc_investigation_result TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
         province TEXT, district TEXT, commune TEXT,
@@ -123,6 +127,8 @@ _INCIDENT_STATUS_CACHE_COLUMNS = {
     "wo_created_at",
     "wo_status",
     "resolved_at",
+    "responsible_team",
+    "support_level",
     "site_name",
     "site_code",
     "occurred_at",
@@ -137,24 +143,19 @@ _INCIDENT_STATUS_CACHE_COLUMNS = {
     "commune",
 }
 
-# Same shape as incident_by_status above, but scoped to ONLY VIP/VVIP sites
-# (33 of 4,360 sites, confirmed against real data) and to status != 'closed'
-# instead of just ('new', 'in_progress') — so a Resolved incident still
-# shows here. Kept as its own separate table rather than widening
-# incident_by_status itself, which is shared by IncidentService and
-# MentorSiteService and caused a real outage the one time it was widened
-# directly (Incident's drilldown has no pagination; company-wide Resolved
-# incidents pushed it to 3,800+ rows). Scoping to just VIP/VVIP sites here
-# keeps the row count small even with full Resolved history included. See
-# app/database/queries/vip_incident_status.sql and
-# app/services/incident/incident_sync_service.py for the sync. Used only by
-# VipAlarmService's enrichment.
+# Same shape as incident_by_status above, but scoped to only VIP/VVIP
+# sites and to status != 'closed' (so a Resolved incident still shows).
+# Kept as its own table rather than widening incident_by_status itself,
+# which is shared by IncidentService/MentorSiteService and has no
+# pagination — widening it directly caused a real outage. Scoping to just
+# VIP/VVIP sites keeps this table small even with full Resolved history.
 VIP_INCIDENT_STATUS_CACHE_TABLES = ("vip_incident_status",)
 
 _VIP_INCIDENT_STATUS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
-        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
+        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, responsible_team TEXT,
+        support_level TEXT, site_name TEXT, site_code TEXT,
         occurred_at TEXT, overdue TEXT, category TEXT,
         l1_noc_investigation_result TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
         province TEXT, district TEXT, commune TEXT,
@@ -171,6 +172,8 @@ _VIP_INCIDENT_STATUS_CACHE_COLUMNS = {
     "wo_created_at",
     "wo_status",
     "resolved_at",
+    "support_level",
+    "responsible_team",
     "site_name",
     "site_code",
     "occurred_at",
@@ -192,17 +195,19 @@ _VIP_INCIDENT_STATUS_CACHE_COLUMNS = {
 # a freshly-created 'new' work order (not yet assigned a real id) — SQLite
 # allows multiple NULLs in a PRIMARY KEY/UNIQUE column, same as standard SQL.
 #
-# inc_wo_site_down shares this exact same shape — it's the same join
-# narrowed to category='site_down' work orders not yet resolved/closed,
-# behind the "INC-WO Site Down" card on the Custom Dashboard
-# (reports/index.html). See app/database/queries/inc_wo_site_down.sql.
-INC_WO_STATUS_CACHE_TABLES = ("inc_wo_by_status", "inc_wo_site_down")
+# inc_wo_site_down and inc_wo_category_power share this exact same shape —
+# each narrowed to one work order category (site_down / power) not yet
+# resolved/closed. inc_wo_site_down backs the "INC-WO Site Down" card;
+# inc_wo_category_power has no dashboard card, feeding only
+# telegram_inc_wo_power_alert.py.
+INC_WO_STATUS_CACHE_TABLES = ("inc_wo_by_status", "inc_wo_site_down", "inc_wo_category_power")
 
 _INC_WO_STATUS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT PRIMARY KEY,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT,
         incident_category TEXT, site_name TEXT, site_code TEXT, overdue TEXT, support_level TEXT,
+        responsible_team TEXT,
         fault_description TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
         province TEXT, district TEXT, commune TEXT
     )
@@ -222,6 +227,7 @@ _INC_WO_STATUS_CACHE_COLUMNS = {
     "site_code",
     "overdue",
     "support_level",
+    "responsible_team",
     "fault_description",
     "nms",
     "hub_site",
@@ -243,7 +249,7 @@ _INC_WO_RESOLVED_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT PRIMARY KEY,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
-        overdue TEXT, support_level TEXT, fault_description TEXT, nms TEXT,
+        overdue TEXT, support_level TEXT, responsible_team TEXT, fault_description TEXT, nms TEXT,
         hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
     )
 """
@@ -261,6 +267,7 @@ _INC_WO_RESOLVED_CACHE_COLUMNS = {
     "site_code",
     "overdue",
     "support_level",
+    "responsible_team",
     "fault_description",
     "nms",
     "hub_site",
@@ -426,6 +433,72 @@ _TELEGRAM_INC_WO_ALERT_CACHE_COLUMNS = {
     "commune",
 }
 
+# Same "every row seen on the alert's last run" role as
+# telegram_inc_wo_alert_cache above, but for the Category Power alert —
+# kept as its own table so replace_all() can't overwrite another alert's
+# last-run snapshot.
+TELEGRAM_INC_WO_POWER_ALERT_CACHE_TABLES = ("telegram_inc_wo_power_alert_cache",)
+
+_TELEGRAM_INC_WO_POWER_ALERT_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        incident_id TEXT, incident_status TEXT, wo_id TEXT PRIMARY KEY,
+        wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
+        outage_min INTEGER, fault_description TEXT,
+        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
+    )
+"""
+
+_TELEGRAM_INC_WO_POWER_ALERT_CACHE_COLUMNS = {
+    "incident_id",
+    "incident_status",
+    "wo_id",
+    "wo_created_at",
+    "wo_status",
+    "site_name",
+    "site_code",
+    "outage_min",
+    "fault_description",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
+}
+
+# Same "every row seen on the alert's last run" role as
+# telegram_inc_wo_power_alert_cache above, but for the General alert —
+# kept as its own table so replace_all() can't overwrite another alert's
+# last-run snapshot.
+TELEGRAM_INC_WO_GENERAL_ALERT_CACHE_TABLES = ("telegram_inc_wo_general_alert_cache",)
+
+_TELEGRAM_INC_WO_GENERAL_ALERT_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        incident_id TEXT, incident_status TEXT, wo_id TEXT PRIMARY KEY,
+        wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
+        outage_min INTEGER, fault_description TEXT,
+        nms TEXT, hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
+    )
+"""
+
+_TELEGRAM_INC_WO_GENERAL_ALERT_CACHE_COLUMNS = {
+    "incident_id",
+    "incident_status",
+    "wo_id",
+    "wo_created_at",
+    "wo_status",
+    "site_name",
+    "site_code",
+    "outage_min",
+    "fault_description",
+    "nms",
+    "hub_site",
+    "site_grade",
+    "province",
+    "district",
+    "commune",
+}
+
 # One row per active NE/connectivity alarm (object_138) — the broader
 # VVIP/Mentor/RAN alarm set (NodeB/eNodeB out of service, CSL Fault, NE
 # Disconnected, Main Failure, Low DC Voltage, DG on, etc.), not just Main
@@ -556,6 +629,16 @@ _CACHE_DEFINITIONS = (
         TELEGRAM_INC_WO_ALERT_CACHE_TABLES,
         _TELEGRAM_INC_WO_ALERT_TABLE_SCHEMA,
         _TELEGRAM_INC_WO_ALERT_CACHE_COLUMNS,
+    ),
+    (
+        TELEGRAM_INC_WO_POWER_ALERT_CACHE_TABLES,
+        _TELEGRAM_INC_WO_POWER_ALERT_TABLE_SCHEMA,
+        _TELEGRAM_INC_WO_POWER_ALERT_CACHE_COLUMNS,
+    ),
+    (
+        TELEGRAM_INC_WO_GENERAL_ALERT_CACHE_TABLES,
+        _TELEGRAM_INC_WO_GENERAL_ALERT_TABLE_SCHEMA,
+        _TELEGRAM_INC_WO_GENERAL_ALERT_CACHE_COLUMNS,
     ),
     (APE_ALARM_CACHE_TABLES, _APE_ALARM_TABLE_SCHEMA, _APE_ALARM_CACHE_COLUMNS),
     (VIP_ALARM_CACHE_TABLES, _VIP_ALARM_TABLE_SCHEMA, _VIP_ALARM_CACHE_COLUMNS),

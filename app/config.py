@@ -244,6 +244,33 @@ class Config:
     INC_WO_ALERT_THRESHOLD_MIN = int(os.environ.get("INC_WO_ALERT_THRESHOLD_MIN", 0))
     INC_WO_ALERT_INTERVAL_SECONDS = int(os.environ.get("INC_WO_ALERT_INTERVAL_SECONDS", 900))
 
+    # ── INC-WO Category Power Telegram alert
+    # (app/services/telegram/telegram_inc_wo_power_alert.py) ──
+    # Same shape as the INC-WO Site Down alert above, for category='power'
+    # instead — a third, separate bot/chat, Telegram-only (no dashboard
+    # card). Never starts unless both env vars are set.
+    TELEGRAM_BOT_INC_WO_POWER_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_POWER_TOKEN", "")
+    TELEGRAM_CHAT_IDS_INC_WO_POWER = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO_POWER", "")
+    INC_WO_POWER_ALERT_THRESHOLD_MIN = int(os.environ.get("INC_WO_POWER_ALERT_THRESHOLD_MIN", 0))
+    INC_WO_POWER_ALERT_INTERVAL_SECONDS = int(
+        os.environ.get("INC_WO_POWER_ALERT_INTERVAL_SECONDS", 900)
+    )
+
+    # ── INC-WO General Telegram alert
+    # (app/services/telegram/telegram_inc_wo_general_alert.py) ──
+    # Every INC-WO category EXCEPT site_down/power (those two already have
+    # their own dedicated alerts above) — a fourth, separate bot/chat,
+    # Telegram-only (no dashboard card). Same threshold-0/900s defaults.
+    # Never starts unless both env vars are set.
+    TELEGRAM_BOT_INC_WO_GENERAL_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_GENERAL_TOKEN", "")
+    TELEGRAM_CHAT_IDS_INC_WO_GENERAL = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO_GENERAL", "")
+    INC_WO_GENERAL_ALERT_THRESHOLD_MIN = int(
+        os.environ.get("INC_WO_GENERAL_ALERT_THRESHOLD_MIN", 0)
+    )
+    INC_WO_GENERAL_ALERT_INTERVAL_SECONDS = int(
+        os.environ.get("INC_WO_GENERAL_ALERT_INTERVAL_SECONDS", 900)
+    )
+
     # ── Teams webhook alerts (webhook/ package) ─────────────────────
     # Master on/off for the scheduled Teams sends (webhook.start(), called
     # from _init_webhook_alerts() below) and how often send_all() runs.

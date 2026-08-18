@@ -19,6 +19,7 @@ def start(app, interval_seconds):
         total += service.sync_by_status() or 0
         total += service.sync_inc_wo_by_status() or 0
         total += service.sync_inc_wo_site_down() or 0
+        total += service.sync_inc_wo_category_power() or 0
         total += service.sync_inc_wo_resolved() or 0
         total += service.sync_incident_site_down() or 0
         total += service.sync_vip_incident_status() or 0

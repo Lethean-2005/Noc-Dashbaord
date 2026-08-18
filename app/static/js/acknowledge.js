@@ -1,5 +1,5 @@
 // Acknowledge/Modify popup — EZE / TCT / ISP POP drilldown tables only
-// (see drilldown/alarms.html + drilldown/_ack_button.html).
+// (see drilldown/alarms.html + drilldown/_alarm_action_menu.html).
 //
 // This app has no login system (app/extensions.py's load_user() is a
 // stub) and no website can read the visiting browser's Windows username —

@@ -26,7 +26,7 @@ excluded), so a site's ticket reference would go blank the moment it's
 Resolved. vip_incident_status is a separate cache scoped to only VIP/VVIP
 sites (see app/database/queries/vip_incident_status.sql) that also keeps
 Resolved incidents (only excludes Closed) — safe to widen that way here
-specifically because it's scoped to 33 of 4,360 sites, unlike
+specifically because it's scoped to VIP/VVIP sites only, unlike
 incident_by_status which covers every site company-wide.
 """
 
@@ -154,6 +154,8 @@ class VipAlarmService:
             r["wo_created_at"] = inc.get("wo_created_at") or ""
             r["wo_status"] = inc.get("wo_status") or ""
             r["resolved_at"] = inc.get("resolved_at") or ""
+            r["responsible_team"] = inc.get("responsible_team") or ""
+            r["support_level"] = inc.get("support_level") or ""
             r["category"] = inc.get("category") or ""
             r["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             r["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()

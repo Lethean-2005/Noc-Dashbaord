@@ -1,7 +1,11 @@
 """Sends a Telegram alert listing every Incident Site Down whose outage has
 passed ALERT_THRESHOLD_MIN (default 240 minutes / 4 hours), rendered as a
 table image (via Pillow) rather than a plain text message — sent as a
-document so Telegram doesn't recompress it and blur the text.
+document so Telegram doesn't recompress it and blur the text. Every send
+also attaches a second document: the same rows as a styled .xlsx (via
+openpyxl) — the image stays the at-a-glance view, the Excel file is the
+"open this in a spreadsheet" copy. Same pattern shared by all 4 Telegram
+alerts, see _build_excel_bytes()/_send_telegram_excel() below.
 
 Reads the already-synced incident_site_down cache (see
 app/repositories/incident/incident_site_down_cache_repository.py,
@@ -50,15 +54,40 @@ try:
 except ImportError:
     _HAS_PIL = False
 
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    _HAS_OPENPYXL = True
+except ImportError:
+    _HAS_OPENPYXL = False
+
 logger = get_logger(__name__)
 
 _TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 _TELEGRAM_SEND_DOCUMENT_URL = "https://api.telegram.org/bot{token}/sendDocument"
+_EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # app/static/fonts/ (see base.html) — same Exo 2 family used across the
 # dashboard's own UI, so the alert image looks consistent with the app.
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "fonts")
 _FONT_BOLD_PATH = os.path.join(_FONT_DIR, "Exo2-Bold.ttf")
+
+# Excel styling — matches the PNG tables' own color choices (HEADER_BG,
+# _PRIORITY_ROW_BG) so the .xlsx attachment reads as the same alert, not a
+# differently-branded dump of the same data. Border is solid black (not a
+# light grey) and the row font is sized up from openpyxl's 11pt default —
+# both per explicit request, so the sheet reads as a clean, high-contrast
+# printed table rather than a default spreadsheet dump.
+_EXCEL_HEADER_ARGB = "FF1A3A5C"
+_EXCEL_ALT_ROW_ARGB = "FFF5F7FA"
+_EXCEL_PRIORITY_ARGB = "FFFFCDD2"
+_EXCEL_BORDER_ARGB = "FF000000"
+_EXCEL_TITLE_FONT_SIZE = 16
+_EXCEL_HEADER_FONT_SIZE = 12
+_EXCEL_DATA_FONT_SIZE = 12
+_EXCEL_DATA_ROW_HEIGHT = 20
 
 
 def _chat_ids(raw):
@@ -269,6 +298,175 @@ def _render_table_image(rows, title):
     return buffer.getvalue()
 
 
+def _is_l2_support(row):
+    """True only for an L2 Support Level (e.g. "L2 On-Site") — used by the
+    three INC-WO Telegram alerts (Site Down, Category Power, General) to
+    send L2 rows only. Anything else (L3, blank, or any other value) is
+    excluded — these alerts are for the L2 On-Site team specifically."""
+    return (row.get("support_level") or "").strip().upper().startswith("L2")
+
+
+def _error_detail(e):
+    """`str(e)` on a requests HTTPError is just the status line (e.g. "400
+    Client Error: Bad Request for url: ...") — Telegram's own reason (e.g.
+    "Bad Request: chat not found", "Forbidden: bot was kicked from the
+    group chat") is in the response body instead. Falls back to str(e) for
+    any other exception (timeouts, connection errors) that has no body."""
+    resp = getattr(e, "response", None)
+    if resp is not None:
+        try:
+            return resp.json().get("description", resp.text)
+        except ValueError:
+            return resp.text
+    return str(e)
+
+
+def _argb(hex_color):
+    """"#1A3A5C" -> "FF1A3A5C" — openpyxl colors want an 8-digit ARGB
+    string; every color used in this codebase is a plain 6-digit RGB hex
+    (the PNG tables' own color constants), so this just adds full opacity."""
+    h = hex_color.lstrip("#")
+    return f"FF{h}" if len(h) == 6 else h
+
+
+# Same incident/inc_wo record links the dashboard's own drilldown pages
+# build (see incwo.html's <a href="https://prd-web-mc.cellcard.com.kh/...">)
+# — every INC-WO cache table these alerts read from already carries
+# incident_numeric_id/wo_numeric_id (see app/database/cache.py), so no new
+# data is needed to link Excel cells the same way.
+_INCIDENT_FORM_URL = "https://prd-web-mc.cellcard.com.kh/incident/form/{id}"
+_INC_WO_FORM_URL = "https://prd-web-mc.cellcard.com.kh/inc_wo/form/{id}"
+_EXCEL_LINK_ARGB = "FF0563C1"  # Excel's own default hyperlink blue
+
+
+def _incident_link(row):
+    numeric_id = row.get("incident_numeric_id")
+    return _INCIDENT_FORM_URL.format(id=numeric_id) if numeric_id else None
+
+
+def _inc_wo_link(row):
+    numeric_id = row.get("wo_numeric_id")
+    return _INC_WO_FORM_URL.format(id=numeric_id) if numeric_id else None
+
+
+def _build_excel_bytes(
+    columns,
+    rows,
+    title,
+    status_key=None,
+    status_colors=None,
+    priority_fn=None,
+    hyperlinks=None,
+    left_align=None,
+):
+    """Builds a styled .xlsx workbook of `rows` — dark-navy header banner
+    matching the PNG tables' own look, a frozen header row, autofilter,
+    autosized columns, and light banded rows for readability.
+
+    `columns` is a sequence of (header, extractor) pairs, where extractor
+    is either a row dict key or a callable(row) -> value; a missing/blank
+    value renders as "—", same convention the PNG tables use. Pass
+    `status_key`/`status_colors` to color one column's text the same way
+    the PNG table does (e.g. INC-WO Status); pass `priority_fn(row)` to
+    shade a whole row the same pink the PNG table uses for hub/Gold/Diamond
+    sites. Pass `hyperlinks` as a {header: fn(row) -> url_or_None} map to
+    make that column's cells clickable (styled Excel-hyperlink-blue, no
+    underline — per explicit request) — a row with no numeric id (fn
+    returns None/falsy) stays plain text, same conditional-link behavior
+    incwo.html itself uses. Every data cell is centered by default — pass
+    `left_align` as a set/list of header strings (e.g. free-typed prose
+    columns like Fault Description) to left-align just those columns
+    instead, per explicit request.
+
+    Returns bytes, or None if openpyxl isn't installed — caller decides
+    whether to skip the attachment silently, same convention as
+    _render_table_image()'s own Pillow guard."""
+    if not _HAS_OPENPYXL:
+        return None
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Alert"
+
+    # Solid black, not hairline-thin — a light-grey grid disappears at
+    # normal zoom; black keeps every cell boundary visible without opening
+    # the file and zooming in.
+    thick = Side(style="medium", color=_EXCEL_BORDER_ARGB)
+    border = Border(left=thick, right=thick, top=thick, bottom=thick)
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(columns), 1))
+    title_cell = ws.cell(row=1, column=1, value=f"{title}  —  {now_str}")
+    title_cell.font = Font(bold=True, size=_EXCEL_TITLE_FONT_SIZE, color="FF1A2B3C")
+    ws.row_dimensions[1].height = 28
+
+    header_row = 2
+    for ci, (header, _extractor) in enumerate(columns, start=1):
+        cell = ws.cell(row=header_row, column=ci, value=header)
+        cell.font = Font(bold=True, size=_EXCEL_HEADER_FONT_SIZE, color="FFFFFFFF")
+        cell.fill = PatternFill("solid", fgColor=_EXCEL_HEADER_ARGB)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+    ws.row_dimensions[header_row].height = 26
+
+    max_len = [len(header) for header, _ in columns]
+    for ri, row in enumerate(rows, start=header_row + 1):
+        is_priority = bool(priority_fn(row)) if priority_fn else False
+        band = (not is_priority) and (ri - header_row) % 2 == 0
+        for ci, (header, extractor) in enumerate(columns, start=1):
+            value = extractor(row) if callable(extractor) else (row.get(extractor) or "—")
+            is_status = status_key and header == status_key and status_colors and value in status_colors
+            link_url = hyperlinks[header](row) if hyperlinks and header in hyperlinks else None
+            horizontal = "left" if left_align and header in left_align else "center"
+            cell = ws.cell(row=ri, column=ci, value=value)
+            cell.border = border
+            cell.alignment = Alignment(horizontal=horizontal, vertical="center")
+            if link_url:
+                cell.hyperlink = link_url
+                cell.font = Font(size=_EXCEL_DATA_FONT_SIZE, color=_EXCEL_LINK_ARGB)
+            else:
+                cell.font = Font(
+                    size=_EXCEL_DATA_FONT_SIZE,
+                    bold=bool(is_status),
+                    color=_argb(status_colors[value]) if is_status else "FF000000",
+                )
+            if is_priority:
+                cell.fill = PatternFill("solid", fgColor=_EXCEL_PRIORITY_ARGB)
+            elif band:
+                cell.fill = PatternFill("solid", fgColor=_EXCEL_ALT_ROW_ARGB)
+            max_len[ci - 1] = max(max_len[ci - 1], len(str(value)))
+        ws.row_dimensions[ri].height = _EXCEL_DATA_ROW_HEIGHT
+
+    for ci, length in enumerate(max_len, start=1):
+        ws.column_dimensions[get_column_letter(ci)].width = min(max(length + 4, 12), 60)
+
+    ws.freeze_panes = f"A{header_row + 1}"
+    if rows:
+        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(columns))}{header_row}"
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _send_telegram_excel(token, chat_ids, excel_bytes, filename):
+    """Sends the Excel attachment via the same sendDocument endpoint as the
+    PNG table image — shared by all 4 Telegram alerts so "also send this
+    alert's rows as .xlsx" behaves identically everywhere."""
+    url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
+    sent = True
+    for chat_id in chat_ids:
+        try:
+            files = {"document": (filename, excel_bytes, _EXCEL_MIME)}
+            resp = requests.post(url, files=files, data={"chat_id": chat_id}, timeout=30)
+            resp.raise_for_status()
+        except Exception as e:
+            logger.error(f"Telegram Excel send failed for chat {chat_id}: {_error_detail(e)}")
+            sent = False
+    return sent
+
+
 def _send_telegram_photo(token, chat_ids, photo_bytes):
     """Sends as a document (not sendPhoto) — Telegram recompresses photos,
     which blurs small table text; documents are delivered untouched."""
@@ -280,7 +478,7 @@ def _send_telegram_photo(token, chat_ids, photo_bytes):
             resp = requests.post(url, files=files, data={"chat_id": chat_id}, timeout=30)
             resp.raise_for_status()
         except Exception as e:
-            logger.error(f"Telegram image send failed for chat {chat_id}: {e}")
+            logger.error(f"Telegram image send failed for chat {chat_id}: {_error_detail(e)}")
             sent = False
     return sent
 
@@ -293,9 +491,24 @@ def _send_telegram_text(token, chat_ids, text):
             resp = requests.post(url, data={"chat_id": chat_id, "text": text}, timeout=15)
             resp.raise_for_status()
         except Exception as e:
-            logger.error(f"Telegram text send failed for chat {chat_id}: {e}")
+            logger.error(f"Telegram text send failed for chat {chat_id}: {_error_detail(e)}")
             sent = False
     return sent
+
+
+# (header, extractor) pairs for the Excel attachment — mirrors
+# _render_table_image()'s own `headers`/row-building, minus the pixel-width
+# truncation (Excel autosizes columns instead of wrapping/clipping text).
+_EXCEL_COLUMNS = (
+    ("Incident ID", lambda r: r.get("incident_id") or "—"),
+    ("Site Name", lambda r: r.get("site_name") or "—"),
+    ("Site Code", lambda r: r.get("site_code") or "—"),
+    ("Occurred At", lambda r: (r.get("occurred_at") or "")[:16]),
+    ("Outage", lambda r: _format_outage(r["outage_min"])),
+    ("INC-WO ID", lambda r: r.get("wo_id") or "—"),
+    ("INC-WO Status", lambda r: r.get("wo_status") or "—"),
+    ("Last Comment", lambda r: (r.get("last_comments") or "").replace("\n", " ").strip()),
+)
 
 
 def send_site_down_alert(
@@ -328,6 +541,15 @@ def send_site_down_alert(
         sent = _send_telegram_photo(token, chat_ids, photo)
     else:
         sent = _send_telegram_text(token, chat_ids, _format_message(rows, threshold_min))
+
+    excel = _build_excel_bytes(
+        _EXCEL_COLUMNS,
+        rows,
+        "Site Down Alerts",
+        hyperlinks={"Incident ID": _incident_link, "INC-WO ID": _inc_wo_link},
+    )
+    if excel:
+        sent = _send_telegram_excel(token, chat_ids, excel, "site-down-alert.xlsx") and sent
 
     logger.info(
         f"Sent Telegram Site Down alert — {len(rows)} incident(s) to {len(chat_ids)} chat(s)"

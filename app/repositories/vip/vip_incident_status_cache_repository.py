@@ -20,6 +20,8 @@ class VipIncidentStatusCacheRepository(BaseCacheRepository):
         "wo_created_at",
         "wo_status",
         "resolved_at",
+        "responsible_team",
+        "support_level",
         "site_name",
         "site_code",
         "occurred_at",

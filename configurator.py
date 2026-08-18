@@ -11,13 +11,26 @@ Run it with:  scripts/configure.bat      (or)   pythonw configurator.py
 Every setting here (including card toggles) applies after you restart the
 dashboard — app/config.py reads .env once, at process startup.
 """
+
 import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
-    QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox,
-    QTabWidget, QVBoxLayout, QWidget,
+    QApplication,
+    QCheckBox,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -43,6 +56,7 @@ CARD_TOGGLES = [
 
 
 # ── .env read / write (preserves everything it does not manage) ──────
+
 
 def read_env() -> dict:
     """Return the .env as a {key: value} dict (values unquoted)."""
@@ -92,13 +106,14 @@ def _is_true(value: str) -> bool:
 
 # ── The window ───────────────────────────────────────────────────────
 
+
 class ConfiguratorWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Noc Dashboard — Configuration")
         self.resize(640, 560)
 
-        self.fields = {}   # .env key -> widget
+        self.fields = {}  # .env key -> widget
 
         tabs = QTabWidget()
         tabs.addTab(self._cards_tab(), "Dashboard Cards")
@@ -116,8 +131,10 @@ class ConfiguratorWindow(QWidget):
 
         layout = QVBoxLayout(self)
         layout.addWidget(tabs)
-        note = QLabel("Restart the dashboard (scripts/start_dashboard.bat) "
-                       "after saving for changes to take effect.")
+        note = QLabel(
+            "Restart the dashboard (scripts/start_dashboard.bat) "
+            "after saving for changes to take effect."
+        )
         note.setWordWrap(True)
         note.setStyleSheet("color: #666;")
         layout.addWidget(note)
@@ -142,8 +159,12 @@ class ConfiguratorWindow(QWidget):
     def _general_tab(self) -> QWidget:
         sync = QFormLayout()
         sync.addRow("Site sync interval (sec):", self._spin("SITE_SYNC_INTERVAL_SECONDS", 10, 3600))
-        sync.addRow("Incident sync interval (sec):", self._spin("INCIDENT_SYNC_INTERVAL_SECONDS", 10, 3600))
-        sync.addRow("MSSQL alarm sync interval (sec):", self._spin("MSSQL_SYNC_INTERVAL_SECONDS", 5, 3600))
+        sync.addRow(
+            "Incident sync interval (sec):", self._spin("INCIDENT_SYNC_INTERVAL_SECONDS", 10, 3600)
+        )
+        sync.addRow(
+            "MSSQL alarm sync interval (sec):", self._spin("MSSQL_SYNC_INTERVAL_SECONDS", 5, 3600)
+        )
         sync_box = QGroupBox("Sync / Refresh Intervals")
         sync_box.setLayout(sync)
 
@@ -154,6 +175,49 @@ class ConfiguratorWindow(QWidget):
         alert.addRow("Alert interval (sec):", self._spin("ALERT_INTERVAL_SECONDS", 60, 86400))
         alert_box = QGroupBox("Telegram Site Down Alert")
         alert_box.setLayout(alert)
+
+        inc_wo_alert = QFormLayout()
+        inc_wo_alert.addRow("Bot token:", self._line("TELEGRAM_BOT_INC_WO_TOKEN", password=True))
+        inc_wo_alert.addRow("Chat IDs (comma-separated):", self._line("TELEGRAM_CHAT_IDS_INC_WO"))
+        inc_wo_alert.addRow(
+            "Outage threshold (min):", self._spin("INC_WO_ALERT_THRESHOLD_MIN", 0, 1440)
+        )
+        inc_wo_alert.addRow(
+            "Alert interval (sec):", self._spin("INC_WO_ALERT_INTERVAL_SECONDS", 60, 86400)
+        )
+        inc_wo_alert_box = QGroupBox("Telegram INC-WO Site Down Alert")
+        inc_wo_alert_box.setLayout(inc_wo_alert)
+        inc_wo_alert_box.setToolTip(
+            "A separate bot/chat from the Site Down alert above — sends the "
+            "current INC-WO Site Down list on its own schedule. Threshold 0 "
+            "means every open row is sent, not just ones past a threshold. "
+            "Never starts unless both the bot token and chat IDs are set, "
+            "and the bot must already be a member of that chat."
+        )
+
+        inc_wo_power_alert = QFormLayout()
+        inc_wo_power_alert.addRow(
+            "Bot token:", self._line("TELEGRAM_BOT_INC_WO_POWER_TOKEN", password=True)
+        )
+        inc_wo_power_alert.addRow(
+            "Chat IDs (comma-separated):", self._line("TELEGRAM_CHAT_IDS_INC_WO_POWER")
+        )
+        inc_wo_power_alert.addRow(
+            "Outage threshold (min):", self._spin("INC_WO_POWER_ALERT_THRESHOLD_MIN", 0, 1440)
+        )
+        inc_wo_power_alert.addRow(
+            "Alert interval (sec):", self._spin("INC_WO_POWER_ALERT_INTERVAL_SECONDS", 60, 86400)
+        )
+        inc_wo_power_alert_box = QGroupBox("Telegram INC-WO Category Power Alert")
+        inc_wo_power_alert_box.setLayout(inc_wo_power_alert)
+        inc_wo_power_alert_box.setToolTip(
+            "A THIRD, separate bot/chat from both alerts above — sends the "
+            "current INC-WO Category Power list on its own schedule. No "
+            "dashboard card behind this one, Telegram-only. Threshold 0 "
+            "means every open row is sent, not just ones past a threshold. "
+            "Never starts unless both the bot token and chat IDs are set, "
+            "and the bot must already be a member of that chat."
+        )
 
         layout_reset = QFormLayout()
         layout_reset.addRow("Reset version:", self._spin("CARD_LAYOUT_RESET_VERSION", 1, 999))
@@ -169,6 +233,8 @@ class ConfiguratorWindow(QWidget):
         wrapper = QVBoxLayout()
         wrapper.addWidget(sync_box)
         wrapper.addWidget(alert_box)
+        wrapper.addWidget(inc_wo_alert_box)
+        wrapper.addWidget(inc_wo_power_alert_box)
         wrapper.addWidget(layout_reset_box)
         wrapper.addStretch()
         return self._scrollable(wrapper)
@@ -204,15 +270,50 @@ class ConfiguratorWindow(QWidget):
         for key, _ in CARD_TOGGLES:
             self.fields[key].setChecked(_is_true(env.get(key, "true")))
 
-        self.fields["SITE_SYNC_INTERVAL_SECONDS"].setValue(int(env.get("SITE_SYNC_INTERVAL_SECONDS", "300") or 300))
-        self.fields["INCIDENT_SYNC_INTERVAL_SECONDS"].setValue(int(env.get("INCIDENT_SYNC_INTERVAL_SECONDS", "300") or 300))
-        self.fields["MSSQL_SYNC_INTERVAL_SECONDS"].setValue(int(env.get("MSSQL_SYNC_INTERVAL_SECONDS", "10") or 10))
+        self.fields["SITE_SYNC_INTERVAL_SECONDS"].setValue(
+            int(env.get("SITE_SYNC_INTERVAL_SECONDS", "300") or 300)
+        )
+        self.fields["INCIDENT_SYNC_INTERVAL_SECONDS"].setValue(
+            int(env.get("INCIDENT_SYNC_INTERVAL_SECONDS", "300") or 300)
+        )
+        self.fields["MSSQL_SYNC_INTERVAL_SECONDS"].setValue(
+            int(env.get("MSSQL_SYNC_INTERVAL_SECONDS", "10") or 10)
+        )
 
         self.fields["TELEGRAM_BOT_TOKEN"].setText(env.get("TELEGRAM_BOT_TOKEN", ""))
         self.fields["TELEGRAM_CHAT_IDS"].setText(env.get("TELEGRAM_CHAT_IDS", ""))
-        self.fields["ALERT_THRESHOLD_MIN"].setValue(int(env.get("ALERT_THRESHOLD_MIN", "240") or 240))
-        self.fields["ALERT_INTERVAL_SECONDS"].setValue(int(env.get("ALERT_INTERVAL_SECONDS", "14400") or 14400))
-        self.fields["CARD_LAYOUT_RESET_VERSION"].setValue(int(env.get("CARD_LAYOUT_RESET_VERSION", "1") or 1))
+        self.fields["ALERT_THRESHOLD_MIN"].setValue(
+            int(env.get("ALERT_THRESHOLD_MIN", "240") or 240)
+        )
+        self.fields["ALERT_INTERVAL_SECONDS"].setValue(
+            int(env.get("ALERT_INTERVAL_SECONDS", "14400") or 14400)
+        )
+
+        self.fields["TELEGRAM_BOT_INC_WO_TOKEN"].setText(env.get("TELEGRAM_BOT_INC_WO_TOKEN", ""))
+        self.fields["TELEGRAM_CHAT_IDS_INC_WO"].setText(env.get("TELEGRAM_CHAT_IDS_INC_WO", ""))
+        self.fields["INC_WO_ALERT_THRESHOLD_MIN"].setValue(
+            int(env.get("INC_WO_ALERT_THRESHOLD_MIN", "0") or 0)
+        )
+        self.fields["INC_WO_ALERT_INTERVAL_SECONDS"].setValue(
+            int(env.get("INC_WO_ALERT_INTERVAL_SECONDS", "900") or 900)
+        )
+
+        self.fields["TELEGRAM_BOT_INC_WO_POWER_TOKEN"].setText(
+            env.get("TELEGRAM_BOT_INC_WO_POWER_TOKEN", "")
+        )
+        self.fields["TELEGRAM_CHAT_IDS_INC_WO_POWER"].setText(
+            env.get("TELEGRAM_CHAT_IDS_INC_WO_POWER", "")
+        )
+        self.fields["INC_WO_POWER_ALERT_THRESHOLD_MIN"].setValue(
+            int(env.get("INC_WO_POWER_ALERT_THRESHOLD_MIN", "0") or 0)
+        )
+        self.fields["INC_WO_POWER_ALERT_INTERVAL_SECONDS"].setValue(
+            int(env.get("INC_WO_POWER_ALERT_INTERVAL_SECONDS", "900") or 900)
+        )
+
+        self.fields["CARD_LAYOUT_RESET_VERSION"].setValue(
+            int(env.get("CARD_LAYOUT_RESET_VERSION", "1") or 1)
+        )
 
     def save_values(self) -> None:
         updates = {}
@@ -220,14 +321,32 @@ class ConfiguratorWindow(QWidget):
         for key, _ in CARD_TOGGLES:
             updates[key] = "True" if self.fields[key].isChecked() else "False"
 
-        for key in ("SITE_SYNC_INTERVAL_SECONDS", "INCIDENT_SYNC_INTERVAL_SECONDS",
-                    "MSSQL_SYNC_INTERVAL_SECONDS",
-                    "ALERT_THRESHOLD_MIN", "ALERT_INTERVAL_SECONDS",
-                    "CARD_LAYOUT_RESET_VERSION"):
+        for key in (
+            "SITE_SYNC_INTERVAL_SECONDS",
+            "INCIDENT_SYNC_INTERVAL_SECONDS",
+            "MSSQL_SYNC_INTERVAL_SECONDS",
+            "ALERT_THRESHOLD_MIN",
+            "ALERT_INTERVAL_SECONDS",
+            "INC_WO_ALERT_THRESHOLD_MIN",
+            "INC_WO_ALERT_INTERVAL_SECONDS",
+            "INC_WO_POWER_ALERT_THRESHOLD_MIN",
+            "INC_WO_POWER_ALERT_INTERVAL_SECONDS",
+            "CARD_LAYOUT_RESET_VERSION",
+        ):
             updates[key] = str(self.fields[key].value())
 
         updates["TELEGRAM_BOT_TOKEN"] = self.fields["TELEGRAM_BOT_TOKEN"].text().strip()
         updates["TELEGRAM_CHAT_IDS"] = self.fields["TELEGRAM_CHAT_IDS"].text().strip()
+        updates["TELEGRAM_BOT_INC_WO_TOKEN"] = (
+            self.fields["TELEGRAM_BOT_INC_WO_TOKEN"].text().strip()
+        )
+        updates["TELEGRAM_CHAT_IDS_INC_WO"] = self.fields["TELEGRAM_CHAT_IDS_INC_WO"].text().strip()
+        updates["TELEGRAM_BOT_INC_WO_POWER_TOKEN"] = (
+            self.fields["TELEGRAM_BOT_INC_WO_POWER_TOKEN"].text().strip()
+        )
+        updates["TELEGRAM_CHAT_IDS_INC_WO_POWER"] = (
+            self.fields["TELEGRAM_CHAT_IDS_INC_WO_POWER"].text().strip()
+        )
 
         try:
             write_env(updates)
@@ -235,8 +354,10 @@ class ConfiguratorWindow(QWidget):
             QMessageBox.critical(self, "Save failed", f"Could not write .env:\n{exc}")
             return
         QMessageBox.information(
-            self, "Saved",
-            "Settings saved to .env.\n\nRestart the dashboard for these changes to take effect.")
+            self,
+            "Saved",
+            "Settings saved to .env.\n\nRestart the dashboard for these changes to take effect.",
+        )
 
 
 def main() -> int:

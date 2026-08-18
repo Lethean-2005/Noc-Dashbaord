@@ -27,6 +27,8 @@
                 <th>Outage(min)</th>
                 <th>Event Name</th>
                 <th>Category</th>
+                <th>Responsible Team</th>
+                <th>Support Level</th>
                 <th>NMS</th>
                 <th>Hub Site</th>
                 <th>Site Grade</th>
@@ -47,13 +49,15 @@
                 <td class="right">{{ row.outage_min }}</td>
                 <td>{{ row.event_name }}</td>
                 <td>{{ row.category }}</td>
+                <td>{{ row.responsible_team }}</td>
+                <td>{{ row.support_level }}</td>
                 <td>{{ row.nms }}</td>
                 <td>{{ row.hub_site }}</td>
                 <td>{{ row.site_grade }}</td>
                 <td>{{ row.province }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="15">No Mentor site alarms found</td></tr>
+            <tr class="empty-row"><td colspan="17">No Mentor site alarms found</td></tr>
             {% endfor %}
         </tbody>
     </table>

@@ -20,3 +20,9 @@ class IncWoRepository:
         """INC-WO that are Resolved while their parent Incident is still
         In-Progress overall — see app/database/queries/inc_wo_resolved.sql."""
         return run_query("inc_wo_resolved", "inc_wo_resolved")
+
+    def fetch_category_power(self):
+        """Same join as fetch_by_status(), narrowed to category='power'
+        work orders not yet resolved/closed — see
+        app/database/queries/inc_wo_category_power.sql."""
+        return run_query("inc_wo_category_power", "inc_wo_category_power")

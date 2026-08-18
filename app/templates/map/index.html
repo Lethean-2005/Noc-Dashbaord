@@ -1,0 +1,80 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Map View{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/markercluster/MarkerCluster.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/markercluster/MarkerCluster.Default.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/map-view.css') }}">
+{% endblock %}
+
+{% block content %}
+{# Sites are read from the already-synced site_cache (see
+app/services/map/map_view_service.py) — only rows with a real, non-zero
+p_lat/p_lon are included, so the count below can be lower than the
+dashboard's total site count. #}
+<div class="alarm-header">
+    <div>
+        <h1>{{ self.title() }}</h1>
+        {# Doubles as the "show everything" reset — clicking it clears any
+        active status filter, same job the old separate "Total Location"
+        button did. #}
+        <button type="button" id="mapTotalBadge" class="map-total-badge">
+            {{ sites|length }} site{{ 's' if sites|length != 1 else '' }} plotted
+        </button>
+    </div>
+    {# Search box lives in the header now, not floating on the map — it
+    used to overlay the map's top-right corner, which visually collided
+    with this status dropdown (both anchored to the same corner, opening
+    on top of each other). Living in the header's normal flex flow, the
+    two can never overlap. #}
+    <div class="map-search">
+        <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search by site code or site name..." autocomplete="off">
+        <div id="mapSearchResults" class="map-search-results" hidden></div>
+    </div>
+    {# "Other" is every status that isn't on_air/planned (see site_cache's
+    real status values — currently just on_air/planned/ready_for_installation,
+    but this stays correct if a new status value shows up later) — counts
+    computed once in Python, see MapViewService.get_status_counts(). A
+    <details> dropdown, not a native <select> — same "click to open/close
+    comes free from the browser" pattern drilldown/_date_filter.html
+    already uses, styled as a custom card instead of the OS's own
+    unstylable <select> listbox. #}
+    <details class="map-status-filter" id="mapStatusFilter">
+        <summary class="map-filter-select">
+            <span id="mapStatusFilterLabel">All Status</span>
+            <i class="ti ti-chevron-down"></i>
+        </summary>
+        <div class="map-status-filter-card">
+            <div class="map-status-filter-option active" data-filter="all" data-label="All Status">
+                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-all"></span> All Status</span>
+            </div>
+            <div class="map-status-filter-option" data-filter="on_air" data-label="On Air">
+                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-on-air"></span> On Air</span>
+                <span class="map-status-filter-count">{{ status_counts.on_air }}</span>
+            </div>
+            <div class="map-status-filter-option" data-filter="planned" data-label="Planned">
+                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-planned"></span> Planned</span>
+                <span class="map-status-filter-count">{{ status_counts.planned }}</span>
+            </div>
+            <div class="map-status-filter-option" data-filter="other" data-label="Other">
+                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-other"></span> Other</span>
+                <span class="map-status-filter-count">{{ status_counts.other }}</span>
+            </div>
+        </div>
+    </details>
+</div>
+
+<div class="map-view-wrap">
+    <div id="mapView" class="map-view-container"></div>
+</div>
+
+<script type="application/json" id="map-view-sites-data">{{ sites|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendors/leaflet/leaflet.js') }}"></script>
+<script src="{{ url_for('static', filename='vendors/leaflet/markercluster/leaflet.markercluster.js') }}"></script>
+<script src="{{ url_for('static', filename='js/map-view.js') }}"></script>
+{% endblock %}

@@ -59,22 +59,6 @@ document.addEventListener('fullscreenchange', function () {
     if (icon) icon.className = 'ti ' + (document.fullscreenElement ? 'ti-minimize' : 'ti-maximize');
 });
 
-// Filter the current page's alarm table rows as the user types (drilldown pages).
-document.addEventListener('DOMContentLoaded', function () {
-    const searchInput = document.getElementById('global-search');
-    if (!searchInput) return;
-
-    searchInput.addEventListener('input', function (e) {
-        const val = e.target.value.toLowerCase();
-        const table = document.querySelector('.alarm-table');
-        if (!table) return;
-        table.querySelectorAll('tbody tr').forEach((row) => {
-            if (row.classList.contains('empty-row')) return;
-            row.style.display = row.textContent.toLowerCase().includes(val) ? '' : 'none';
-        });
-    });
-});
-
 // Dashboard card search — searches across BOTH pages that have cards (the
 // Overall dashboard at "/" and the Custom dashboard at "/reports" — yes,
 // that route is named "reports" for historical reasons, but the page and

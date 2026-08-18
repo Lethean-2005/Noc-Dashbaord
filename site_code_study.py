@@ -32,6 +32,7 @@ regexes):
      -> return the 4 digits.
   Otherwise "" (Postgres: NULL).
 """
+
 from app.utils.get_processed_site import get_processed_site, index_site_lookup
 
 # A tiny fake site_lookup_mv / site_lookup_cache — just enough rows to
@@ -76,7 +77,7 @@ EXAMPLES = [
         "prefix ABCDEF1234GHI suffix",
     ),
     (
-        "Nothing matches -> \"\" (Postgres: NULL)",
+        'Nothing matches -> "" (Postgres: NULL)',
         "NoDigitsInSiteAtAll",
         "no recognizable pattern in here",
     ),
@@ -85,4 +86,6 @@ EXAMPLES = [
 if __name__ == "__main__":
     for label, site, additional_info in EXAMPLES:
         code = get_processed_site(site, additional_info, BY_SRAN_ID, BY_NODEB_ID, BY_BTS_ID)
-        print(f"{label}\n  site={site!r}\n  additional_info={additional_info!r}\n  -> Site Code = {code!r}\n")
+        print(
+            f"{label}\n  site={site!r}\n  additional_info={additional_info!r}\n  -> Site Code = {code!r}\n"
+        )

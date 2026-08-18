@@ -122,6 +122,10 @@ erDiagram
     object_164_district { int id PK }
     object_166_commune { int id PK }
     object_308_physical_location { int id PK }
+    object_310_team {
+        int id PK
+        string name
+    }
     object_227_ne {
         string site_name FK
         string technology
@@ -138,13 +142,16 @@ erDiagram
         string wo_id PK
         int parent_incident FK
         int site FK
+        int responsible_team FK
         string status
+        string support_level
         datetime created_at
     }
     object_138_alarm }o--o| object_160_site : "site_code = standard_code (Python join)"
     object_227_ne }o--|| object_160_site : "site_name = id"
     object_322_incident }o--o{ object_160_site : "site_text parsed = standard_code"
     object_324_inc_wo }o--|| object_322_incident : "parent_incident = id"
+    object_324_inc_wo }o--o| object_310_team : "responsible_team = id"
     object_160_site }o--|| object_162_province : "province = id"
     object_160_site }o--|| object_164_district : "district = id"
     object_160_site }o--|| object_166_commune : "commune = id"
@@ -168,6 +175,7 @@ erDiagram
     incident_by_status { string incident_id }
     incident_site_down { string incident_id }
     inc_wo_by_status { string wo_id }
+    inc_wo_site_down { string wo_id }
     inc_wo_resolved { string wo_id }
     vip_alarm { string site_code }
     vip_site_cache { string site_code }
@@ -209,7 +217,10 @@ SQLite Cache [icon: database]
 PostgreSQL [icon: database, color: grey]
 
 Teams Webhook Alerts [icon: send]
-Telegram Alert [icon: send]
+Telegram Site Down Alert [icon: send]
+Telegram INC-WO Site Down Alert [icon: send]
+Telegram INC-WO Category Power Alert [icon: send]
+Telegram INC-WO General Alert [icon: send]
 
 Browser > Routes
 Routes > Services > Repositories
@@ -222,14 +233,19 @@ Site/Incident/Ape-Alarm/VIP Schedulers > Sync Services > PostgreSQL
 Sync Services > SQLite Cache
 
 SQLite Cache > Teams Webhook Alerts
-SQLite Cache > Telegram Alert
+SQLite Cache > Telegram Site Down Alert
+SQLite Cache > Telegram INC-WO Site Down Alert
+SQLite Cache > Telegram INC-WO Category Power Alert
+SQLite Cache > Telegram INC-WO General Alert
 ```
 
 Note: repositories never query MSSQL/PostgreSQL directly on a page
 request — only the sync services do, on their own background schedules.
-`Teams Webhook Alerts` and `Telegram Alert` are two more, independent
-readers of the same cache (see `webhook/README.md`), not part of the
-request/response path.
+`Teams Webhook Alerts` and the four Telegram alerts are independent
+readers of the same cache (see `webhook/README.md` and
+`app/services/telegram/telegram_alert.py`/`telegram_inc_wo_alert.py`/
+`telegram_inc_wo_power_alert.py`/`telegram_inc_wo_general_alert.py`) —
+separate bots/chats/schedules, not part of the request/response path.
 
 ---
 

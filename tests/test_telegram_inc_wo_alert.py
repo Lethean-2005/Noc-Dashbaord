@@ -40,6 +40,7 @@ def _inc_wo_site_down_row(wo_id, wo_created_at, **overrides):
         "province": "",
         "district": "",
         "commune": "",
+        "support_level": "L2 On-Site",
     }
     row.update(overrides)
     return row
@@ -102,3 +103,66 @@ def test_results_sorted_longest_open_first(app):
         over_threshold = _inc_wo_site_down_over_threshold(1, source_repo, cache_repo)
 
         assert [row["wo_id"] for row in over_threshold] == ["LONG1", "SHORT1"]
+
+
+def test_rows_with_no_wo_id_are_excluded_from_what_gets_sent(app):
+    """A brand-new WO the source system hasn't assigned an ID to yet has
+    no wo_created_at either, so it'd otherwise pass any threshold with an
+    outage_min of 0 and send as a row of dashes."""
+    with app.app_context():
+        rows = [
+            _inc_wo_site_down_row(None, "", site_name="", site_code=""),
+            _inc_wo_site_down_row("REAL1", "2020-01-01 00:00:00"),
+        ]
+        source_repo = FakeIncWoStatusRepo(rows)
+        cache_repo = FakeTelegramCacheRepo()
+
+        over_threshold = _inc_wo_site_down_over_threshold(0, source_repo, cache_repo)
+
+        assert [row["wo_id"] for row in over_threshold] == ["REAL1"]
+
+
+def test_rows_with_no_wo_id_are_still_cached(app):
+    """The raw cache mirror stays unfiltered — it's an audit trail of what
+    was fetched, not of what was actually sent."""
+    with app.app_context():
+        rows = [
+            _inc_wo_site_down_row(None, "", site_name="", site_code=""),
+            _inc_wo_site_down_row("REAL1", "2020-01-01 00:00:00"),
+        ]
+        source_repo = FakeIncWoStatusRepo(rows)
+        cache_repo = FakeTelegramCacheRepo()
+
+        _inc_wo_site_down_over_threshold(0, source_repo, cache_repo)
+
+        assert len(cache_repo.written) == 2
+
+
+def test_only_l2_support_level_rows_are_sent(app):
+    with app.app_context():
+        rows = [
+            _inc_wo_site_down_row("L3WO", "2020-01-01 00:00:00", support_level="L3 Internal Support"),
+            _inc_wo_site_down_row("BLANKWO", "2020-01-01 00:00:00", support_level=""),
+            _inc_wo_site_down_row("L2WO", "2020-01-01 00:00:00", support_level="L2 On-Site"),
+        ]
+        source_repo = FakeIncWoStatusRepo(rows)
+        cache_repo = FakeTelegramCacheRepo()
+
+        over_threshold = _inc_wo_site_down_over_threshold(0, source_repo, cache_repo)
+
+        assert [row["wo_id"] for row in over_threshold] == ["L2WO"]
+
+
+def test_non_l2_support_level_rows_are_still_cached(app):
+    """Same audit-trail reasoning as the no-wo_id exclusion above."""
+    with app.app_context():
+        rows = [
+            _inc_wo_site_down_row("L3WO", "2020-01-01 00:00:00", support_level="L3 Internal Support"),
+            _inc_wo_site_down_row("L2WO", "2020-01-01 00:00:00", support_level="L2 On-Site"),
+        ]
+        source_repo = FakeIncWoStatusRepo(rows)
+        cache_repo = FakeTelegramCacheRepo()
+
+        _inc_wo_site_down_over_threshold(0, source_repo, cache_repo)
+
+        assert len(cache_repo.written) == 2

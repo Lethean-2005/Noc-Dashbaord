@@ -1,0 +1,268 @@
+/* Map View page (app/routes/map_view.py, app/static/js/map-view.js) */
+
+.map-total-badge {
+  margin-top: 2px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.map-total-badge:hover {
+  border-color: var(--border-strong);
+}
+
+/* Status filter — a <details> dropdown styled as a custom card (same
+   pattern as drilldown/_date_filter.html's own .date-filter), not a
+   native <select>, so the open dropdown can actually be styled instead of
+   being stuck with the OS's own unstylable listbox. */
+.map-status-filter {
+  position: relative;
+  margin-left: 10px;
+}
+
+.map-filter-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.map-filter-select::-webkit-details-marker,
+.map-filter-select::marker {
+  display: none;
+  content: '';
+}
+
+.map-filter-select i.ti-chevron-down {
+  font-size: 12px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.map-status-filter[open] .map-filter-select {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.map-status-filter[open] .map-filter-select i.ti-chevron-down {
+  transform: rotate(180deg);
+}
+
+.map-status-filter-card {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  min-width: 170px;
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 5px;
+  box-shadow: var(--shadow-card-hover, 0 4px 12px rgba(0, 0, 0, 0.18));
+}
+
+.map-status-filter-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 3px;
+  border-radius: 4px;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.map-status-filter-option:last-child {
+  margin-bottom: 0;
+}
+
+.map-status-filter-option:hover {
+  background: var(--nav-hover-bg, var(--bg-table-row-hover));
+}
+
+.map-status-filter-option.active {
+  background: var(--nav-active-bg, var(--bg-table-row-hover));
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.map-status-filter-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-status-filter-count {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.map-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.map-dot-all {
+  background: var(--text-muted);
+}
+
+.map-dot-on-air {
+  background: #10b981;
+}
+
+.map-dot-planned {
+  background: #0487e2;
+}
+
+.map-dot-other {
+  background: #94a3b8;
+}
+
+.map-view-wrap {
+  position: relative;
+}
+
+.map-view-container {
+  width: 100%;
+  height: calc(100vh - 140px);
+  min-height: 420px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  overflow: hidden;
+  /* Leaflet's own CSS already makes this a position:relative container;
+     pairing that with an explicit z-index (any low value) contains
+     Leaflet's internal panes/controls — which go up to z-index 1000 —
+     inside this element's own stacking context. Without this, those
+     internal z-indexes escaped and painted over the "All Status" dropdown
+     card up in .alarm-header, hiding it behind the map. */
+  z-index: 1;
+}
+
+/* Search box — a normal item in .alarm-header's flex row now (used to be
+   an absolute overlay on the map's top-right corner, which visually
+   collided with the status dropdown sitting right above it in the
+   header). position: relative here just anchors .map-search-results
+   below it. */
+.map-search {
+  position: relative;
+  margin-left: auto;
+  width: 240px;
+  font-family: 'Nunito', sans-serif;
+}
+
+.map-search-input {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+}
+
+.map-search-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+.map-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 5px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.map-search-result {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-table-row);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.map-search-result:last-child {
+  border-bottom: none;
+}
+
+.map-search-result:hover,
+.map-search-result.active {
+  background: var(--nav-hover-bg, var(--bg-table-row-hover));
+}
+
+.map-search-result-code {
+  font-weight: 700;
+}
+
+.map-search-result-name {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.map-search-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Leaflet's own popup chrome is plain white/black by default — restyled
+   to match the dashboard's card/text theme variables so it doesn't look
+   like an unrelated widget dropped onto the page, in light and dark mode
+   alike. */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 8px;
+  font-family: 'Nunito', sans-serif;
+}
+
+.leaflet-popup-tip {
+  background: var(--bg-card);
+}
+
+.map-popup-title {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.map-popup-row {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.map-popup-row strong {
+  color: var(--text-primary);
+}
