@@ -3,18 +3,22 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    {# Read by fetch()-based POSTs (e.g. map-view.js's boundary export) —
+    CSRFProtect (app/extensions.py) rejects a POST with no valid token,
+    and a JS fetch has no <form> to carry a hidden csrf_token field. #}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Dashboard{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tabler-icons.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/layout.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cards.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/close_card.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/tables.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/status_links.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/card_layout.css') }}">
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
-    <link rel="icon" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/tabler-icons.min.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/theme.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/app.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/layout.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/cards.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/close_card.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/tables.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/status_links.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/card_layout.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/graph_cards.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ versioned_static('images/favicon.svg') }}">
     <script>
         // Apply the saved theme before first paint so there is no flash of light.
         (function () {
@@ -31,8 +35,17 @@
     <div id="custom-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="modal-title">Notification</h2>
-                <span class="close-modal" onclick="closeModal()">&times;</span>
+                <div class="modal-header-left">
+                    <span class="modal-status-icon" id="modal-status-icon"></span>
+                    <h2 id="modal-title">Notification</h2>
+                </div>
+                <span class="close-modal" onclick="closeModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M18 6l-12 12" />
+                        <path d="M6 6l12 12" />
+                    </svg>
+                </span>
             </div>
             <div class="modal-body">
                 <p id="modal-message"></p>
@@ -79,9 +92,26 @@
         </main>
     </div>
 
-    <script src="{{ url_for('static', filename='js/table.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/card-layout.js') }}"></script>
+    <script src="{{ versioned_static('js/table.js') }}"></script>
+    <script src="{{ versioned_static('js/app.js') }}"></script>
+    <script src="{{ versioned_static('js/card-layout.js') }}"></script>
+    <script>
+        // Scroll to a #card-id anchor after a full page reload (e.g. a
+        // dashboard filter form's action="...#topSiteDownCard") — needed
+        // because .main-wrapper (layout.css) is its own fixed-height,
+        // overflow-y:auto scroll container, not the window/body, so the
+        // browser's native "jump to #fragment on load" behavior (which
+        // only ever scrolls the window) can't reach an element inside it.
+        // scrollIntoView() does know how to scroll along a nested scroll
+        // container, so this is the one line of JS that native browser
+        // behavior can't do on its own here. Runs on every page, not just
+        // the dashboard, since any future form could use the same pattern.
+        (function () {
+            if (!location.hash) return;
+            var target = document.getElementById(location.hash.slice(1));
+            if (target) target.scrollIntoView({ block: 'start' });
+        })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

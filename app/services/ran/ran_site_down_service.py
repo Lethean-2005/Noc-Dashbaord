@@ -1,18 +1,14 @@
 """Business logic for the RAN Status card's "RAN Site Down" column.
 
 Same underlying data and definition as
-app/services/alarm_site_down/alarm_completely_site_down_service.py ("Alarm
-Completely Site Down" on the Custom Dashboard) — a site counts only when
-EVERY radio technology it has (2g/3g/4g/5g, from site_technology_cache) is
-currently down, not just one. The completely-down/partially-down split
-itself lives in app/utils/alarm_category.py's
-classify_site_technology_coverage(), shared with
-app/services/ran/ran_tech_down_service.py (the complementary "one tech
-down" column) so both read one definition instead of re-deriving it.
+alarm_completely_site_down_service.py — a site counts only when EVERY
+radio technology it has is currently down, not just one. The
+completely-down/partially-down split lives in
+alarm_category.py's classify_site_technology_coverage(), shared with
+ran_tech_down_service.py (the complementary "one tech down" column).
 
 Badge naming (Hub-Site, not Hub) matches this card's other column,
-app/services/ran/ran_main_ac_alarm_service.py — RAN Status's own
-convention, distinct from the Custom Dashboard cards' "Hub".
+ran_main_ac_alarm_service.py.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -86,16 +82,12 @@ class RanSiteDownService:
 
     def _rows_with_site(self):
         """Every Site-Down alarm row for a completely-down site — except
-        when that site has a SRAN alarm (the shared baseband — on its own
-        already means the whole site is down), only the SRAN row(s) are
-        kept for that site. A co-occurring single-generation alarm (e.g.
-        2G) is real but redundant once SRAN confirms the whole site is
-        down, and showing both read as if 2G were its own separate,
-        still-open issue — confirmed with the user not to show it that
-        way. A site that reached completely-down via several
-        single-generation alarms together (no SRAN present) still shows
-        all of them, since there's no single row that represents "whole
-        site down" on its own in that case."""
+        when that site has a SRAN alarm (the shared baseband, which on
+        its own already means the whole site is down), where only the
+        SRAN row(s) are kept, since a co-occurring single-generation
+        alarm would read as its own separate issue. A site down via
+        several single-generation alarms with no SRAN still shows all
+        of them."""
         completely_down = self._completely_down_site_codes()
         alarm_rows = self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
         site_down_rows = [row for row in alarm_rows if _is_site_down(row.get("event_name"))]
@@ -125,9 +117,8 @@ class RanSiteDownService:
     @ttl_cache(15)
     def get_counts(self):
         """{'Hub-Site': n, 'Diamond': n, 'Gold': n, 'Silver': n, 'Bronze': n}
-        — counts distinct sites that are completely down. Hub-Site takes
-        priority over grade: a hub site counts only toward "Hub-Site",
-        never also toward its grade badge."""
+        — counts distinct completely-down sites. Hub-Site takes priority
+        over grade."""
         completely_down = self._completely_down_site_codes()
         site_by_code = {
             r["standard_code"]: r
@@ -146,11 +137,9 @@ class RanSiteDownService:
         return counts
 
     def get_details(self, badge_type=None):
-        """Every cached Site Down ape_alarm row belonging to a completely-
-        down site, enriched with its site's current Incident/INC-WO from
-        incident_site_down if any, plus Hub Site/Site Grade/Province and
-        outage_min computed at read time — optionally narrowed to one badge
-        (matches get_counts()'s categorization)."""
+        """Every cached Site Down ape_alarm row for a completely-down
+        site, enriched with its Incident/INC-WO if any. Optionally
+        narrowed to one badge (matches get_counts())."""
         site_down_incidents = self.incident_site_down_cache_repository.fetch_all(
             _INCIDENT_SITE_DOWN_TABLE
         )

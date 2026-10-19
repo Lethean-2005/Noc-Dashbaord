@@ -12,7 +12,7 @@
 }
 
 .alarm-header h1 {
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
@@ -22,7 +22,7 @@
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .alarm-actions {
@@ -36,12 +36,12 @@
   font-size: 12px;
   color: var(--text-primary);
   align-self: center;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .alarm-search {
   font-size: 12px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   padding: 6px 10px;
   color: var(--text-primary);
   background: var(--bg-card);
@@ -58,7 +58,7 @@
 .row-cap-notice {
   font-size: 12px;
   color: var(--text-muted);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   padding: 4px 0 8px;
 }
 
@@ -73,7 +73,7 @@
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   color: var(--text-secondary);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -83,14 +83,58 @@
   transition: all 0.15s ease;
 }
 
+/* `display: inline-flex` above has the same specificity as the
+   browser's own `[hidden] { display: none }` rule, and an author
+   stylesheet wins that tie regardless of source order — so any page
+   toggling a .btn-export button's `hidden` attribute via JS (e.g. the
+   Incident Report page's Add/Remove Second Fault pair) was having that
+   silently overridden back to visible. Confirmed live: both buttons
+   showed at once on page load even though only one should have been
+   hidden. This re-asserts `none` with higher specificity so the
+   attribute actually hides it again, for every .btn-export everywhere
+   it's used. */
+.btn-export[hidden] {
+  display: none;
+}
+
 .btn-export i {
   font-size: 14px;
+}
+
+.btn-export svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 
 .btn-export:hover {
   background: var(--nav-hover-bg);
   color: var(--text-primary);
   border-color: var(--border-strong);
+}
+
+/* Icon-only variant of .btn-export — used by the graph cards' header
+   filter dropdowns (graph_cards.html) so the header stays compact; the
+   summary's `title` attribute covers what the label text used to say.
+   .is-active (added by Jinja whenever that filter's own selection isn't
+   empty/default) draws a small dot on the icon's corner so there's
+   still a visual cue that a filter is applied, without any text. */
+.btn-icon-only {
+  position: relative;
+  padding: 6px 8px;
+  gap: 0;
+}
+
+.btn-icon-only.is-active::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--input-focus-border);
+  border: 1.5px solid var(--bg-card);
 }
 
 /* Date-range filter — a <details> element so "click to open/close" comes
@@ -148,13 +192,136 @@
   justify-content: flex-end;
 }
 
+/* Scoped to .perf-week-filter specifically (Response/Resolution
+   Time/SLA Compliance "Compare Weeks" panels) — a lone Apply there
+   (no Clear beside it, since those reset via their own checkboxes)
+   fills the row instead of sitting undersized on the right with empty
+   space beside it. NOT applied to .date-filter-actions generally —
+   e.g. the Site-Down Duration drilldown's "Filter by Week" panel also
+   has a lone Apply, but its own narrower checkbox-list content looks
+   wrong stretched to a full-width button; a right-aligned compact
+   button (the general .date-filter-actions default) suits it better. */
+.perf-week-filter .date-filter-actions > .btn-export:only-child {
+  flex: 1;
+}
+
 .date-filter-field-label {
+  display: block;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
+}
+
+/* Category filter — the same .date-filter dropdown shell, with a
+   checkbox list instead of a date picker. The Compare-Weeks filter
+   (graph_cards.html's "Compare Weeks" dropdown, cards 2/3) reuses this
+   same .category-filter-options/.category-filter-option markup, just
+   checking weeks instead of categories. */
+.category-filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  /* Explicit, not left to default: per spec, overflow-y: auto with no
+     overflow-x set computes overflow-x to auto too, not visible — the
+     stray horizontal scrollbar (confirmed live) was that implicit
+     behavior firing the moment a row got even 1px wider than this
+     container (the checkbox restyle above growing from 14px to 16px
+     was enough). This never needs to scroll sideways — content should
+     wrap or the panel should grow via .date-filter-form's own
+     shrink-to-fit width instead. */
+  overflow-x: hidden;
+}
+
+.category-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border-radius: 4px;
+  transition: background-color 0.12s ease;
+}
+
+.category-filter-option:hover {
+  background: var(--bg-table-row-hover);
+}
+
+/* Square checkbox styling for BOTH real checkboxes and single-select
+   radio options (requested — a round radio read as "why isn't this a
+   checkbox"). Still a real type="radio" underneath for single-select
+   filters like "Filter by Week" (picking one still deselects the
+   others natively, no JS needed) — only the visual shape changes, not
+   the selection behavior. appearance:none drops the browser's own
+   circle/tick rendering so both input types can share one square +
+   checkmark look drawn here instead. */
+.category-filter-option input[type="checkbox"],
+.category-filter-option input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border-input);
+  border-radius: 4px;
+  background: var(--bg-card);
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.category-filter-option input[type="checkbox"]:checked,
+.category-filter-option input[type="radio"]:checked {
+  background: var(--input-focus-border);
+  border-color: var(--input-focus-border);
+}
+
+.category-filter-option input[type="checkbox"]:checked::after,
+.category-filter-option input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.category-filter-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* "All Categories" master checkbox at the top of the list
+   (_category_filter.html) — checking/unchecking it checks/unchecks
+   every real category checkbox below at once (app.js). Bold + a
+   divider line sets it apart from the real per-category options. */
+.category-filter-all {
+  font-weight: 700;
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border-table);
+}
+
+/* Site-Down Duration drilldown's "Filter by Week" checkboxes — text
+   wraps by default like every other .category-filter-option (fine for
+   long category names elsewhere), but that also stops
+   .date-filter-form's shrink-to-fit width from ever growing past its
+   220px min-width to fit "Week 37 (Sep 7–13)" on one line. nowrap here
+   forces the browser to size the panel to the full unwrapped text
+   instead. */
+.week-filter-option {
+  white-space: nowrap;
 }
 
 /* ── Calendar date-picker (app/static/js/date-picker.js) ─────────
@@ -171,7 +338,7 @@
 .dp-label {
   font-size: 11px;
   color: var(--text-muted);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .dp-trigger {
@@ -210,7 +377,7 @@
   border: 1px solid var(--border-card);
   border-radius: 16px;
   box-shadow: var(--shadow-card-hover);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .dp-header {
@@ -316,7 +483,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .alarm-table th {
@@ -345,7 +512,8 @@
   background: var(--bg-table-row-hover);
 }
 
-.alarm-table td.right { text-align: right; }
+.alarm-table td.right,
+.alarm-table th.right { text-align: right; }
 
 .alarm-table td.ellipsis,
 .alarm-table td.ellipsis-sm,
@@ -359,26 +527,42 @@
   color: var(--text-muted);
 }
 
+/* Congestion History's interface-summary table (9 columns, far fewer
+   than every other alarm table's 12-16) — table-layout: auto's default
+   leftover-space redistribution stretched the last column (Total) far
+   wider than its own content, leaving a big visual gap between the
+   "Total" header and its right-aligned values (confirmed from a real
+   screenshot). Shrinking Total to its own content width via the
+   standard width:1% + white-space:nowrap trick pushes that leftover
+   space onto the other columns instead, where it belongs. */
+.alarm-table-congestion th:last-child,
+.alarm-table-congestion td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+/* ISP POP's Owner column — only this card mixes Telcotech- and
+   Ezecom-owned sites in one table (EZE/TCT are already each scoped to
+   a single owner, so neither needs this). Same exact colors as the Map
+   page's own pro_owner-based dot coloring (map-view.css's
+   .map-dot-pop-telcotech/.map-dot-pop-ezecom, documented in help/
+   index.html's own color legend) — kept consistent app-wide rather
+   than inventing a second color pairing for the same two owners. */
+.pop-owner-telcotech {
+  color: #eab308;
+  font-weight: 600;
+}
+
+.pop-owner-ezecom {
+  color: #a855f7;
+  font-weight: 600;
+}
+
 /* Acknowledge/Modify icon button — EZE/TCT/ISP POP drilldown tables only,
    see drilldown/_alarm_action_menu.html + app/static/js/acknowledge.js. */
 .alarm-table td.ack-cell {
   text-align: center;
   white-space: nowrap;
-}
-
-.ack-icon-btn {
-  background: none;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  color: var(--text-muted);
-  border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
-}
-
-.ack-icon-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-table-row-hover);
 }
 
 /* Acknowledge popup form fields — reuses .modal/.modal-content/.modal-header
@@ -499,86 +683,9 @@
 .modal-btn-danger { background: #dc2626; }
 .modal-btn-danger:hover { background: #b91c1c; }
 
-.severity-disaster {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-}
-
-.severity-high {
-  background: #ffedd5;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-}
-
-.severity-average {
-  background: #fef9c3;
-  border: 1px solid #fef08a;
-  color: #854d0e;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-}
-
-.severity-warning {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Poppins', sans-serif;
-}
-
-.outage-critical { color: #dc2626; font-weight: 700; }
-.outage-high     { color: #ea580c; font-weight: 600; }
-.outage-medium   { color: #d97706; }
-.outage-low      { color: #059669; }
-
-.status-active { color: #10b981; }
-.status-active::before {
-  content: '\25CF';
-  margin-right: 4px;
-  font-size: 10px;
-}
-
-.has-note td { border-left: 2px solid #3b82f6; }
-
-.link-blue {
-  color: #2563eb;
-  text-decoration: none;
-  font-family: 'Poppins', sans-serif;
-  font-weight: 500;
-}
-.link-blue:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
-}
-.link-white {
-  color: var(--text-table);
-  text-decoration: none;
-  font-family: 'Poppins', sans-serif;
-}
-
 /* Sortable column headers (shared by every table with clickable headers) */
 th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
 th.sortable:hover { opacity: 0.8; }
-th.sort-asc  .sort-icon::after { content: ' \25B2'; }
-th.sort-desc .sort-icon::after { content: ' \25BC'; }
-.sort-icon { font-size: 0.75em; opacity: 0.5; }
 
 /* Tablet tier — a gentler step down from desktop spacing before the
    sharper 640px phone drop below, instead of jumping straight from full
@@ -625,6 +732,1371 @@ th.sort-desc .sort-icon::after { content: ' \25BC'; }
   .alarm-table { font-size: 10px; }
   .alarm-table th,
   .alarm-table td { padding: 8px 6px; }
+}
+
+/* ── Cache-style grid table (Excel-like, Inventory-inspired) ─────
+   Used by partner_contact/index.html. Border-separate grid with
+   sticky headers, per-cell borders, row hover, and ellipsis overflow. */
+
+.pc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 2px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg-alarm-header, transparent);
+  padding: 10px 0;
+}
+
+.pc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+/* Same 32px height as .pc-tab/.pc-toolbar-search below (box-sizing so
+   the border sits inside that 32px, not added on top of it) — keeps
+   Add Partner/Export the same size as every other control in this
+   page's toolbar row instead of whatever height content+padding alone
+   produces. */
+.pc-header-right .btn-export {
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.pc-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pc-row-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Nunito', sans-serif;
+}
+
+/* Toolbar row (below .pc-header): domain tabs on the left, search on
+   the right — both are client-side row filters (see index.html's
+   applyFilters()). */
+.pc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* Domain tabs (e.g. "Telcotech"/"Cellcard", TBL_PARTNER.Domain) — same
+   height/border/radius as .pc-toolbar-search and the header's
+   Add Partner/Export buttons (32px, 1px var(--border-strong), 3px) so
+   every control in this toolbar reads as one consistent row instead of
+   mismatched shapes; only background/color differ to mark the active
+   one. */
+.pc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pc-tab {
+  height: 32px;
+  box-sizing: border-box;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Nunito', sans-serif;
+  padding: 0 12px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pc-tab:hover {
+  color: var(--text-primary);
+  background: var(--nav-hover-bg);
+}
+
+.pc-tab.active {
+  background: var(--input-focus-border);
+  border-color: var(--input-focus-border);
+  color: #fff;
+}
+
+/* Bordered box holding the search icon + a borderless input, instead of
+   .btn-export-style border directly on the <input> — matches the
+   reference's "search icon inside a pill" look. Same 32px height as
+   .pc-tab/.btn-export above; width is fixed (not just min-width) at
+   roughly 2 header buttons wide, so the toolbar row balances visually
+   against the Add Partner + Export pair above it. */
+.pc-toolbar-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  /* Fallback for the instant before pcAlignSearchWidth() (index.html)
+     measures the Template/Export buttons and sets an exact inline width
+     — that JS makes the search box start under Template and end under
+     Export, matching the header row above it. */
+  width: 260px;
+}
+
+.pc-toolbar-search i {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.pc-toolbar-search:focus-within {
+  border-color: var(--input-focus-border);
+}
+
+.pc-toolbar-search input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  font-family: 'Nunito', sans-serif;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.pc-toolbar-search input::placeholder {
+  color: var(--text-muted);
+}
+
+/* X button — only shown once there's text to clear (toggled in JS via
+   applyFilters(), not :placeholder-shown, since it must track the input's
+   live value while typing, not just its initial empty state). */
+.pc-search-clear {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pc-search-clear i {
+  font-size: 12px;
+}
+
+.pc-search-clear:hover {
+  background: var(--bg-table-header);
+  color: var(--text-primary);
+}
+
+.pc-grid-wrap {
+  background: var(--bg-table-wrap);
+  border: 1px solid var(--border-table);
+  border-radius: 3px;
+}
+
+/* transform: translateZ(0) promotes this scroll container to its own
+   GPU-composited layer — without it, scrolling ~160+ rows × 13 columns
+   with a position:sticky header (below) repaints on the CPU every
+   frame, which is what "not smooth" scrolling on this table actually
+   is. Sticky positioning still resolves against this same element (the
+   nearest scrolling ancestor) either way, so this doesn't change how
+   the header sticks — only how cheaply the browser can scroll under it. */
+.pc-grid-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* table-layout: fixed — every column's width is set explicitly by
+   pcFitColumn() (partner_contact.js), so each <col>'s own width
+   (index.html's <colgroup>) needs to be authoritative instead of just a
+   hint auto-layout can override with content-based sizing. */
+.pc-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  table-layout: fixed;
+}
+
+.pc-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-table-header);
+  background: var(--bg-table-header, #cbcbeb);
+  border-right: 1px solid var(--border-table-header);
+  border-bottom: 1px solid var(--border-table-header);
+  white-space: nowrap;
+}
+
+.pc-grid th:last-child {
+  border-right: none;
+}
+
+/* overflow/text-overflow (not just white-space) belong here too — every
+   column is drag-resizable now (see .pc-grid { table-layout: fixed }
+   below), so any column can end up narrower than its content and needs
+   to truncate gracefully instead of overflowing into its neighbor. */
+.pc-grid td {
+  padding: 8px 12px;
+  color: var(--text-table);
+  border-right: 1px solid var(--border-table-row);
+  border-bottom: 1px solid var(--border-table-row);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-grid td:last-child {
+  border-right: none;
+}
+
+.pc-grid tbody tr:hover {
+  background: var(--bg-table-row-hover);
+}
+
+.pc-grid-td-num {
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* No. never shows "..." — it's a plain row index (1, 2, 3, ...), never
+   worth truncating; `.pc-grid td.pc-grid-td-num` (element+2 classes)
+   is required to out-specificity `.pc-grid td`'s own overflow/
+   text-overflow above — a bare class alone loses to that
+   element+class selector, same reasoning as .pc-grid-td-remark. */
+.pc-grid td.pc-grid-td-num {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Remark text in dark mode — plain white instead of --text-table's
+   dimmer grey (theme.css), for clearer contrast on the dark row
+   background. Only Remark; every other column keeps --text-table. */
+[data-theme="dark"] .pc-grid td.pc-grid-td-remark {
+  color: #ffffff;
+}
+
+/* Remark — single truncated row like every other column (inherits
+   nowrap/ellipsis from .pc-grid td above; a multi-part remark's real
+   line breaks just collapse into spaces on that one line, same as any
+   other whitespace). Full text reads in the popup (pcOpenRemarkModal(),
+   partner_contact.js) instead of growing the row taller. */
+
+/* Only cells with actual content get these (see index.html) — an empty
+   cell has nothing to open a popup for. Reserves room on the right for
+   the view icon so truncated text never runs under it. Shared by
+   Remark, Phone Number, Contact Role, and Contact Name — all "whole
+   cell is clickable, no separate link inside it" fields (unlike Email,
+   which needs its icon to be its own button — see
+   .pc-email-cell/.pc-cell-view-icon below).
+   `.pc-grid td.pc-remark-clickable` (not just `.pc-remark-clickable`)
+   is required to out-specificity `.pc-grid td`'s own padding shorthand
+   above — a bare class alone loses to that element+class selector. */
+.pc-grid td.pc-remark-clickable,
+.pc-grid td.pc-phone-clickable,
+.pc-grid td.pc-role-clickable,
+.pc-grid td.pc-name-clickable {
+  position: relative;
+  cursor: pointer;
+  padding-right: 30px;
+}
+
+.pc-remark-clickable:hover,
+.pc-phone-clickable:hover,
+.pc-role-clickable:hover,
+.pc-name-clickable:hover {
+  background: var(--bg-table-row-hover);
+}
+
+.pc-remark-view-icon {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.pc-remark-clickable:hover .pc-remark-view-icon,
+.pc-phone-clickable:hover .pc-remark-view-icon,
+.pc-role-clickable:hover .pc-remark-view-icon,
+.pc-name-clickable:hover .pc-remark-view-icon {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+/* Email — same "reserve room on the right for a pinned icon" pattern as
+   Remark above, but the icon itself is a real <button> (below) since
+   the cell also has a working mailto: link in it; only the icon opens
+   the popup, so it can't be pointer-events:none/decorative like
+   Remark's. `.pc-grid td.pc-email-cell` for the same specificity reason
+   as `.pc-grid td.pc-remark-clickable` above. */
+.pc-grid td.pc-email-cell {
+  position: relative;
+  padding-right: 30px;
+}
+
+.pc-cell-view-icon {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.pc-cell-view-icon:hover {
+  opacity: 1;
+  color: var(--text-primary);
+  background: var(--bg-table-row-hover);
+}
+
+/* Both "view full" icon types — plain white in dark mode instead of
+   --text-muted's dim grey, so they read clearly against the dark row
+   background without needing to hover first. */
+[data-theme="dark"] .pc-remark-view-icon,
+[data-theme="dark"] .pc-cell-view-icon {
+  color: #ffffff;
+  opacity: 0.8;
+}
+
+[data-theme="dark"] .pc-remark-clickable:hover .pc-remark-view-icon,
+[data-theme="dark"] .pc-phone-clickable:hover .pc-remark-view-icon,
+[data-theme="dark"] .pc-role-clickable:hover .pc-remark-view-icon,
+[data-theme="dark"] .pc-name-clickable:hover .pc-remark-view-icon,
+[data-theme="dark"] .pc-cell-view-icon:hover {
+  opacity: 1;
+  color: #ffffff;
+}
+
+/* Columns don't drag-resize and headers no longer carry their own
+   fit button — see pcFitAllColumns() (partner_contact.js), triggered by
+   the single "Fit Columns" button in the page header (index.html)
+   instead. */
+
+.pc-grid-empty {
+  text-align: center;
+  padding: 40px 12px !important;
+  color: var(--text-muted);
+}
+
+.pc-grid-td-actions {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pc-inline-form {
+  display: inline;
+}
+
+.pc-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin: 0 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.pc-action-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-table-row-hover);
+}
+
+.pc-action-btn-danger:hover {
+  color: #fff;
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Add/Edit Partner modal card — reuses .modal/.modal-content (app.css)
+   for the overlay + open/close + positioning, everything below is this
+   card's own header/grid/footer look. */
+.pc-modal-card {
+  width: 420px;
+  max-width: 92vw;
+  padding: 16px;
+  border-radius: 10px;
+}
+
+/* Split layout — "New" saves just the Partner row then switches this
+   modal from one narrow column into two: the form (now just adding —
+   or editing — Contacts on that saved Partner) on the left, a live
+   running list of what's been added so far on the right, styled like
+   the main .pc-grid. See pcEnterSplitMode() (partner_contact.js). Card
+   widens well beyond the normal 420px to fit the form plus a real
+   multi-column table, not squeeze one to fit the other. Left column is
+   a fixed width (the form's own natural size); right takes the rest. */
+.pc-modal-card.pc-split {
+  width: 1080px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.pc-modal-card.pc-split > form {
+  flex: 0 0 340px;
+}
+
+.pc-modal-split-right {
+  flex: 1 1 0;
+  min-width: 0;
+  border-left: 1px solid var(--border-card, #e5e7eb);
+  padding-left: 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
+
+.pc-modal-split-right-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+/* Horizontal scroll is the safety net for narrower viewports — ten
+   columns' worth of real data won't always fit even at 1080px wide. */
+.pc-mini-table-wrap {
+  flex: 1;
+  overflow: auto;
+  max-height: 460px;
+  border: 1px solid var(--border-table, #e5e7eb);
+  border-radius: 3px;
+}
+
+/* Same visual language as the main .pc-grid (bordered cells, header
+   background, row hover, single-line ellipsis truncation) — a smaller
+   instance of the same table, not a different look, per "table style
+   like contact partner". */
+.pc-mini-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'Nunito', sans-serif;
+  font-size: 11px;
+  table-layout: fixed;
+}
+
+.pc-mini-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-table-header);
+  background: var(--bg-table-header, #cbcbeb);
+  padding: 7px 8px;
+  border-right: 1px solid var(--border-table-header);
+  border-bottom: 1px solid var(--border-table-header);
+  white-space: nowrap;
+}
+
+.pc-mini-table th:last-child,
+.pc-mini-table td:last-child {
+  border-right: none;
+}
+
+.pc-mini-table td {
+  padding: 6px 8px;
+  color: var(--text-table);
+  border-right: 1px solid var(--border-table-row);
+  border-bottom: 1px solid var(--border-table-row);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0; /* forces text-overflow to respect the <col> width below instead of growing the cell */
+}
+
+.pc-mini-table tbody tr:hover {
+  background: var(--bg-table-row-hover);
+}
+
+/* A newly-added/just-saved row briefly flashes instead of just popping
+   into place — pcAppendMiniContactRow/pcRenderMiniContactRow (JS) add
+   this class then remove it a moment later. A row being removed fades +
+   collapses instead of vanishing instantly — pcRemoveMiniRow (JS) adds
+   this, waits for the transition, then deletes the element. */
+.pc-mini-table tbody tr {
+  transition: background-color 0.6s ease;
+}
+
+.pc-mini-table tbody tr.pc-mini-row-flash {
+  background: var(--bg-table-row-hover);
+}
+
+.pc-mini-table tbody tr.pc-mini-row-leaving {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  opacity: 0;
+  transform: translateX(6px);
+}
+
+.pc-mini-action-btn[disabled] {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.pc-mini-table col.pc-mini-col-actions { width: 64px; }
+
+.pc-mini-table td.pc-mini-td-actions {
+  white-space: nowrap;
+  text-align: center;
+  overflow: visible;
+}
+
+.pc-mini-table-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 10px;
+}
+
+.pc-modal-split-right-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-card, #e5e7eb);
+}
+
+.pc-mini-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.pc-mini-action-btn:hover {
+  background: var(--nav-hover-bg);
+  color: var(--text-primary);
+}
+
+.pc-mini-action-btn-danger:hover {
+  color: #dc2626;
+}
+
+@media (max-width: 900px) {
+  .pc-modal-card.pc-split {
+    width: 92vw;
+    flex-direction: column;
+  }
+  .pc-modal-card.pc-split > form {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .pc-modal-split-right {
+    border-left: none;
+    border-top: 1px solid var(--border-card, #e5e7eb);
+    padding-left: 0;
+    padding-top: 12px;
+    width: 100%;
+  }
+}
+
+/* Remark viewer card — reuses .modal/.modal-content (app.css) for the
+   overlay + open/close + centering, everything below is this card's own
+   look: an icon sitting outside/beside the badge (not nested inside
+   it), then the remark text underneath. No avatar, no date, no title —
+   this card only ever has one row's worth of context, unlike the
+   multi-author reference it's modeled on. */
+/* Whole record is clickable (any column) to open the "all contacts for
+   this partner" popup — cursor + slightly stronger hover than the
+   default row hover is the only visual hint, no per-cell icons this
+   time (those kept glitching). Cells that already have their own click
+   behavior (Actions column, mailto: link) opt out via
+   pcWireRecordClicks()'s own target check, not CSS. */
+.pc-record-row {
+  cursor: pointer;
+}
+
+/* "View all contacts for this partner" popup — opened by clicking
+   anywhere in a record's row, styled like a printed Escalation List
+   (Contact Points / Contact Person / Designation / Telephone /
+   Fax-E-mail). Contact Points is whatever escalation_level actually
+   says (L1, Level1, ...), never a fabricated "LEVEL 0-4" label. */
+.pc-escalation-card {
+  position: relative;
+  width: 1300px;
+  max-width: 96vw;
+  padding: 24px 26px;
+  border-radius: 10px;
+}
+
+.pc-escalation-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+
+.pc-escalation-title {
+  margin: 0 0 16px;
+  padding-right: 24px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pc-escalation-table-wrap {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid var(--border-table);
+  border-radius: 3px;
+}
+
+.pc-escalation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-family: 'Nunito', sans-serif;
+}
+
+.pc-escalation-table th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-table-header);
+  color: var(--text-primary);
+  font-weight: 700;
+  text-align: left;
+  padding: 10px 12px;
+  border-right: 1px solid var(--border-table-header);
+  border-bottom: 1px solid var(--border-table-header);
+  white-space: nowrap;
+}
+
+.pc-escalation-table td {
+  padding: 9px 12px;
+  border-right: 1px solid var(--border-table-row);
+  border-bottom: 1px solid var(--border-table-row);
+  color: var(--text-secondary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Copy icon per cell — faded out until that cell is hovered/touched, so
+   the table doesn't look cluttered with an icon in every cell at once.
+   Sits inline right after the value (cells are already white-space:
+   nowrap), not absolutely positioned, so it never overlaps text. */
+.pc-escalation-copy-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, color 0.12s, background 0.12s;
+  vertical-align: middle;
+  font-size: 12px;
+}
+
+/* Both icons sit stacked in the same spot; .is-copied crossfades
+   between them (opacity + a small scale "pop") instead of the old
+   instant innerHTML swap. */
+.pc-escalation-copy-btn .ti-copy,
+.pc-escalation-copy-btn .ti-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.pc-escalation-copy-btn .ti-check {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.pc-escalation-copy-btn.is-copied .ti-copy {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.pc-escalation-copy-btn.is-copied .ti-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pc-escalation-table td:hover .pc-escalation-copy-btn {
+  opacity: 1;
+}
+
+/* Touch/coarse-pointer devices (tablets, touchscreen NOC displays)
+   never fire :hover reliably — a button that only appears on hover is
+   effectively invisible there, not just hard to tap. Show it always
+   on those devices instead of gating it behind a hover state that
+   doesn't meaningfully exist. */
+@media (hover: none), (pointer: coarse) {
+  .pc-escalation-copy-btn {
+    opacity: 1;
+  }
+}
+
+.pc-escalation-copy-btn:hover {
+  background: var(--bg-table-header);
+  color: var(--text-primary);
+}
+
+.pc-escalation-copy-btn.is-copied {
+  opacity: 1;
+  color: #16a34a;
+}
+
+/* Same reasoning as .pc-remark-card-text above — plain white reads
+   clearer than --text-muted's dimmer grey once it's actually visible
+   (faded in on hover/touch) against the dark card. */
+[data-theme="dark"] .pc-escalation-copy-btn {
+  color: #ffffff;
+}
+
+/* Import password gate (#pcImportPasswordModal, partner_contact/index.html)
+   reuses Add Partner's own .pc-modal-card/.pc-field-group/.pc-modal-footer
+   look as-is — this is just the one behavior neither of those already
+   have: a shake on a wrong password attempt. */
+.pc-field-group input.is-shake {
+  animation: pcImportPasswordShake 0.3s ease;
+  border-color: #dc2626;
+}
+
+@keyframes pcImportPasswordShake {
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+[data-theme="dark"] .pc-escalation-copy-btn.is-copied {
+  color: #4ade80;
+}
+
+.pc-escalation-table th:last-child,
+.pc-escalation-table td:last-child {
+  border-right: none;
+}
+
+.pc-escalation-table tr:last-child td {
+  border-bottom: none;
+}
+
+.pc-escalation-table tr:nth-child(even) {
+  background: var(--bg-table-header);
+}
+
+.pc-escalation-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px 12px !important;
+}
+
+/* Inline row editing (pcStartEditEscalationRow, partner_contact.js) —
+   pencil swaps one row's 7 value cells for plain text inputs in place,
+   no second popup on top of this one. */
+.pc-escalation-td-actions {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pc-escalation-edit-input {
+  width: 100%;
+  min-width: 90px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-input, var(--border-table));
+  border-radius: 4px;
+  background: var(--bg-input, var(--bg-card));
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-family: 'Nunito', sans-serif;
+}
+
+.pc-escalation-edit-input:focus {
+  outline: none;
+  border-color: var(--text-chip-info, #6366f1);
+}
+
+/* Save/Cancel colored by default (not just on hover, unlike the plain
+   .pc-mini-action-btn pencil/trash icons elsewhere) — same green/red
+   tokens .pc-escalation-copy-btn.is-copied and .is-shake already use
+   on this page, so Save vs Cancel reads at a glance instead of both
+   looking like the same neutral gray icon. */
+.pc-escalation-action-save {
+  color: #16a34a;
+}
+
+.pc-escalation-action-save:hover {
+  background: rgba(22, 163, 74, 0.14);
+  color: #16a34a;
+}
+
+[data-theme="dark"] .pc-escalation-action-save {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .pc-escalation-action-save:hover {
+  background: rgba(74, 222, 128, 0.16);
+  color: #4ade80;
+}
+
+.pc-escalation-action-cancel {
+  color: #dc2626;
+}
+
+.pc-escalation-action-cancel:hover {
+  background: rgba(220, 38, 38, 0.14);
+  color: #dc2626;
+}
+
+[data-theme="dark"] .pc-escalation-action-cancel {
+  color: #f87171;
+}
+
+[data-theme="dark"] .pc-escalation-action-cancel:hover {
+  background: rgba(248, 113, 113, 0.16);
+  color: #f87171;
+}
+
+/* Marks which row is currently being edited — distinct from the
+   post-save flash below, stays on for as long as the inputs are open. */
+.pc-escalation-table tbody tr.pc-escalation-row-editing {
+  background: var(--bg-table-row-hover);
+}
+
+/* Level/Matrix's "choose an existing value" dropdown-card
+   (pcBuildEscalationDropdownCell, partner_contact.js) sits inside a
+   `white-space: nowrap` table cell — without this reset its own header/
+   option text inherits that and overflows sideways into the next
+   column instead of wrapping, which the Add Partner form's own copy of
+   this same card never hit (no nowrap ancestor there). */
+.pc-escalation-table .pc-field-dropdown-card {
+  white-space: normal;
+  right: auto;
+  width: max-content;
+  min-width: 100%;
+  max-width: 220px;
+}
+
+/* Same shake this table's row would otherwise never get — the Add/Edit
+   Partner form's own .pc-field-group input.is-shake only applies
+   inside that form, these inputs live directly in table cells instead.
+   Reuses pcImportPasswordShake (already defined above), not a second
+   copy of the same keyframes. */
+.pc-escalation-edit-input.is-shake {
+  animation: pcImportPasswordShake 0.3s ease;
+  border-color: #dc2626;
+}
+
+/* Briefly highlights a just-saved row the same way the split-panel
+   mini-table's own pc-mini-row-flash does — this table has no such
+   transition by default (.pc-mini-table tbody tr's own rule is scoped
+   to that other table), so it's repeated here rather than widened to
+   every table on the page. */
+.pc-escalation-table tbody tr {
+  transition: background-color 0.6s ease;
+}
+
+.pc-escalation-table tbody tr.pc-escalation-row-flash {
+  background: var(--bg-table-row-hover);
+}
+
+.pc-remark-card {
+  position: relative;
+  width: 440px;
+  max-width: 92vw;
+  padding: 20px 22px;
+  border-radius: 14px;
+}
+
+.pc-remark-card-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+
+.pc-remark-card-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pc-remark-card-icon {
+  flex: 0 0 auto;
+  color: var(--text-chip-info, #6366f1);
+}
+
+.pc-remark-card-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 5px;
+  background: var(--bg-chip-info, rgba(99, 102, 241, 0.12));
+  color: var(--text-chip-info, #6366f1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pc-remark-card-text {
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+/* Same reasoning as .pc-grid-td-remark above — plain white reads
+   clearer than --text-muted's dimmer grey against the dark card. */
+[data-theme="dark"] .pc-remark-card-text {
+  color: #ffffff;
+}
+
+.pc-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pc-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--bg-table-header, #f3f4f6);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.pc-modal-header h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.pc-modal-header p {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin: 2px 0 0 0;
+}
+
+/* .close-modal (app.css) already centers its own content — this just
+   pins it to the right edge of the partner modal's header row. */
+.pc-modal-close {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* "Contact added, add another or close" banner (see index.html's
+   #pcModalNotice) — shown only when the modal auto-reopens itself right
+   after a successful Add Contact submit. */
+.pc-modal-notice {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.pc-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+
+.pc-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+/* Same specificity as the class rule above but declared after it, so a
+   [hidden] field group (e.g. the Import password modal swapping its
+   password step for its Choose File step) actually collapses instead of
+   the flex display winning the cascade and showing it anyway. */
+.pc-field-group[hidden] {
+  display: none;
+}
+
+.pc-field-span2 { grid-column: 1 / -1; }
+.pc-field-full { grid-column: 1 / -1; }
+
+.pc-field-group label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pc-field-group input,
+.pc-field-group textarea {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-card, #e5e7eb);
+  border-radius: 5px;
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.pc-field-group input:focus,
+.pc-field-group textarea:focus {
+  outline: none;
+}
+
+/* --text-muted is #000000 (black) in this app's light theme — a
+   site-wide token, not literally "muted" — so it was never right for a
+   placeholder. --text-search-placeholder is the token the search box
+   already uses for actual gray placeholder text; reused here instead of
+   inventing a new value or changing the global --text-muted (which
+   would repaint every OTHER use of it across the whole site too). */
+.pc-field-group input::placeholder,
+.pc-field-group textarea::placeholder {
+  color: var(--text-search-placeholder, #9ca3af);
+}
+
+/* Wraps the Domain <input> plus its dropdown-card toggle (index.html,
+   Add Partner mode). Own width matches .pc-field-group's stretched
+   children exactly — the input just gets extra right padding to leave
+   room for the toggle button sitting on top of it. */
+.pc-field-with-dropdown {
+  position: relative;
+}
+
+.pc-field-with-dropdown input {
+  width: 100%;
+  padding-right: 28px;
+  box-sizing: border-box;
+}
+
+.pc-field-selector-btn {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.pc-field-selector-btn:hover {
+  background: var(--nav-hover-bg);
+  color: var(--text-primary);
+}
+
+.pc-field-selector-btn.is-open {
+  background: var(--nav-hover-bg);
+  color: var(--input-focus-border);
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* Same card shell as the dashboard's Filter by Category dropdown
+   (.date-filter-form above), refined further: a small icon+label header
+   with its own divider, a fade+lift-in on open, and colored dots +
+   checkmark on the options below so the currently-set Domain reads at a
+   glance, not just plain rows of text. */
+@keyframes pcDropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pc-field-dropdown-card {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  padding: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  box-shadow: var(--shadow-card-hover);
+  animation: pcDropdownIn 0.14s ease-out;
+}
+
+.pc-field-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border-card, #e5e7eb);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pc-field-dropdown-header svg,
+.pc-field-dropdown-header i {
+  flex: none;
+  opacity: 0.8;
+  font-size: 14px;
+}
+
+.pc-field-dropdown-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pc-field-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: 'Nunito', sans-serif;
+  text-align: left;
+  color: var(--text-primary);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.pc-field-dropdown-option:hover {
+  background: var(--nav-hover-bg);
+}
+
+.pc-field-dropdown-option-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pc-field-dropdown-option-check {
+  flex: none;
+  display: none;
+  color: var(--input-focus-border);
+}
+
+.pc-field-dropdown-option.is-selected .pc-field-dropdown-option-check {
+  display: inline-flex;
+}
+
+.pc-field-dropdown-empty {
+  padding: 8px 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* "(Blank)" — always the first option (Escalation Level's dropdown),
+   clearing the field in one click instead of needing to close the
+   popover and delete the text by hand. Muted + italic + its own bottom
+   divider sets it apart from the real values listed below it. */
+.pc-field-dropdown-option-blank {
+  color: var(--text-muted);
+  font-style: italic;
+  font-weight: 500;
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-table);
+  border-radius: 6px 6px 0 0;
+}
+
+/* Small red "*" after a required field's label (e.g. Partner Name) —
+   see index.html's <span class="pc-required">. */
+.pc-required {
+  color: #ef4444;
+  margin-left: 2px;
+}
+
+/* Live "this partner already exists" hint under Partner Name (Add
+   Partner mode only — partner_contact.js). :empty (no text set) collapses
+   it to zero height entirely, so the field group stays at its normal
+   compact size until a message actually appears, then the modal grows to
+   fit it — and shrinks straight back once partner_contact.js clears the
+   text again (name edited to something new, or the modal reopens). */
+.pc-field-hint {
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.pc-field-hint:empty {
+  display: none;
+}
+
+.pc-field-hint-warning {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* "Your Name" locked read-only once this browser has a cached value —
+   same convention as the alarm Ack/Clear popups' .ack-field input[readonly]. */
+.pc-field-group input[readonly] {
+  background: var(--bg-table-header, #f9fafb);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.pc-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-card, #e5e7eb);
+}
+
+.pc-modal-footer-left,
+.pc-modal-footer-right {
+  display: flex;
+  gap: 8px;
+}
+
+.pc-btn {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.pc-btn-ghost {
+  background: var(--bg-card, #fff);
+  border-color: var(--border-card, #e5e7eb);
+  color: var(--text-primary);
+}
+
+.pc-btn-primary {
+  background: #111827;
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .pc-modal-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .pc-grid th,
+  .pc-grid td { padding: 8px 8px; }
+}
+
+@media (max-width: 640px) {
+  .content { padding-left: 12px; padding-right: 12px; }
+
+  .pc-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .pc-header-right {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: 0;
+  }
+  .pc-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pc-toolbar-search {
+    width: 100%;
+    min-width: 0;
+    order: -1;
+  }
+  .pc-grid-wrap {
+    margin-left: -12px;
+    margin-right: -12px;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    max-height: calc(100vh - 130px);
+  }
+  .pc-grid { font-size: 10px; }
+  .pc-grid th,
+  .pc-grid td { padding: 8px 6px; }
 }
 
 /* Status badges + Streamline links moved to

@@ -8,6 +8,8 @@ from app.repositories.base_cache_repository import BaseCacheRepository
 class VipAlarmCacheRepository(BaseCacheRepository):
     valid_tables = VIP_ALARM_CACHE_TABLES
     columns = (
+        "alarm_numeric_id",
+        "alarm_id",
         "occurred_at",
         "event_name",
         "additional_info",

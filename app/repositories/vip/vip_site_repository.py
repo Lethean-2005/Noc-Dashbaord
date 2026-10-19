@@ -1,4 +1,5 @@
-"""Data access for VIP/VVIP Site master data (SITE_INFO) on MSSQL."""
+"""Data access for VIP/VVIP, On Air Site master data (TBL_SITE joined to
+TBL_NE) on MSSQL."""
 
 from app.database.mssql import run_mssql_query
 

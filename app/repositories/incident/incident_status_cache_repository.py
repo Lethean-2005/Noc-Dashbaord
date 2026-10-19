@@ -37,11 +37,8 @@ class IncidentStatusCacheRepository(BaseCacheRepository):
     @staticmethod
     def latest_by_site(rows):
         """site_code -> its most recent row, given rows already ordered
-        occurred_at DESC (see order_by above). A site can have more than
-        one active Incident at once — keeping only the first row seen per
-        site_code keeps the latest one, instead of a plain dict
-        comprehension which would silently keep the last-iterated (oldest)
-        one instead."""
+        occurred_at DESC. Keeps the first row seen per site_code — a
+        plain dict comprehension would silently keep the oldest instead."""
         result = {}
         for r in rows:
             code = r.get("site_code")

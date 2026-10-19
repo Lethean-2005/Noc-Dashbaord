@@ -309,6 +309,16 @@ def _send_empty_enabled() -> bool:
     return os.getenv("WEBHOOK_SEND_EMPTY", "false").strip().lower() == "true"
 
 
+# A connection-level failure's str(exc) embeds the full request URL, which
+# for a Teams incoming webhook includes its signature secret (?sig=...) —
+# redacted before it ever lands in a returned "reason" string or a log line.
+_URL_IN_ERROR_RE = re.compile(r"https?://\S+")
+
+
+def _redact_url(text: str) -> str:
+    return _URL_IN_ERROR_RE.sub("<redacted-url>", text)
+
+
 def send(spec: "AlertSpec", max_rows=None) -> dict:
     """Fetch this alert's rows and POST the card to its webhook URL. When there
     are 0 rows the send is skipped (sent=False) unless WEBHOOK_SEND_EMPTY=true.
@@ -346,7 +356,7 @@ def send(spec: "AlertSpec", max_rows=None) -> dict:
             "reason": "sent" if ok else f"HTTP {resp.status}",
         }
     except Exception as exc:
-        return {"sent": False, "count": 0, "status": None, "reason": f"POST error: {exc}"}
+        return {"sent": False, "count": 0, "status": None, "reason": f"POST error: {_redact_url(str(exc))}"}
 
 
 def run_cli(spec: "AlertSpec") -> int:

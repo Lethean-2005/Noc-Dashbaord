@@ -1,0 +1,17 @@
+{# Shared date field with a calendar-icon picker — caller sets
+   field_name/field_label/field_value/field_placeholder via {% set %}
+   immediately before each {% include %}. The visible <input> stays
+   plain text (so it can hold the exact "11-Sep-2026" format the
+   exported report needs) — the calendar icon opens the page's one
+   shared custom calendar dropdown (#irCalendar, see document.html/
+   incident-report.js) instead of the browser's own native date input,
+   styled to match the app's own calendar-card look rather than each
+   browser's inconsistent native picker UI. Typing the date directly
+   still works exactly as before; the picker is an added convenience. #}
+<div class="ir-field">
+  <label>{{ field_label }}</label>
+  <div class="ir-date-field">
+    <input type="text" name="{{ field_name }}" value="{{ field_value }}" placeholder="{{ field_placeholder }}" class="ir-date-text" required>
+    <button type="button" class="ir-date-pick-btn" aria-label="Pick a date"><i class="ti ti-calendar"></i></button>
+  </div>
+</div>

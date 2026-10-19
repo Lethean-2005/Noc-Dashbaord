@@ -160,15 +160,151 @@ def test_normalize_incwo_row_falls_back_to_plain_other_site_when_site_code_also_
     assert normalized["site_name"] == "Other Site"
 
 
+class FakeNeNmsLookupCacheRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        assert table == "ne_nms_lookup_cache"
+        return self._rows
+
+
+class FakeSiteRanVendorCacheRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        assert table == "site_ran_vendor_cache"
+        return self._rows
+
+
 def test_nms_by_site_reads_local_cache_keyed_by_site_code():
-    class FakeNeNmsLookupCacheRepo:
-        def fetch_all(self, table):
-            assert table == "ne_nms_lookup_cache"
-            return [{"site_code": "S1", "nms_code": "7"}, {"site_code": "S2", "nms_code": "3"}]
+    ne_rows = [{"site_code": "S1", "nms_code": "7"}, {"site_code": "S2", "nms_code": "3"}]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo([]),
+    )
 
-    svc = IncidentSyncService(ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo())
+    result = svc._nms_by_site()
+    assert result["S1"] == "7"
+    assert result["S2"] == "3"
 
-    assert svc._nms_by_site() == {"S1": "7", "S2": "3"}
+
+def test_nms_by_site_prefers_confirmed_actual_ran_vendor_code_over_ne_lookup():
+    # S1's NE-based lookup says "7" (Nokia), but its confirmed
+    # actual_ran_vendor code (20) says Huawei ("5") — the site-level
+    # field wins since it's confirmed correct for this code (exact-count
+    # match against Streamline's own "Actual RAN Vendor" filter, see
+    # app/utils/nms.py).
+    ne_rows = [{"site_code": "S1", "nms_code": "7"}]
+    vendor_rows = [{"site_code": "S1", "actual_ran_vendor": 20}]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+    )
+
+    assert svc._nms_by_site()["S1"] == "5"
+
+
+def test_nms_by_site_leaves_out_same_named_but_unconfirmed_huawei_codes():
+    # 21 and 22 are ALSO Counterparty catalog records literally named
+    # "Huawei" (see app/utils/nms.py) — but Streamline's own "Actual RAN
+    # Vendor = Huawei" filter doesn't count either of them (only code 20
+    # does), so this mapping deliberately doesn't either. A site linked to
+    # 21/22 must fall through to the NE-based lookup, same as any other
+    # unconfirmed code.
+    ne_rows = [
+        {"site_code": "S21", "nms_code": "5"},
+        {"site_code": "S22", "nms_code": "3"},
+    ]
+    vendor_rows = [
+        {"site_code": "S21", "actual_ran_vendor": 21},
+        {"site_code": "S22", "actual_ran_vendor": 22},
+    ]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+    )
+
+    result = svc._nms_by_site()
+    assert result["S21"] == "5"
+    assert result["S22"] == "3"
+
+
+def test_nms_by_site_ignores_unconfirmed_actual_ran_vendor_codes():
+    # Code 58 is not in ACTUAL_RAN_VENDOR_TO_NMS_CODE (still unconfirmed —
+    # see app/utils/nms.py) — the NE-based lookup must be left untouched.
+    ne_rows = [{"site_code": "S1", "nms_code": "7"}]
+    vendor_rows = [{"site_code": "S1", "actual_ran_vendor": 58}]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+    )
+
+    assert svc._nms_by_site()["S1"] == "7"
+
+
+def test_nms_by_site_uses_confirmed_actual_ran_vendor_even_with_no_ne_row():
+    ne_rows = []
+    vendor_rows = [{"site_code": "S1", "actual_ran_vendor": 6}]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+    )
+
+    assert svc._nms_by_site()["S1"] == "3"
+
+
+class FakeMssqlSiteOnairCacheRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        assert table == "mssql_site_onair"
+        return self._rows
+
+
+def test_onair_vendor_by_site_code_reads_real_vendor_from_local_cache():
+    rows = [
+        {"site_code": "S1", "vendor": "Huawei"},
+        {"site_code": "S2", "vendor": "ZTE"},
+    ]
+    svc = IncidentSyncService(mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo(rows))
+
+    result = svc._onair_vendor_by_site_code()
+    assert result == {"S1": "Huawei", "S2": "ZTE"}
+
+
+def test_onair_vendor_by_site_code_skips_rows_with_no_vendor():
+    # mssql_site_onair_sync_service.py normalizes a missing VENDOR to ""
+    # (never None) — confirmed on the real cache: 6 of 3,751 On-Air sites
+    # have no vendor. Those must fall through to _resolve_vendor_name()'s
+    # tier-2 actual_ran_vendor check, not resolve to a blank string.
+    rows = [{"site_code": "S1", "vendor": ""}, {"site_code": "S2", "vendor": "Nokia"}]
+    svc = IncidentSyncService(mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo(rows))
+
+    assert svc._onair_vendor_by_site_code() == {"S2": "Nokia"}
+
+
+def test_resolve_vendor_name_prefers_onair_real_vendor_over_actual_ran_vendor_code():
+    # S1's actual_ran_vendor code (20) would resolve to Huawei via the
+    # confirmed-code tier, but mssql_site_onair's own real NE inventory
+    # data says ZTE for this site — the real data wins.
+    onair_vendor_by_site_code = {"S1": "ZTE"}
+    assert (
+        IncidentSyncService._resolve_vendor_name("S1", 20, onair_vendor_by_site_code) == "ZTE"
+    )
+
+
+def test_resolve_vendor_name_falls_back_to_confirmed_actual_ran_vendor_code():
+    # Site not in mssql_site_onair (e.g. Planned/Off-Air) — falls back to
+    # the confirmed 3-code check, same as before this change.
+    assert IncidentSyncService._resolve_vendor_name("S404", 6, {}) == "ZTE"
+
+
+def test_resolve_vendor_name_unknown_when_neither_source_has_it():
+    assert IncidentSyncService._resolve_vendor_name("S404", 58, {}) == "Unknown"
+    assert IncidentSyncService._resolve_vendor_name(None, None, {}) == "Unknown"
 
 
 class FakeIncidentRepoForWo:

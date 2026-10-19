@@ -331,8 +331,29 @@ def test_get_details_leaves_unknown_nms_code_unchanged():
     assert row["nms"] == "999"
 
 
-def test_get_details_prefers_incidents_own_nms_over_ape_alarms_code():
+def test_get_details_prefers_ape_alarms_own_nms_over_incidents_stale_code():
+    # The alarm's own nms code comes straight from the live alarm feed
+    # (object_138); the incident's nms is resolved from object_227's NE
+    # inventory, which can be stale for a site whose equipment changed —
+    # confirmed live (a site with an old NE keeping a superseded vendor
+    # code while a newer NE has none recorded at all). So the alarm's own
+    # translated code wins even when an incident's nms disagrees.
     alarm_rows = [_alarm_row("S1", nms="7")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{"site_code": "S1", "nms": "Huawei", "category": "Power"}]
+    svc = RanMainAcAlarmService(
+        FakeApeAlarmRepo(alarm_rows),
+        FakeSiteRepo(site_rows),
+        FakeIncidentStatusRepo(incident_rows),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["nms"] == "Nokia"
+
+
+def test_get_details_falls_back_to_incidents_nms_when_alarm_has_none():
+    alarm_rows = [_alarm_row("S1", nms="")]
     site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
     incident_rows = [{"site_code": "S1", "nms": "Huawei", "category": "Power"}]
     svc = RanMainAcAlarmService(

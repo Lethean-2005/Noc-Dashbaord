@@ -1,0 +1,64 @@
+# Dependencies & Package Managers
+node_modules/
+vendor/
+.pnp/
+.pnp.js
+
+# Build Outputs & Bundles
+dist/
+build/
+out/
+public/build/
+.next/
+.nuxt/
+.output/
+target/
+bin/
+obj/
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs & Runtime Files
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.pid
+*.seed
+*.pid.lock
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+
+# Temporary & Cache Directories
+.cache/
+.parcel-cache/
+.turbo/
+.eslintcache
+
+# Noc-Dashboard-specific large files — huge token cost to read, rarely
+# needed (schema/data dumps and build artifacts, not source code)
+meta_export_focus_viewer.html
+deploy_zips/
+data/
+instance/*.db
+docs/*.zip
+*.xlsx
+*.csv

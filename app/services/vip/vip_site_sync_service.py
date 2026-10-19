@@ -1,5 +1,6 @@
-"""Pulls VIP/VVIP Site master data from MSSQL (SITE_INFO) and writes it into
-the local cache (instance/localstorage.db). Mirrors the alarm sync in
+"""Pulls VIP/VVIP, On Air Site master data from MSSQL (TBL_SITE joined to
+TBL_NE for VENDOR) and writes it into the local cache
+(instance/localstorage.db). Mirrors the alarm sync in
 app/services/alarm/alarm_sync_service.py — same reasoning applies here.
 """
 
@@ -44,21 +45,19 @@ class VipSiteSyncService:
     @staticmethod
     def _normalize(row):
         return {
-            "id": str(row.get("ID") or ""),
             "site_code": row.get("SITE_CODE") or "",
             "site_name": row.get("SITE_NAME") or "",
-            "bts_name": row.get("BTS_NAME") or "",
-            "vip": row.get("VIP") or "",
+            "status": row.get("STATUS") or "",
             "province": row.get("PROVINCE") or "",
             "district": row.get("DISTRICT") or "",
-            "commune": row.get("COMMUNE") or "",
             "village": row.get("VILLAGE") or "",
-            "location": row.get("LOCATION") or "",
-            "site_grade": row.get("SITE_GRADE") or "",
-            "on_air": str(row.get("ON_AIR") or ""),
-            "product": row.get("PRODUCT") or "",
-            "tech": row.get("TECH") or "",
-            "site_id": str(row.get("SITE_ID") or ""),
             "lat": row.get("LAT"),
             "long": row.get("LONG"),
+            "bts_room": row.get("BTS_ROOM") or "",
+            "link_type": row.get("LINK_TYPE") or "",
+            "site_grade": row.get("SITE_GRADE") or "",
+            "site_type": row.get("SITE_TYPE") or "",
+            "location": row.get("LOCATION") or "",
+            "site_strategic": row.get("SITE_STRATEGIC") or "",
+            "vendor": row.get("VENDOR") or "",
         }

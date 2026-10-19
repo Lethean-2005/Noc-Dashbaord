@@ -1,48 +1,26 @@
 """Sends a Telegram alert listing every INC-WO Site Down row currently
-open (INC_WO_ALERT_THRESHOLD_MIN defaults to 0 — every row, not just ones
-open past a threshold), rendered as a table image (via Pillow) — same
-rendering approach as app/services/telegram/telegram_alert.py, see that
-module for the full "why an image, why sendDocument not sendPhoto"
-reasoning. Unlike that module's Site Down alert (a "what's been open too
-long" nudge, threshold 240min/4h), this one reads as "here's the current
-INC-WO Site Down list right now", refreshed every
-INC_WO_ALERT_INTERVAL_SECONDS (default 900s/15min) — set
-INC_WO_ALERT_THRESHOLD_MIN above 0 in .env to go back to a threshold-only
-alert instead.
+open (INC_WO_ALERT_THRESHOLD_MIN defaults to 0 — every row), rendered as
+a table image, same approach as telegram_alert.py. Unlike that alert's
+threshold-based nudge, this reads as "the current list right now",
+refreshed every INC_WO_ALERT_INTERVAL_SECONDS (default 900s).
 
-Reads the already-synced inc_wo_site_down cache (see
-app/repositories/incwo/incwo_status_cache_repository.py,
-app/database/queries/inc_wo_site_down.sql) instead of querying Postgres
-directly — kept fresh every INCIDENT_SYNC_INTERVAL_SECONDS by
-IncidentSyncService. Every row read is also mirrored into the local
-telegram_inc_wo_alert_cache table (a separate table from
-telegram_alert.py's telegram_alert_cache — see
-app/database/cache.py's comment for why) before the threshold filter
-runs, so this alert's last run is inspectable independent of whether
-anything was actually over-threshold.
+Reads the already-synced inc_wo_site_down cache. Every row read is
+mirrored into its own telegram_inc_wo_alert_cache table before the
+threshold filter runs. Also attaches the same rows as a styled .xlsx.
 
-Every send also attaches a second document: the same rows as a styled
-.xlsx (via openpyxl, see telegram_alert.py's _build_excel_bytes()) — the
-image stays the at-a-glance view, the Excel file is the "open this in a
-spreadsheet" copy.
+Sent via a separate bot/chat (TELEGRAM_BOT_INC_WO_TOKEN/
+TELEGRAM_CHAT_IDS_INC_WO) — the bot must already be a member of that
+chat or Telegram returns "chat not found".
 
-Sent via a SEPARATE Telegram bot (TELEGRAM_BOT_INC_WO_TOKEN) to its OWN
-chat/group (TELEGRAM_CHAT_IDS_INC_WO), independent of the Site Down
-alert's TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS above. Never runs unless both
-TELEGRAM_BOT_INC_WO_TOKEN and TELEGRAM_CHAT_IDS_INC_WO are set. The bot
-must also already be a member of that chat — Telegram returns "Bad
-Request: chat not found" otherwise, even with a correct token/chat id.
-
-start() runs this on its own background loop, once every
-INC_WO_ALERT_INTERVAL_SECONDS (default 900s / 15min), clock-aligned the
-same way telegram_alert.py's own loop is — deliberately landing at the
-exact same instant as every other Telegram alert (_OFFSET_SECONDS=0 on
-all of them, per explicit request), not staggered.
+start() runs clock-aligned like telegram_alert.py's own loop — all
+offsets 0, landing at the same instant as every other Telegram alert,
+per explicit request (not staggered).
 """
 
 import io
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
 from flask import current_app
@@ -75,17 +53,10 @@ try:
 except ImportError:
     _HAS_PIL = False
 
-# Inter, not telegram_alert.py's Exo2-Bold or the dashboard's own Poppins
-# — asked for specifically on this alert only, nothing else. Downloaded
-# from Google Fonts' own repo (google/fonts, ofl/inter — OFL licensed,
-# same self-hosting approach as every other font in app/static/fonts/).
-# It's a variable font (weight axis) — set_variation_by_name("Bold") below
-# pins it to the Bold weight explicitly, rather than relying on whatever
-# the font's own default named instance happens to be (the filename says
-# "Regular" only because that's the variable font file itself — the
-# rendered weight is controlled entirely by set_variation_by_name()).
-# Local to this module only — telegram_alert.py's own Site Down alert
-# keeps its existing Exo2-Bold look, this change wasn't asked for there.
+# Inter (not telegram_alert.py's Exo2-Bold), for this alert only. A
+# variable font — set_variation_by_name("Bold") pins the weight
+# explicitly (the filename says "Regular" but is the variable font file
+# itself).
 _FONT_PATH = os.path.join(_FONT_DIR, "Inter-Regular.ttf")
 
 logger = get_logger(__name__)
@@ -93,21 +64,15 @@ logger = get_logger(__name__)
 _SITE_DOWN_TABLE = "inc_wo_site_down"
 _CACHE_TABLE = "telegram_inc_wo_alert_cache"
 
-# 0 — lands exactly on the interval boundary (:00/:15/:30/:45), same as
-# every other Telegram alert. All of them read the already-synced local
-# cache and only call out to Telegram's API (no live Postgres/MSSQL
-# query), so firing them all at once isn't the kind of DB-write collision
-# risk seconds_until_next_aligned_time()'s own docstring warns about for
-# the 300s sync schedulers — deliberately NOT staggered, per explicit
-# request.
+# 0 — lands on the interval boundary, same as every other Telegram
+# alert. All read local cache only (no live DB query), so firing
+# together isn't a collision risk — deliberately not staggered.
 _OFFSET_SECONDS = 0
 
 
 def _cache_telegram_rows(rows, cache_repository=None):
-    """Mirror every fetched row into telegram_inc_wo_alert_cache — same
-    replace-everything pattern telegram_alert.py's own _cache_telegram_rows()
-    uses. Best-effort — a cache write failure shouldn't stop the alert
-    itself from being evaluated/sent."""
+    """Mirror every fetched row into telegram_inc_wo_alert_cache.
+    Best-effort — a cache write failure shouldn't stop the alert."""
     cache_repository = cache_repository or TelegramIncWoAlertCacheRepository()
     try:
         cache_repository.replace_all(_CACHE_TABLE, rows)
@@ -118,18 +83,13 @@ def _cache_telegram_rows(rows, cache_repository=None):
 def _inc_wo_site_down_over_threshold(
     threshold_min, status_cache_repository=None, cache_repository=None
 ):
-    """Every INC-WO Site Down row (per inc_wo_site_down.sql) whose
-    outage_min — minutes since the WO was created, not since the
-    incident occurred, since a WO can be created well after its incident
-    — has passed `threshold_min` minutes, longest-open first. outage_min
-    is computed for every row (not just the ones over threshold) before
-    caching, same convention as telegram_alert.py's own
-    _site_down_over_threshold().
+    """Every INC-WO Site Down row whose outage_min — minutes since the
+    WO was created, not the incident — has passed `threshold_min`,
+    longest-open first.
 
-    Rows with no wo_id yet (see IncWoService.get_site_down_details()) or
-    whose Support Level isn't L2 (this alert is for the L2 On-Site team
-    only) are excluded from what gets sent, but still mirrored into the
-    raw cache below as an audit trail of what was fetched."""
+    Rows with no wo_id yet, or whose Support Level isn't L2 (this alert
+    is for the L2 On-Site team only), are excluded from what gets sent,
+    but still mirrored into the raw cache as an audit trail."""
     status_cache_repository = status_cache_repository or IncWoStatusCacheRepository()
     rows = status_cache_repository.fetch_all(_SITE_DOWN_TABLE)
     for row in rows:
@@ -161,13 +121,10 @@ def _format_message(rows, threshold_min):
     return "\n".join(lines)
 
 
-# (header, char width, row key) — one entry per column, in display order,
-# matching the dashboard's own INC-WO Site Down drilldown/CSV column order
-# exactly, all in one row per record (per explicit request — the earlier
-# two-line-per-record layout was reverted). "Fault Description" used to be
-# a wrapped, multi-line column — changed to single-line-with-"..." instead
-# (see _truncate_text_px() below) per explicit request, so every row is a
-# uniform height again.
+# (header, char width, row key) — one entry per column, matching the
+# dashboard's own INC-WO Site Down drilldown/CSV column order, one row
+# per record. "Fault Description" truncates with "..." (see
+# _truncate_text_px()) rather than wrapping, so every row is uniform height.
 _COLUMNS = (
     ("Incident ID", 14, "incident_id"),
     ("INC-WO ID", 15, "wo_id"),
@@ -176,12 +133,6 @@ _COLUMNS = (
     ("Site Name", 14, "site_name"),
     ("Site Code", 8, "site_code"),
     ("Overdue", 5, "overdue"),
-    # 12 chars fits "L2 On-Site" (10) with a little room — the only value
-    # seen in real INC-WO Site Down data so far. "L3 Internal Support" (19
-    # chars, a valid value elsewhere in this same field) would visually
-    # clip at this width if it ever shows up here; sized this tight anyway
-    # per explicit request, since this column doesn't wrap like Fault
-    # Description does.
     ("Support Level", 12, "support_level"),
     ("Fault Description", 24, "fault_description"),
     ("NMS", 8, "nms"),
@@ -192,12 +143,8 @@ _COLUMNS = (
 _STATUS_COLUMN_INDEX = 3  # "INC-WO Status" — the only color-coded column
 
 # (header, extractor) pairs for the Excel attachment — same columns as
-# _COLUMNS above (dropping only the char-width used for the PNG's pixel
-# layout), with the same "Other Site" / newline-stripping special-cases
-# _render_inc_wo_table_image() applies, minus the pixel-width truncation
-# (Excel autosizes columns instead of clipping text with "..."). Shared by
-# all 3 alerts that use _render_inc_wo_table_image (Site Down, Power,
-# General) via import, same as that function itself.
+# _COLUMNS, minus the pixel-width truncation (Excel autosizes columns).
+# Shared by all 3 alerts that use _render_inc_wo_table_image.
 _EXCEL_SPECIAL_EXTRACTORS = {
     "wo_created_at": lambda r: (r.get("wo_created_at") or "")[:16],
     "site_name": lambda r: (
@@ -209,19 +156,14 @@ _EXCEL_COLUMNS = tuple(
     (header, _EXCEL_SPECIAL_EXTRACTORS.get(key, key)) for header, _chars, key in _COLUMNS
 )
 
-# Every other column is centered — these are free-typed prose/long values,
-# not short fixed-width data, so centering makes them harder to read;
-# left-aligned per explicit request. Shared by all 3 alerts that use
-# _EXCEL_COLUMNS above.
+# Free-typed prose/long values — left-aligned rather than centered.
+# Shared by all 3 alerts that use _EXCEL_COLUMNS.
 _EXCEL_LEFT_ALIGN_HEADERS = {"Fault Description", "Hub Site", "Province", "Site Name"}
 
 
 def _truncate_text_px(text, font, max_px):
-    """Cuts `text` down to fit `max_px` width using `font`, appending "..."
-    if anything was cut — character by character rather than word by word,
-    since a fault description is free-typed prose, not fixed-width data
-    (see _wrap_text_px() in telegram_alert.py for the word-wrapping
-    equivalent this replaced for this one column)."""
+    """Cuts `text` to fit `max_px` width, appending "..." if anything
+    was cut — character by character, not word by word."""
     if not text or font.getlength(text) <= max_px:
         return text
     ellipsis_w = font.getlength("...")
@@ -233,11 +175,8 @@ def _truncate_text_px(text, font, max_px):
     return truncated.rstrip() + "..."
 
 
-# Same colors as the dashboard's own status badge
-# (app/static/css/components/status_links.css's .status-badge.status-*
-# rules / app/utils/formatter.py's status_badge_class()), so "In
-# Progress"/"Acknowledged"/etc. read the same way here as they do on
-# screen. Falls back to plain black text for any status not in this map.
+# Same colors as the dashboard's own status badge, so statuses read the
+# same here as on screen. Falls back to plain black for any unmapped status.
 _STATUS_COLORS = {
     "New": "#0487e2",
     "Assigned": "#94a3b8",
@@ -249,10 +188,8 @@ _STATUS_COLORS = {
     "Returned": "#ec4899",
 }
 
-# A record's site is "priority" for highlighting purposes if it's ANY kind
-# of hub, OR its grade is Gold/Diamond — either alone qualifies, matching
-# IncWoService._matches_site_down_badge's own hub_site/site_grade rules
-# (a non-hub Gold/Diamond site still counts).
+# A site is "priority" for highlighting if it's any kind of hub, or its
+# grade is Gold/Diamond — either alone qualifies.
 _TOP_SITE_GRADES = {"Gold", "Diamond"}
 _PRIORITY_ROW_BG = "#FFCDD2"
 
@@ -270,17 +207,10 @@ def _render_inc_wo_table_image(rows, title):
     if not _HAS_PIL or not os.path.exists(_FONT_PATH):
         return None
 
-    # SCALE=1, not telegram_alert.py's 2 — that alert's table has 8 columns,
-    # this one has 15, and at SCALE=2 the accumulated width became so
-    # extreme (25000+ px for just a couple of rows, 2+ MB per send) that
-    # Telegram's own document-preview thumbnail squashed it into an
-    # unreadable blur (confirmed live via a real sent file). SCALE=1 keeps
-    # every font-size/weight/color choice exactly as sized in points —
-    # just rendered at a saner total pixel count, so the file stays a
-    # reasonable size and the aspect ratio isn't so extreme that Telegram's
-    # thumbnail generator falls over. The full image is still sharp when
-    # actually opened either way — this only affects the preview thumbnail
-    # and the file size, not text quality once opened.
+    # SCALE=1, not telegram_alert.py's 2 — this table has 15 columns, and
+    # at SCALE=2 the file got large enough that Telegram's thumbnail
+    # generator squashed the preview into an unreadable blur (the full
+    # image opens sharp either way; this only affects the thumbnail/size).
     SCALE = 1
     FONT_SIZE, TITLE_SIZE = 56 * SCALE, 62 * SCALE
     CELL_PAD_X = 26 * SCALE
@@ -316,9 +246,8 @@ def _render_inc_wo_table_image(rows, title):
                 values.append((row.get(key) or "")[:16])
                 continue
             if key == "site_name":
-                # "Other Site (CODE)" overflowed this column into the next
-                # one. Site Code already has its own column, so leave Site
-                # Name blank here instead of repeating the code.
+                # "Other Site (CODE)" overflowed into the next column —
+                # Site Code has its own column, so leave this blank instead.
                 text = row.get(key) or "—"
                 if text.startswith("Other Site"):
                     text = "—"
@@ -335,7 +264,7 @@ def _render_inc_wo_table_image(rows, title):
     draw = ImageDraw.Draw(img)
     draw.rectangle([FRAME, FRAME, img_w - FRAME - 1, img_h - FRAME - 1], fill=BG)
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).strftime("%Y-%m-%d %H:%M")
     title_y = FRAME + PAD_TOP + (TITLE_H - TITLE_SIZE) // 2
     draw.text((FRAME + PAD_X, title_y), f"{title}  —  {now_str}", fill=TITLE_COLOR, font=title_font)
 
@@ -391,14 +320,9 @@ def _render_inc_wo_table_image(rows, title):
 
 
 def _send_telegram_document(token, chat_ids, photo_bytes):
-    """Same "send as a document, not sendPhoto" reasoning as
-    telegram_alert.py's own _send_telegram_photo() (Telegram recompresses
-    photos, which blurs small table text; documents are delivered
-    untouched) — but with its own filename, "inc-wo-site-down-alert.png",
-    instead of reusing that function and its hardcoded "site-down-
-    alert.png". Confirmed live: without this, Telegram Desktop shows both
-    alerts' files under the identical name, indistinguishable from each
-    other in the chat."""
+    """Sends as a document, not sendPhoto (avoids Telegram's photo
+    recompression blurring small table text) — its own filename so this
+    alert's file isn't indistinguishable from telegram_alert.py's."""
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -474,11 +398,9 @@ def _work():
 
 
 def start(app, interval_seconds=None):
-    """Start the background alert loop, once per process. See
-    telegram_alert.py's start() for the full first_run_delay/next_delay_fn
-    reasoning — same pattern here, just offset by _OFFSET_SECONDS so this
-    alert and the Site Down one don't both fire at the same aligned
-    instant."""
+    """Start the background alert loop, once per process — same
+    first_run_delay/next_delay_fn pattern as telegram_alert.py's start(),
+    offset by _OFFSET_SECONDS."""
     wait = interval_seconds or app.config["INC_WO_ALERT_INTERVAL_SECONDS"]
     tz_name = app.config["TIMEZONE"]
     delay = seconds_until_next_aligned_time(wait, tz_name, offset_seconds=_OFFSET_SECONDS)

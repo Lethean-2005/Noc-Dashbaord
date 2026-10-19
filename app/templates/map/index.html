@@ -3,10 +3,8 @@
 {% block title %}Map View{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/leaflet.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/markercluster/MarkerCluster.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='vendors/leaflet/markercluster/MarkerCluster.Default.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/map-view.css') }}">
+<link rel="stylesheet" href="{{ versioned_static('vendors/leaflet/leaflet.css') }}">
+<link rel="stylesheet" href="{{ versioned_static('css/components/map-view.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -15,7 +13,7 @@ app/services/map/map_view_service.py) — only rows with a real, non-zero
 p_lat/p_lon are included, so the count below can be lower than the
 dashboard's total site count. #}
 <div class="alarm-header">
-    <div>
+    <div class="map-header-title-group">
         <h1>{{ self.title() }}</h1>
         {# Doubles as the "show everything" reset — clicking it clears any
         active status filter, same job the old separate "Total Location"
@@ -23,58 +21,145 @@ dashboard's total site count. #}
         <button type="button" id="mapTotalBadge" class="map-total-badge">
             {{ sites|length }} site{{ 's' if sites|length != 1 else '' }} plotted
         </button>
+        {# "Other" is every status that isn't on_air/planned (see site_cache's
+        real status values — currently just on_air/planned/ready_for_installation,
+        but this stays correct if a new status value shows up later) — counts
+        computed once in Python, see MapViewService.get_status_counts(). A
+        <details> dropdown, not a native <select> — same "click to open/close
+        comes free from the browser" pattern drilldown/_date_filter.html
+        already uses, styled as a custom card instead of the OS's own
+        unstylable <select> listbox. Site status only — the ISP POP owner
+        filter is its own separate dropdown right after this one, not mixed
+        into the same list. #}
+        <details class="map-status-filter" id="mapStatusFilter">
+            <summary class="map-filter-select">
+                <span id="mapStatusFilterLabel">On Air</span>
+                <i class="ti ti-chevron-down"></i>
+            </summary>
+            <div class="map-status-filter-card">
+                <div class="map-status-filter-option" data-filter="all" data-label="All Status">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-all"></span> All Status</span>
+                </div>
+                {# Nested NMS (Nokia/Huawei/ZTE) breakdown, "On Air" only —
+                click the arrow to expand, same idea as the main dropdown
+                itself but one level deeper. Counted the same way POP owner
+                counts are (rows|selectattr(...)|list|length) rather than a
+                new backend method. #}
+                {% set on_air_sites = sites|selectattr('status', 'equalto', 'on_air')|list %}
+                <div class="map-status-filter-option-group">
+                    <div class="map-status-filter-option active" data-filter="on_air" data-label="On Air">
+                        <span class="map-status-filter-label"><span class="map-legend-dot map-dot-on-air"></span> On Air</span>
+                        <span class="map-status-filter-count">{{ status_counts.on_air }}</span>
+                        <button type="button" class="map-status-filter-expand" aria-label="Show NMS breakdown"><i class="ti ti-chevron-right"></i></button>
+                    </div>
+                    <div class="map-status-filter-sublist" hidden>
+                        {% for vendor in ['Nokia', 'Huawei', 'ZTE'] %}
+                        <div class="map-status-filter-option map-status-filter-suboption" data-filter="on_air_{{ vendor|lower }}" data-label="On Air — {{ vendor }}">
+                            <span class="map-status-filter-label">{{ vendor }}</span>
+                            <span class="map-status-filter-count">{{ on_air_sites|selectattr('nms', 'equalto', vendor)|list|length }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="map-status-filter-option" data-filter="planned" data-label="Planned">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-planned"></span> Planned</span>
+                    <span class="map-status-filter-count">{{ status_counts.planned }}</span>
+                </div>
+                <div class="map-status-filter-option" data-filter="other" data-label="Other">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-other"></span> Other</span>
+                    <span class="map-status-filter-count">{{ status_counts.other }}</span>
+                </div>
+                {# Orthogonal to the 3 options above — a down site still has
+                its own on_air/planned/other status too; see
+                MapViewService.get_status_counts()'s own note on this. #}
+                <div class="map-status-filter-option" data-filter="site_down" data-label="Site Down">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-down"></span> Site Down</span>
+                    <span class="map-status-filter-count">{{ status_counts.site_down }}</span>
+                </div>
+            </div>
+        </details>
+        {# ISP POP owner filter — separate dropdown from site status above.
+        Part of the same mutually-exclusive filter set (see map-view.js's
+        applyFilter()) — picking an owner here hides every site marker and
+        shows only that owner's POPs; "All Status" in the other dropdown
+        resets back to showing both owners' POPs alongside every site. #}
+        <details class="map-status-filter" id="mapIspFilter">
+            <summary class="map-filter-select">
+                <span id="mapIspFilterLabel">ISP Site</span>
+                <i class="ti ti-chevron-down"></i>
+            </summary>
+            <div class="map-status-filter-card">
+                {# The one combined view — on-air SITES (status_counts.on_air)
+                PLUS every ISP POP together, not a POP-only subset like every
+                other option here. See applyFilter()'s own "recent_all"
+                branch (map-view.js) for why this needs special handling
+                instead of going through matchesPopFilter() like the rest. #}
+                <div class="map-status-filter-option" data-filter="recent_all" data-label="All Recent">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-on-air"></span> All Recent</span>
+                    <span class="map-status-filter-count">{{ status_counts.on_air + pops|length }}</span>
+                </div>
+                <div class="map-status-filter-option" data-filter="pop_all" data-label="All ISP">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-all"></span> All ISP</span>
+                    <span class="map-status-filter-count">{{ pops|length }}</span>
+                </div>
+                <div class="map-status-filter-option" data-filter="pop_telcotech" data-label="ISP TELCOTECH">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-pop-telcotech"></span> ISP TELCOTECH</span>
+                    <span class="map-status-filter-count">{{ pops|selectattr('pro_owner', 'equalto', 'Telcotech')|list|length }}</span>
+                </div>
+                <div class="map-status-filter-option" data-filter="pop_ezecom" data-label="ISP EZECOM">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-pop-ezecom"></span> ISP EZECOM</span>
+                    <span class="map-status-filter-count">{{ pops|selectattr('pro_owner', 'equalto', 'Ezecom')|list|length }}</span>
+                </div>
+                <div class="map-status-filter-option" data-filter="pop_no_owner" data-label="ISP No Owner">
+                    <span class="map-status-filter-label"><span class="map-legend-dot map-dot-pop-no-owner"></span> No Owner</span>
+                    <span class="map-status-filter-count">{{ pops|rejectattr('pro_owner')|list|length }}</span>
+                </div>
+            </div>
+        </details>
     </div>
-    {# Search box lives in the header now, not floating on the map — it
-    used to overlay the map's top-right corner, which visually collided
-    with this status dropdown (both anchored to the same corner, opening
-    on top of each other). Living in the header's normal flex flow, the
-    two can never overlap. #}
-    <div class="map-search">
-        <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search by site code or site name..." autocomplete="off">
-        <div id="mapSearchResults" class="map-search-results" hidden></div>
-    </div>
-    {# "Other" is every status that isn't on_air/planned (see site_cache's
-    real status values — currently just on_air/planned/ready_for_installation,
-    but this stays correct if a new status value shows up later) — counts
-    computed once in Python, see MapViewService.get_status_counts(). A
-    <details> dropdown, not a native <select> — same "click to open/close
-    comes free from the browser" pattern drilldown/_date_filter.html
-    already uses, styled as a custom card instead of the OS's own
-    unstylable <select> listbox. #}
-    <details class="map-status-filter" id="mapStatusFilter">
-        <summary class="map-filter-select">
-            <span id="mapStatusFilterLabel">All Status</span>
-            <i class="ti ti-chevron-down"></i>
-        </summary>
-        <div class="map-status-filter-card">
-            <div class="map-status-filter-option active" data-filter="all" data-label="All Status">
-                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-all"></span> All Status</span>
-            </div>
-            <div class="map-status-filter-option" data-filter="on_air" data-label="On Air">
-                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-on-air"></span> On Air</span>
-                <span class="map-status-filter-count">{{ status_counts.on_air }}</span>
-            </div>
-            <div class="map-status-filter-option" data-filter="planned" data-label="Planned">
-                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-planned"></span> Planned</span>
-                <span class="map-status-filter-count">{{ status_counts.planned }}</span>
-            </div>
-            <div class="map-status-filter-option" data-filter="other" data-label="Other">
-                <span class="map-status-filter-label"><span class="map-legend-dot map-dot-other"></span> Other</span>
-                <span class="map-status-filter-count">{{ status_counts.other }}</span>
-            </div>
+    {# Two separate search boxes, not one combined one — one searches
+    plotted sites (code/name), the other searches Cambodia's admin
+    boundaries (province/district/commune, drawn+zoomed from the
+    boundaries file, see map-view.js) — different data sources, different
+    result actions (open a popup vs. draw a shape), kept visually and
+    functionally distinct rather than merged into one mixed result list.
+    Both live in the header now, not floating on the map — that used to
+    overlay the map's top-right corner, which visually collided with the
+    status dropdown (both anchored to the same corner, opening on top of
+    each other). Living in the header's normal flex flow, nothing can
+    overlap. #}
+    <div class="map-search-group">
+        <div class="map-search">
+            <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search site code, site name, POP, or lat, lon..." autocomplete="off">
+            <button type="button" id="mapSearchClear" class="map-search-clear" aria-label="Clear search" hidden>&times;</button>
+            <div id="mapSearchResults" class="map-search-results" hidden></div>
         </div>
-    </details>
+        <div class="map-search">
+            <input type="text" id="mapLocationSearchInput" class="map-search-input" placeholder="Search province, district, commune, village, or lat, lon..." autocomplete="off">
+            <button type="button" id="mapLocationSearchClear" class="map-search-clear" aria-label="Clear search" hidden>&times;</button>
+            <div id="mapLocationSearchResults" class="map-search-results" hidden></div>
+        </div>
+    </div>
+    {# One .xlsx workbook, 3 sheets (map_view_export / Site down / Pop
+    site) — see export_xlsx() in app/routes/map_view.py. #}
+    <a id="mapExportLink" class="btn-export" href="{{ url_for('mapview.export_xlsx') }}"><i class="ti ti-download"></i> Export</a>
 </div>
 
 <div class="map-view-wrap">
     <div id="mapView" class="map-view-container"></div>
+    {# Sites falling inside a searched province/district/commune's boundary
+    (see goToLocation()/renderBoundarySites() in map-view.js) — a floating
+    card over the map's right side, same row layout as the search-result
+    dropdowns (.map-search-result etc.), just anchored to the map instead
+    of a search box. #}
+    <div id="mapBoundarySites" class="map-boundary-sites-card" hidden></div>
 </div>
 
 <script type="application/json" id="map-view-sites-data">{{ sites|tojson }}</script>
+<script type="application/json" id="map-view-pops-data">{{ pops|tojson }}</script>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='vendors/leaflet/leaflet.js') }}"></script>
-<script src="{{ url_for('static', filename='vendors/leaflet/markercluster/leaflet.markercluster.js') }}"></script>
-<script src="{{ url_for('static', filename='js/map-view.js') }}"></script>
+<script src="{{ versioned_static('vendors/leaflet/leaflet.js') }}"></script>
+<script src="{{ versioned_static('js/map-view.js') }}"></script>
 {% endblock %}

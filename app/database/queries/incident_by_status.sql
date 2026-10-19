@@ -1,64 +1,29 @@
 -- ==============================================================
--- Incident drilldown detail, synced into the local "incident_by_status"
--- cache table (see app/database/cache.py) every INCIDENT_SYNC_INTERVAL_SECONDS
--- — every Incident-column badge (New, New Site-Down, In-Progress,
--- In-Progress Site-Down, Overdue, Overdue Site-Down) filters from this one
--- cached table, since 'overdue' is a flag on top of status, not a separate
--- status value.
---
--- Only status IN ('new', 'in_progress') is cached — that covers every
--- Incident badge on the dashboard; resolved/closed incidents aren't shown
--- on any badge, so there's no reason to sync/store them here.
+-- Incident drilldown detail, synced into incident_by_status (see
+-- app/database/cache.py) — feeds every Incident-column badge (New,
+-- In-Progress, Overdue, and their Site-Down variants). Only
+-- status IN ('new', 'in_progress') is cached; resolved/closed aren't
+-- shown on any badge.
 --
 -- Site is matched by stripping the 2-letter province prefix off each
--- comma-separated part of site_text, then matching that against Site's
--- standard_code (its numeric code) — site_ref/site_code on Incident itself
--- are essentially never populated for alarm-raised incidents. A multi-site
--- incident (site_text has more than one entry, e.g. "SV7210,SV7032") fans
--- out to one row per site here, each carrying that incident's own status/
--- category/etc — confirmed live: taking only the first site (the old
--- behavior) silently dropped every other site of a multi-site incident
--- from every Incident-column badge and from "Incident Site Down".
+-- comma-separated site_text entry against Site.standard_code — a
+-- multi-site incident fans out to one row per site (taking only the
+-- first site silently dropped the rest from every badge).
 --
--- "Other Site" fallback: when an incident's site isn't in the registered
--- Site list at all (e.g. a new/unlisted site), the source system's UI
--- shows an "Other Site" checkbox and lets the user type the site code
--- directly into the incident's own site_code column, with its own
--- province_ref/district/commune picked manually too — completely separate
--- from site_text. Confirmed live: INC-0000223089 has other_site=true,
--- site_code='I0229' (0 matches in object_160 — genuinely not a registered
--- site), plus its own province_ref/district/commune. Falls back to these
--- (Site Code via COALESCE; Province/District/Commune via a CASE keyed on
--- `sites.id IS NULL`, not just a blank field, since ~96 REGISTERED sites
--- also have a blank province/district/commune of their own — using
--- sites.id IS NULL instead of COALESCE on the field itself means a
--- registered-but-incomplete site's location stays correctly blank rather
--- than silently substituting the incident's own, possibly-different
--- value) so these incidents show a real Site Code/Province/District/
--- Commune instead of blank — Site Name/Hub Site/Site Grade stay blank
--- either way since there's no registered Site row to pull those from.
+-- "Other Site" fallback: when a site isn't registered (other_site=true
+-- on the source incident), Site Code/Province/District/Commune fall
+-- back to the incident's own site_code/province_ref/etc via a CASE on
+-- `sites.id IS NULL` — not COALESCE on the field itself, since some
+-- registered sites also have a genuinely blank location of their own.
 --
--- NMS Code is resolved locally in Python against the ne_nms_lookup_cache
--- table (site -> oldest-by-id NE's nms_name), not joined here — see
--- app/database/queries/ne_nms_lookup.sql and IncidentSyncService's
--- _normalize_status_row(). Kept out of this query specifically so the same
--- object_227 window function isn't recomputed independently across the 6
--- query files that need it.
+-- NMS Code is resolved locally in Python against ne_nms_lookup_cache,
+-- not joined here, so the same window function isn't recomputed across
+-- every query file that needs it (see ne_nms_lookup.sql).
 --
--- The "latest INC-WO per (incident, site)" is NOT resolved here anymore —
--- it used to be a LATERAL subquery (ORDER BY created_at DESC LIMIT 1) that
--- ran once per outer row. object_322/object_324 are foreign tables (FDW),
--- so a per-row correlated subquery means one separate remote round-trip
--- per row — confirmed live via EXPLAIN ANALYZE: 356 rows meant 356 remote
--- calls, ~21ms each, ~7.5s of the query's ~8.5s total. IncidentSyncService
--- now does this in two cheap steps instead: this query returns the plain
--- incident/site rows (with Site Numeric ID so a row can be matched back to
--- its WOs), then ONE separate batched query
--- (app/database/queries/inc_wo_by_incident_ids.sql, scoped to just this
--- batch's incident ids) fetches every candidate WO in a single round-trip,
--- and Python picks the latest per (incident, site) itself — verified
--- against live data to produce byte-identical results to the old LATERAL
--- version, just ~100x faster on that piece.
+-- Latest INC-WO per (incident, site) is resolved in Python too, not via
+-- a per-row LATERAL — that was a correlated subquery against a foreign
+-- table (FDW), ~100x slower than one batched query
+-- (inc_wo_by_incident_ids.sql) plus a Python pick.
 -- ==============================================================
 
 -- name: incident_by_status
@@ -69,7 +34,7 @@ SELECT
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   sites.id AS "Site Numeric ID",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",

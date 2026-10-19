@@ -1,0 +1,123 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Top Congestion Devices{% endblock %}
+
+{# Standalone page — just the Top Congestion Devices card, nothing else
+   from the main dashboard. Requested for a fixed URL (/congestion) that
+   can be bookmarked/displayed on its own (e.g. a wallboard), rather than
+   always loading the whole dashboard just to see this one card.
+
+   Same card markup as dashboard/index.html's own congestionHistoryCard
+   block, with two differences since this page has no other cards to
+   coordinate with:
+   - The Filter by Week form's `action` points back to THIS route
+     (dashboard.congestion), not dashboard.index — so applying/clearing
+     the filter stays on /congestion instead of leaving it.
+   - None of the cross-card hidden-field passthrough (age_bucket,
+     volume_category, top_site_down_week, etc.) — those exist on the
+     main dashboard so filtering one card doesn't reset another's; there
+     is no "another card" here. #}
+{% block content %}
+    <div class="dashboard-grid">
+      <div class="card card-graph card-wide" id="congestionHistoryCard">
+        <div class="card-header no-collapse">
+          <h3 class="card-title">Top Congestion Devices</h3>
+          <div class="graph-filters">
+            <details class="date-filter perf-week-filter">
+              <summary class="btn-export btn-icon-only{{ ' is-active' if congestion_top_devices.selected_weeks else '' }}" title="Filter by Week">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+                  <path d="M16 3v4" />
+                  <path d="M8 3v4" />
+                  <path d="M4 11h16" />
+                  <path d="M11 15h1" />
+                  <path d="M12 15v3" />
+                </svg>
+              </summary>
+              <form class="date-filter-form" method="get" action="{{ url_for('dashboard.congestion') }}#congestionHistoryCard">
+                <div class="date-filter-field-label">Filter by Week</div>
+                <div class="category-filter-options">
+                  {% for w in congestion_top_devices.weeks %}
+                  <label class="category-filter-option">
+                    <input type="checkbox" name="congestion_top_week" value="{{ w.iso }}" {{ 'checked' if w.iso in congestion_top_devices.selected_weeks else '' }}>
+                    {{ w.label }} ({{ w.range_label }})
+                  </label>
+                  {% endfor %}
+                </div>
+                <div class="date-filter-actions">
+                  <button type="submit" class="btn-export">Apply</button>
+                  {% if congestion_top_devices.selected_weeks %}
+                  <a class="btn-export" href="{{ url_for('dashboard.congestion') }}#congestionHistoryCard">Clear</a>
+                  {% endif %}
+                </div>
+              </form>
+            </details>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="sales-top-row">
+            <p class="sales-subtitle">Last {{ config.CONGESTION_HISTORY_WEEKS }} weeks &middot; <b>{{ congestion_top_devices.total }}</b> total</p>
+          </div>
+          <div class="expenses-rows">
+            {% for bar in congestion_top_devices.bars %}
+            <div class="expenses-row badge-item">
+              <span class="expenses-rank">{{ bar.rank }}.</span>
+              <span class="expenses-label badge-label" title="{{ bar.device_name }}">{{ bar.device_name }}</span>
+              <div class="expenses-bar-track">
+                {% if bar.count > 0 %}
+                <div class="expenses-bar expenses-bar-congestion app-tooltip"
+                     style="width:{{ bar.bar_width_pct }}%;"
+                     data-tooltip="{{ bar.count }} congestion alarm{{ 's' if bar.count != 1 else '' }}"></div>
+                {% endif %}
+              </div>
+              <span class="expenses-count-value badge" data-scope="Congestion History" data-type="{{ bar.badge_type }}">{{ bar.count }}</span>
+            </div>
+            {% else %}
+            <p class="perf-card-sub">No Congestion alarms in this window.</p>
+            {% endfor %}
+          </div>
+          {% if congestion_top_devices.weeks %}
+          <p class="perf-card-sub congestion-weeks-caption">
+            {% for w in congestion_top_devices.weeks|reverse %}<a href="{{ url_for('dashboard.drilldown', title='Congestion History ' + w.label, label=w.label, value=0, scope='Congestion History', congestion_week=w.iso) }}" title="{{ w.label }} ({{ w.range_label }}) — every device">Wk {{ w.week_number }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Same clock-aligned auto-reload as the main dashboard
+    // (dashboard/index.html) — keeps this page's data fresh if it's left
+    // open on a wallboard/unattended screen, deferred while something's
+    // open so it never yanks away a mid-interaction filter dropdown.
+    var RELOAD_POLL_MS = 5000;
+    var MAX_DEFER_MS = 3 * 60 * 1000;
+
+    function isUserBusy() {
+        if (Array.prototype.some.call(document.querySelectorAll('.modal'), function (m) {
+            return m.style.display === 'block';
+        })) return true;
+        if (document.querySelector('details.date-filter[open]')) return true;
+        var overlay = document.getElementById('confirmOverlay');
+        if (overlay && !overlay.hidden) return true;
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return true;
+        return false;
+    }
+
+    function reloadWhenIdle(deadline) {
+        if (!isUserBusy() || Date.now() >= deadline) {
+            location.reload();
+            return;
+        }
+        setTimeout(function () { reloadWhenIdle(deadline); }, RELOAD_POLL_MS);
+    }
+
+    setTimeout(function () {
+        reloadWhenIdle(Date.now() + MAX_DEFER_MS);
+    }, {{ next_refresh_seconds }} * 1000);
+</script>
+{% endblock %}

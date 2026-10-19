@@ -173,3 +173,74 @@ def test_get_site_down_details_badge_filter_still_applies_after_wo_id_drop():
 
     assert len(result) == 1
     assert result[0]["wo_id"] == "WO3"
+
+
+def _resolved_row(incident_numeric_id, wo_id, resolved_at, wo_created_at=None, **overrides):
+    row = {
+        "incident_id": f"INC-{incident_numeric_id}",
+        "incident_numeric_id": incident_numeric_id,
+        "wo_id": wo_id,
+        "resolved_at": resolved_at,
+        "wo_created_at": wo_created_at or resolved_at,
+    }
+    row.update(overrides)
+    return row
+
+
+def _status_row(incident_numeric_id, wo_status):
+    return {"incident_numeric_id": incident_numeric_id, "wo_status": wo_status}
+
+
+def test_get_resolved_details_excludes_incident_with_an_unresolved_sibling():
+    """Same incident has two WOs — one Resolved (in inc_wo_resolved), one
+    still Assigned (in inc_wo_by_status) — the work isn't actually done,
+    so neither should show on the "INC-WO Resolved" card."""
+    resolved_rows = [_resolved_row(1, "WO-SD-1", "2026-09-14 23:22:10")]
+    status_rows = [
+        _status_row(1, "Resolved"),
+        _status_row(1, "Assigned"),
+    ]
+    svc = IncWoService(FakeStatusRepo(status_rows), FakeStatusRepo(resolved_rows))
+
+    assert svc.get_resolved_details() == []
+    assert svc.get_resolved_count() == 0
+
+
+def test_get_resolved_details_includes_incident_once_all_wos_resolved():
+    resolved_rows = [_resolved_row(1, "WO-SD-1", "2026-09-14 23:22:10")]
+    status_rows = [_status_row(1, "Resolved")]
+    svc = IncWoService(FakeStatusRepo(status_rows), FakeStatusRepo(resolved_rows))
+
+    result = svc.get_resolved_details()
+
+    assert len(result) == 1
+    assert result[0]["wo_id"] == "WO-SD-1"
+    assert svc.get_resolved_count() == 1
+
+
+def test_get_resolved_details_keeps_only_latest_wo_per_fully_resolved_incident():
+    resolved_rows = [
+        _resolved_row(1, "WO-OLD", "2026-09-01 10:00:00"),
+        _resolved_row(1, "WO-NEW", "2026-09-14 23:22:10"),
+    ]
+    status_rows = [_status_row(1, "Resolved")]
+    svc = IncWoService(FakeStatusRepo(status_rows), FakeStatusRepo(resolved_rows))
+
+    result = svc.get_resolved_details()
+
+    assert len(result) == 1
+    assert result[0]["wo_id"] == "WO-NEW"
+
+
+def test_get_resolved_details_keeps_unrelated_fully_resolved_incidents_separate():
+    resolved_rows = [
+        _resolved_row(1, "WO-A", "2026-09-10 08:00:00"),
+        _resolved_row(2, "WO-B", "2026-09-14 23:22:10"),
+    ]
+    status_rows = [_status_row(1, "Resolved"), _status_row(2, "Resolved")]
+    svc = IncWoService(FakeStatusRepo(status_rows), FakeStatusRepo(resolved_rows))
+
+    result = svc.get_resolved_details()
+
+    assert {r["wo_id"] for r in result} == {"WO-A", "WO-B"}
+    assert result[0]["wo_id"] == "WO-B"  # newest resolved_at first

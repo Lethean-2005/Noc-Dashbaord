@@ -1,15 +1,9 @@
 -- ==============================================================
--- INC-WO Site Down — for the "INC-WO Site Down" card on the Custom
--- Dashboard (reports/index.html), synced into the local
--- "inc_wo_site_down" cache table (see app/database/cache.py) every
--- INCIDENT_SYNC_INTERVAL_SECONDS.
---
--- Same join shape as inc_wo_by_status.sql, but narrowed to only
--- category = 'site_down' work orders that aren't yet resolved/closed —
--- this card's 5 badges (Hub-Site, Diamond, Gold, Silver, Bronze) are a
--- site-grade/hub breakdown of that set, computed in
--- app/services/incwo/incwo_service.py from this cache. Same "Other Site"
--- fallback as inc_wo_by_status.sql too — see that file's header.
+-- "INC-WO Site Down" card (reports/index.html), synced into
+-- inc_wo_site_down every INCIDENT_SYNC_INTERVAL_SECONDS. Same join as
+-- inc_wo_by_status.sql, narrowed to category = 'site_down' not yet
+-- resolved/closed — its 5 badges (Hub-Site/Diamond/Gold/Silver/Bronze)
+-- are a site-grade/hub breakdown computed in incwo_service.py.
 -- ==============================================================
 
 -- name: inc_wo_site_down
@@ -30,7 +24,7 @@ SELECT
   END AS "INC-WO Status",
   wo.resolved_at AS "Resolved At",
   INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS "Incident Category",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level

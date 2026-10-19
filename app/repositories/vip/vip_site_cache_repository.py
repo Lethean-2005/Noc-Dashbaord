@@ -7,22 +7,20 @@ from app.repositories.base_cache_repository import BaseCacheRepository
 class VipSiteCacheRepository(BaseCacheRepository):
     valid_tables = VIP_SITE_CACHE_TABLES
     columns = (
-        "id",
         "site_code",
         "site_name",
-        "bts_name",
-        "vip",
+        "status",
         "province",
         "district",
-        "commune",
         "village",
-        "location",
-        "site_grade",
-        "on_air",
-        "product",
-        "tech",
-        "site_id",
         "lat",
         "long",
+        "bts_room",
+        "link_type",
+        "site_grade",
+        "site_type",
+        "location",
+        "site_strategic",
+        "vendor",
     )
     order_by = "site_name"

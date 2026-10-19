@@ -13,6 +13,7 @@
     <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ display_count }}</button>
     <div class="alarm-actions">
         <span class="alarm-row-count">{{ display_count }} records</span>
+        {% if not congestion_interface_summary %}
         <details class="date-filter">
             <summary class="btn-export">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
@@ -73,17 +74,57 @@
                 </div>
             </form>
         </details>
-        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=alarm_type, from=date_from, to=date_to) }}"><i class="ti ti-download"></i> Export</a>
+        {% endif %}
+        {% if congestion_interface_summary and not alarm_type %}
+        <details class="date-filter">
+            <summary class="btn-export{{ ' is-active' if selected_row_limit else '' }}">
+                <span>{{ 'Top ' ~ selected_row_limit if selected_row_limit else 'All rows' }}</span>
+                <i class="ti ti-chevron-down"></i>
+            </summary>
+            <form class="date-filter-form" method="get">
+                <input type="hidden" name="title" value="{{ title }}">
+                <input type="hidden" name="label" value="{{ label }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="congestion_week" value="{{ congestion_week }}">
+                <div class="date-filter-field-label">Rows to show</div>
+                <div class="category-filter-options">
+                    <label class="category-filter-option">
+                        <input type="radio" name="row_limit" value="" {{ 'checked' if not selected_row_limit else '' }}>
+                        All rows
+                    </label>
+                    <label class="category-filter-option">
+                        <input type="radio" name="row_limit" value="10" {{ 'checked' if selected_row_limit == 10 else '' }}>
+                        Top 10
+                    </label>
+                    <label class="category-filter-option">
+                        <input type="radio" name="row_limit" value="20" {{ 'checked' if selected_row_limit == 20 else '' }}>
+                        Top 20
+                    </label>
+                </div>
+                <div class="date-filter-actions">
+                    <button type="submit" class="btn-export">Apply</button>
+                    {% if selected_row_limit %}
+                    <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, congestion_week=congestion_week) }}">Clear</a>
+                    {% endif %}
+                </div>
+            </form>
+        </details>
+        {% endif %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=alarm_type, from=date_from, to=date_to, congestion_week=congestion_week|default('')) }}"><i class="ti ti-download"></i> Export</a>
     </div>
 </div>
+{% if row_cap_notice %}
+<div class="row-cap-notice">{{ row_cap_notice }} Export still downloads every row.</div>
+{% endif %}
 <div class="alarm-table-wrap">
-    <table class="alarm-table">
+    <table class="alarm-table{{ ' alarm-table-congestion' if congestion_interface_summary else '' }}">
         <thead>
             <tr>
                 {% if source == 'eze' %}
                 <th>TT/INC-WOID</th>
                 <th>POP Name</th>
                 <th>POP Code</th>
+                <th>Owner</th>
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
@@ -96,6 +137,7 @@
                 {% elif source == 'tct' %}
                 <th>POP Name</th>
                 <th>POP Code</th>
+                <th>Owner</th>
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
@@ -106,6 +148,16 @@
                 <th>Additional Info</th>
                 <th>Note</th>
                 <th>Action</th>
+                {% elif source == 'congestion_history' %}
+                <th>POP Name</th>
+                <th>POP Code</th>
+                <th>Owner</th>
+                <th>Device</th>
+                <th>IP</th>
+                <th>Interface</th>
+                <th>Province</th>
+                <th>Additional Info</th>
+                <th class="right">Total</th>
                 {% elif source == 'it_node' %}
                 <th>TT/INC-WOID</th>
                 <th>Device</th>
@@ -120,13 +172,16 @@
                 <th>Note</th>
                 <th>Action</th>
                 {% else %}
+                <th>TT/INC-WOID</th>
                 <th>POP Name</th>
                 <th>POP Code</th>
+                <th>Owner</th>
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
                 <th>Down Time</th>
                 <th>Outage(min)</th>
+                <th>Interface</th>
                 <th>Root Cause</th>
                 <th>Province</th>
                 <th>Note</th>
@@ -141,6 +196,7 @@
                 <td>{{ row.rtid }}</td>
                 <td>{{ row.pop_name }}</td>
                 <td>{{ row.pop_code }}</td>
+                <td>{% include "drilldown/_pop_owner_cell.html" %}</td>
                 <td>{{ row.device_name }}</td>
                 <td>{{ row.ip_address }}</td>
                 <td>{{ row.alarm_name }}</td>
@@ -153,6 +209,7 @@
                 {% elif source == 'tct' %}
                 <td>{{ row.pop_name }}</td>
                 <td>{{ row.pop_code }}</td>
+                <td>{% include "drilldown/_pop_owner_cell.html" %}</td>
                 <td>{{ row.device_name }}</td>
                 <td>{{ row.ip_address }}</td>
                 <td>{{ row.alarm_name }}</td>
@@ -163,6 +220,16 @@
                 <td class="ellipsis">{{ row.additional_info }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
                 <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
+                {% elif source == 'congestion_history' %}
+                <td>{{ row.pop_name }}</td>
+                <td>{{ row.pop_code }}</td>
+                <td>{% include "drilldown/_pop_owner_cell.html" %}</td>
+                <td>{{ row.device_name }}</td>
+                <td>{{ row.ip_address }}</td>
+                <td class="ellipsis">{{ row.interface }}</td>
+                <td>{{ row.province }}</td>
+                <td class="ellipsis">{{ row.additional_info }}</td>
+                <td class="right">{{ row.total_count }}</td>
                 {% elif source == 'it_node' %}
                 <td>{{ row.rtid }}</td>
                 <td>{{ row.device_name }}</td>
@@ -177,13 +244,16 @@
                 <td class="ellipsis">{{ row.note }}</td>
                 <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% else %}
+                <td>{{ row.rtid }}</td>
                 <td>{{ row.pop_name }}</td>
                 <td>{{ row.pop_code }}</td>
+                <td>{% include "drilldown/_pop_owner_cell.html" %}</td>
                 <td>{{ row.device_name }}</td>
                 <td>{{ row.ip_address }}</td>
                 <td>{{ row.alarm_name }}</td>
                 <td>{{ row.down_time }}</td>
                 <td class="right">{{ row.outage_min }}</td>
+                <td class="ellipsis">{{ row.interface }}</td>
                 <td class="ellipsis fault-desc">{{ row.root_cause }}</td>
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
@@ -191,7 +261,8 @@
                 {% endif %}
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="{{ 12 if source in ('eze', 'tct', 'it_node') else 11 }}">No active alarms for {{ scope }}</td></tr>
+            {% set _colspan_by_source = {'eze': 13, 'tct': 13, 'congestion_history': 9, 'it_node': 12} %}
+            <tr class="empty-row"><td colspan="{{ _colspan_by_source.get(source, 14) }}">No active alarms for {{ scope }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -207,6 +278,7 @@
         <form method="POST" action="{{ url_for('dashboard.acknowledge_alarm') }}" id="ackForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="id" id="ackId">
+            <input type="hidden" name="source" value="{{ source }}">
             <div class="modal-body">
                 <div class="ack-field">
                     <label for="ackTtIncWo">TT / INC-WOID</label>
@@ -238,6 +310,7 @@
         <form method="POST" action="{{ url_for('dashboard.clear_alarm') }}" id="clearForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="id" id="clearId">
+            <input type="hidden" name="source" value="{{ source }}">
             <div class="modal-body">
                 <p class="clear-confirm-text">
                     This marks the alarm as cleared in the source system, the same as if the
@@ -260,7 +333,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
+<script src="{{ versioned_static('js/date-picker.js') }}"></script>
 {% if source in ('eze', 'tct', 'isp_pop', 'it_node') %}
 {# Fallback default for the Ack popup's "Your Name" field on a browser
    that's never actually submitted it yet — whichever OS account this
@@ -269,7 +342,7 @@
    acknowledge.js's openAckModal() locks the field read-only as soon as it
    has any value (cached or this default) — editable only while empty. #}
 <script>window.NOC_DEFAULT_ACK_USERNAME = {{ default_ack_username|tojson }};</script>
-<script src="{{ url_for('static', filename='js/acknowledge.js') }}"></script>
-<script src="{{ url_for('static', filename='js/alarm_actions.js') }}"></script>
+<script src="{{ versioned_static('js/acknowledge.js') }}"></script>
+<script src="{{ versioned_static('js/alarm_actions.js') }}"></script>
 {% endif %}
 {% endblock %}

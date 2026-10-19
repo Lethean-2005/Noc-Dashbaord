@@ -1,48 +1,21 @@
 """Business logic for the RAN Status card's 'RAN Main AC Alarm' column.
 
-Reads from the local ape_alarm cache (instance/localstorage.db) that
-app/services/ape_alarm/ape_alarm_scheduler.py keeps in sync in the
-background — no query of its own, purely local. Narrows to alarms whose
-event_name is a Main Failure variant: real event_name text is messy
-("Main Failure Alarm", "BASE STATION EXTERNAL ALARM NOTIFICATION:::Main
-Failure", plus assorted typos), so this uses the same case-insensitive
-substring check app/services/vip/vip_alarm_service.py already uses for its
-own "Main AC Failure" badge, rather than an exact match (which would match
-zero rows against the real data).
+Reads the local ape_alarm cache, no query of its own. Narrows to alarms
+whose event_name contains "main failure" (case-insensitive substring —
+real event_name text is messy, an exact match hits zero rows).
 
-Hub-Site and the 4 grade tiers (Diamond/Gold/Silver/Bronze) both come from
-site_cache (hub_site / site_grade), and a site can technically be both a
-hub site and graded — but Hub-Site takes priority: a hub site's
-Main-Failure alarm counts only toward "Hub-Site", never also toward its
-grade badge, so the same site never appears to double-count across two
-badges on the card.
+Hub-Site and the 4 grade tiers come from site_cache — Hub-Site takes
+priority, so a hub site's alarm never also counts toward its grade badge.
 
-get_details() also enriches each row with its site's current Incident/
-INC-WO (from incident_by_status): a **Power**-category incident takes
-priority if the site has one — a Main Failure alarm's Incident/INC-WO
-context should normally be the Power ticket tracking that same outage,
-not an unrelated Incident of some other category. If the site has no
-Power incident but does have an open **Site Down**-category one (a Main
-AC Failure often precedes/accompanies a full site outage), that Site
-Down incident's Incident/INC-WO fills the columns instead, rather than
-leaving them blank. No Postgres call needed, just a local join (same
-reasoning as app/services/vip/vip_alarm_service.py).
+get_details() enriches each row with the site's current Incident/INC-WO:
+a Power-category incident takes priority, Site Down is the fallback (a
+Main AC Failure often precedes a full outage).
 
-Remark shows the matched incident's own Incident Category as-is
-("Power" or "Site Down") rather than a fixed flag — blank only when the
-site has neither.
-
-Real incident_by_status.category values are "Power" and "Site Down"
-(title case, space not underscore) — confirmed against real data, not the
-lowercase 'power'/'site_down' Postgres enum values you might expect.
-
-ape_alarm.nms is the alarm's own raw numeric vendor code straight from
-object_138 — translated here via app/utils/nms.py's NMS_NAMES (the one
-shared copy of this mapping), same as every other drilldown in this
-project, instead of showing a bare "7". If the site has a current Power
-or (as a fallback) Site Down incident, that record's own already-
-translated nms takes priority (same
-preference order as vip_alarm_service.py).
+ape_alarm.nms (the live alarm feed's own vendor code) wins over the
+matched incident's nms (resolved from NE inventory, which can be stale
+for a site whose equipment changed) — the incident's nms is only a
+fallback when the alarm itself has none. Same order as
+vip_alarm_service.py/alarm_site_down_service.py.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -85,12 +58,8 @@ class RanMainAcAlarmService:
 
     def _main_failure_rows_with_site(self):
         """Only rows whose site_code has a matching site_cache record —
-        that cache already excludes off_air sites (see site_cache.sql), so
-        this also drops alarms still open against a site the master data
-        marks decommissioned, plus any alarm whose site_code couldn't be
-        resolved to any site at all. Same "off_air isn't really down" call
-        already made for RAN Site Down/RAN Tech Down/Alarm Site Down/Alarm
-        Main Failure."""
+        that cache already excludes off_air sites, so this also drops
+        alarms against a decommissioned or unresolvable site."""
         alarm_rows = self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
         site_by_code = {
             r["standard_code"]: r
@@ -122,16 +91,10 @@ class RanMainAcAlarmService:
         return counts
 
     def get_details(self, badge_type=None):
-        """Every cached Main-Failure ape_alarm row, enriched with its site's
-        current Incident/INC-WO (from incident_by_status) — a Power-category
-        incident if the site has one, otherwise falling back to its Site
-        Down-category incident so the Incident/WO columns aren't left blank
-        just because the open ticket happens to be filed as Site Down
-        instead of Power. Remark shows that matched incident's own Incident
-        Category as-is ("Power" / "Site Down") — not a fixed flag — so it's
-        blank only when the site has neither, plus Hub Site/Site Grade/
-        Province and outage_min computed at read time — optionally narrowed
-        to one badge (matches get_counts()'s categorization)."""
+        """Every cached Main-Failure ape_alarm row, enriched with its
+        site's current Incident/INC-WO — Power-category preferred, Site
+        Down as fallback. Remark shows that incident's own category as-is.
+        Optionally narrowed to one badge (matches get_counts())."""
         all_incidents = self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
         power_incidents = [
             r for r in all_incidents if (r.get("category") or "").strip().lower() == _POWER_CATEGORY
@@ -163,8 +126,8 @@ class RanMainAcAlarmService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(
-                str(row.get("nms") or "").strip(), row.get("nms")
+            row["nms"] = NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms")) or inc.get(
+                "nms"
             )
             row["remark"] = inc.get("category") or ""
             rows.append(row)

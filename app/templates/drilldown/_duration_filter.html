@@ -1,0 +1,38 @@
+{# Shared duration-bucket filter for the Response Time Duration /
+Resolution Time Duration drilldowns — caller must {% set scope = '...' %}
+and pass `duration_options` (list of {label, checked}) and `iso_week`
+(the fixed week this drilldown is scoped to — this filter only ever
+changes which bucket(s) show, never the week itself) before including
+this. Checkboxes, not radio buttons — more than one bucket can be
+viewed at once; see dashboard.py's _resolve_duration_selection() for how
+submitting this combines with (and takes priority over) the badge_type
+a popup link originally opened this page with. Carries the existing
+Category filter forward as hidden inputs — read straight from the
+request, not from _category_filter.html's own caller-provided variables
+— so applying this doesn't clear that one. #}
+<details class="date-filter">
+    <summary class="btn-export">
+        <i class="ti ti-filter"></i>
+        <span>Filter by Duration</span>
+        <i class="ti ti-chevron-down"></i>
+    </summary>
+    <form class="date-filter-form" method="get">
+        <input type="hidden" name="title" value="{{ title }}">
+        <input type="hidden" name="label" value="{{ label }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="week" value="{{ iso_week }}">
+        {% for cat in request.args.getlist('category') %}<input type="hidden" name="category" value="{{ cat }}">{% endfor %}
+        <div class="date-filter-field-label">Filter by Duration</div>
+        <div class="category-filter-options">
+            {% for opt in duration_options %}
+            <label class="category-filter-option">
+                <input type="checkbox" name="duration_bucket" value="{{ opt.label }}" {% if opt.checked %}checked{% endif %}>
+                {{ opt.label }}
+            </label>
+            {% endfor %}
+        </div>
+        <div class="date-filter-actions">
+            <button type="submit" class="btn-export">Apply</button>
+        </div>
+    </form>
+</details>

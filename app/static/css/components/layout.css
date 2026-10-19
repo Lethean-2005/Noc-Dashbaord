@@ -1,11 +1,11 @@
 /* Sidebar layout & brand styles */
 .sidebar {
-  width: 250px;
+  width: 258px;
   background: var(--bg-sidebar);
-  border-right: 1px solid var(--border-sidebar);
+  border-right: none;
   display: flex;
   flex-direction: column;
-  padding: 0 12px;
+  padding: 0 14px;
   min-height: 100vh;
   position: fixed;
   top: 0;
@@ -13,15 +13,6 @@
   height: 100vh;
   z-index: 100;
   transition: transform 0.3s ease;
-}
-
-.sidebar-header {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-  padding-left: 8px;
-  letter-spacing: 0.5px;
 }
 
 .sidebar-top {
@@ -63,37 +54,18 @@
   margin-bottom: 0;
 }
 
-.logo-title {
-  font-size: 22px;
-  font-weight: 700;
-  font-family: 'Poppins', sans-serif;
-  letter-spacing: -0.02em;
-}
-
-.logo-auto { color: var(--text-primary); }
-.logo-noc { color: #f59e0b; }
-
-.logo-subtitle {
-  font-size: 8px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.15em;
-  margin-top: 2px;
-}
-
 .menu-label {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: capitalize;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
   color: var(--text-nav-icon);
-  letter-spacing: 0.02em;
-  margin-top: 22px;
-  margin-bottom: 8px;
-  padding-left: 12px;
+  letter-spacing: 0.6px;
+  margin-top: 14px;
+  margin-bottom: 6px;
+  padding-left: 10px;
 }
 
 .nav {
-  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -102,153 +74,84 @@
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 12px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 3px;
   text-decoration: none;
   color: var(--text-nav);
-  font-size: 13px;
+  font-size: 13.3px;
   font-weight: 500;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease;
 }
 
-.nav-item i,
-.nav-item svg {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
+.nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.nav-icon i,
+.nav-icon svg {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
   color: var(--text-nav-icon);
   flex-shrink: 0;
   transition: color 0.15s ease;
 }
 
-.nav-item:hover {
-  background: var(--nav-hover-bg);
-  color: var(--nav-hover-text);
+.nav-item:hover:not(.active) {
+  color: #f59e0b;
 }
-
-.nav-item:hover i,
-.nav-item:hover svg {
-  color: var(--nav-hover-icon);
+.nav-item:hover:not(.active) .nav-icon {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: transparent;
+}
+.nav-item:hover:not(.active) .nav-icon i,
+.nav-item:hover:not(.active) .nav-icon svg {
+  color: #f59e0b;
 }
 
 .nav-item.active {
-  background: var(--nav-active-bg);
   color: var(--text-nav-active);
   font-weight: 600;
 }
 
-.nav-item.active i,
-.nav-item.active svg {
-  color: var(--nav-active-icon);
+.nav-item.active .nav-icon {
+  background: var(--icon-chip-bg);
+  border-color: transparent;
+}
+.nav-item.active .nav-icon i,
+.nav-item.active .nav-icon svg {
+  color: var(--icon-chip-color);
 }
 
-.nav-item.disabled-link {
-  cursor: default;
-  opacity: 0.5;
-}
-.nav-item.disabled-link:hover {
-  background: transparent;
-  color: var(--text-nav);
-}
-.nav-item.disabled-link:hover i {
-  color: var(--text-nav-icon);
-}
-
-/* Promo card */
-.promo-card {
-  background: var(--bg-table-header);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  padding: 14px;
-  margin-top: auto;
-  margin-bottom: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  overflow: hidden;
-}
-
-.promo-image-container {
-  width: 100%;
-  height: 90px;
-  border-radius: 8px;
-  background: var(--bg-table-header);
-  overflow: hidden;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.promo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.promo-text {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 500;
-  line-height: 1.4;
-  margin-bottom: 12px;
-  padding: 0 4px;
-}
-
-.promo-btn {
-  width: 100%;
-  padding: 8px;
-  background: #f59e0b;
-  color: #18181b;
-  border: none;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  font-family: 'Poppins', sans-serif;
-}
-
-.promo-btn:hover {
-  background: #d97706;
-}
-
-.sidebar-footer {
-  border-top: 1px solid var(--border-sidebar);
-  padding-top: 16px;
-  padding-left: 8px;
-  padding-bottom: 16px;
-}
-
-.logout-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  text-decoration: none;
-  color: #ef4444;
-  font-size: 13px;
-  font-weight: 600;
-  transition: opacity 0.2s ease;
-}
-
-.logout-link:hover {
-  opacity: 0.8;
-}
-
-.logout-link i {
-  font-size: 18px;
-}
-
-/* Main Wrapper and Content */
+/* Main Wrapper and Content — one bordered box holding topbar + content,
+   inset from the screen edges and sitting close to the sidebar. This box
+   is its own scroll container (fixed height + overflow-y: auto) rather
+   than relying on the page/body to scroll — that way the sticky topbar
+   sticks to THIS container's own top edge (top: 0) instead of the
+   viewport, which is what let card content render above the topbar
+   while scrolling before this fix. */
 .main-wrapper {
   flex: 1;
   min-width: 0;
-  margin-left: 250px;
+  height: calc(100vh - 24px);
+  margin: 12px 16px 12px 266px;
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  background: var(--bg-topbar);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* Topbar */
@@ -256,6 +159,7 @@
   height: 64px;
   background: var(--bg-topbar);
   border-bottom: 1px solid var(--border-topbar);
+  border-radius: 8px 8px 0 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -263,6 +167,21 @@
   position: sticky;
   top: 0;
   z-index: 90;
+  flex-shrink: 0;
+}
+
+/* The panel's own border above uses --border-card (a translucent white
+   overlay) — same issue as .map-view-container's border in map-view.css:
+   fine on a light-grey panel, but reads as a bright white outline once
+   the panel/page background is this dark. Darken both borders here so
+   the whole panel (and, on Map View, the map filling it) doesn't show a
+   glowing white edge in dark mode. */
+[data-theme="dark"] .main-wrapper {
+  border-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .topbar {
+  border-bottom-color: rgba(255, 255, 255, 0.03);
 }
 
 .topbar-left {
@@ -271,18 +190,11 @@
   gap: 12px;
 }
 
-.topbar-page-icon {
-  font-size: 20px;
-  color: #f59e0b;
-  display: flex;
-  align-items: center;
-}
-
 .topbar-title {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-topbar-title);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   margin: 0 0 0 12px;
 }
 
@@ -316,28 +228,6 @@
   color: var(--nav-hover-text);
 }
 
-.topbar-brand {
-  display: flex;
-  flex-direction: column;
-  margin-right: 20px;
-}
-
-.topbar-brand .logo-title {
-  font-size: 20px;
-  font-weight: 700;
-  font-family: 'Poppins', sans-serif;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.topbar-brand .logo-subtitle {
-  font-size: 7px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.15em;
-  margin-top: 2px;
-}
-
 /* Collapsed sidebar state */
 .sidebar.collapsed {
   width: 60px;
@@ -363,7 +253,7 @@
 }
 
 .main-wrapper.sidebar-collapsed {
-  margin-left: 60px;
+  margin-left: 68px;
 }
 
 @media (min-width: 901px) {
@@ -401,7 +291,7 @@
   border-radius: 3px;
   color: var(--text-search);
   font-size: 13px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   outline: none;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -425,7 +315,7 @@
   border: 1px solid var(--border-card);
   border-radius: 3px;
   margin-right: 12px;
-  font-family: 'Poppins', monospace;
+  font-family: 'Nunito', monospace;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -441,6 +331,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
   transition: all 0.2s ease;
 }
 
@@ -466,7 +357,7 @@
   transform: translateX(-50%) translateY(-4px);
   background: #fff;
   color: #1f2328;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
@@ -536,7 +427,7 @@
   text-decoration: none;
   color: var(--text-secondary);
   font-size: 13px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   transition: background 0.15s ease;
 }
 .search-result:hover {
@@ -567,7 +458,7 @@
 
 .content {
   flex: 1;
-  padding: 32px;
+  padding: 24px;
 }
 
 /* Mobile responsive drawer logic */
@@ -601,7 +492,8 @@
   }
   .main-wrapper,
   .main-wrapper.sidebar-collapsed {
-    margin-left: 0;
+    margin: 12px;
+    height: calc(100vh - 24px);
   }
   .mobile-toggle-btn {
     display: flex;

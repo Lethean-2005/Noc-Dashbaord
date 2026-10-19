@@ -13,16 +13,10 @@ from app.extensions import db
 def run_query(domain, name, **params):
     """Run a named query and return its rows as a list of dicts.
 
-    On failure, rolls back the session before re-raising — SQLAlchemy
-    leaves a failed transaction open otherwise, which poisons every
-    subsequent query on the same session with "current transaction is
-    aborted" even though that next query is perfectly valid on its own.
-    This matters here because the background sync loops
-    (app/services/incident/incident_scheduler.py) run several unrelated queries
-    back-to-back inside one app_context — one slow query getting killed
-    (e.g. by a Postgres replica-conflict cancellation) must not break the
-    ones that run after it.
-    """
+    Rolls back the session on failure before re-raising — otherwise
+    SQLAlchemy leaves the transaction poisoned ("current transaction is
+    aborted") for every later query on the same session, which matters
+    since background sync loops run several unrelated queries back-to-back."""
     query = load_queries(domain)[name]
     try:
         result = db.session.execute(text(query), params)

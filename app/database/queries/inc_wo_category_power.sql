@@ -1,15 +1,7 @@
 -- ==============================================================
--- INC-WO Category Power — same join as inc_wo_by_status.sql/
--- inc_wo_site_down.sql, narrowed to category = 'power' work orders not
--- yet resolved/closed. Synced into the local "inc_wo_category_power"
--- cache table (see app/database/cache.py — shares the exact same shape
--- as inc_wo_by_status/inc_wo_site_down, all three live in
--- INC_WO_STATUS_CACHE_TABLES) every INCIDENT_SYNC_INTERVAL_SECONDS.
---
--- Telegram-only: unlike inc_wo_site_down, there's no dashboard card
--- behind this one — it exists purely to feed
--- app/services/telegram/telegram_inc_wo_power_alert.py. Same "Other Site"
--- fallback as inc_wo_by_status.sql — see that file's header.
+-- Same join as inc_wo_by_status.sql, narrowed to category = 'power' not
+-- yet resolved/closed. Telegram-only — no dashboard card, feeds
+-- app/services/telegram/telegram_inc_wo_power_alert.py.
 -- ==============================================================
 
 -- name: inc_wo_category_power
@@ -30,7 +22,7 @@ SELECT
   END AS "INC-WO Status",
   wo.resolved_at AS "Resolved At",
   INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS "Incident Category",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level

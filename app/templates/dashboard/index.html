@@ -2,17 +2,58 @@
 
 {% block title %}Overall Dashboard{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_static('css/components/performance.css') }}">
+{% endblock %}
+
 {% block content %}
     {% include "dashboard/partials/cards.html" %}
+    <div id="performanceSection">
+    {% include "dashboard/partials/performance_cards.html" %}
+    </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ versioned_static('js/graph_cards.js') }}"></script>
+<script src="{{ versioned_static('js/performance.js') }}"></script>
 <script>
     // Reload on the same clock-aligned schedule the background sync jobs
     // use (00:00, 00:05, 00:10, ...) — next_refresh_seconds is computed
     // server-side (seconds_until_next_aligned_time(), same helper every
     // scheduler uses) so this can't drift from the actual data refresh
     // cadence or depend on the browser's own clock being correct.
-    setTimeout(() => location.reload(), {{ next_refresh_seconds }} * 1000);
+    //
+    // Deferred while busy: a plain location.reload() would yank away
+    // whatever's open the instant the timer fires (a popup, an expanded
+    // filter dropdown, mid-typing). Once the aligned time arrives, poll
+    // every 5s and only reload once nothing's open — capped at
+    // MAX_DEFER_MS so leaving something open doesn't block the refresh
+    // forever and show stale data indefinitely.
+    var RELOAD_POLL_MS = 5000;
+    var MAX_DEFER_MS = 3 * 60 * 1000;
+
+    function isUserBusy() {
+        if (Array.prototype.some.call(document.querySelectorAll('.modal'), function (m) {
+            return m.style.display === 'block';
+        })) return true;
+        if (document.querySelector('details.date-filter[open]')) return true;
+        var overlay = document.getElementById('confirmOverlay');
+        if (overlay && !overlay.hidden) return true;
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return true;
+        return false;
+    }
+
+    function reloadWhenIdle(deadline) {
+        if (!isUserBusy() || Date.now() >= deadline) {
+            location.reload();
+            return;
+        }
+        setTimeout(function () { reloadWhenIdle(deadline); }, RELOAD_POLL_MS);
+    }
+
+    setTimeout(function () {
+        reloadWhenIdle(Date.now() + MAX_DEFER_MS);
+    }, {{ next_refresh_seconds }} * 1000);
 </script>
 {% endblock %}

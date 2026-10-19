@@ -1,0 +1,514 @@
+/* ================================================================
+   help.css — Standalone Help page (app/templates/help/index.html)
+   Loaded only on layouts/bare.html, which has no sidebar/navbar.
+   Sidebar + content-column layout, styled independently of the rest
+   of the app (which uses Nunito) — this page uses Huawei Sans, matching
+   the PDF/Word documentation it links out to.
+   ================================================================ */
+
+@font-face {
+  font-family: 'Huawei Sans';
+  src: url('../../fonts/HuaweiSans.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Huawei Sans';
+  src: url('../../fonts/HuaweiSans-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+body:has(.help-shell) {
+  font-family: 'Huawei Sans', 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.help-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100vh;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+/* ── Left sidebar — flat nav + search, active link tracked live via
+   scroll-spy (see index.html's inline script) ──────────────────── */
+.help-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border-card);
+}
+
+.help-back-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  margin-bottom: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-card);
+  transition: all 0.15s ease;
+  width: fit-content;
+}
+
+.help-back-link:hover {
+  color: var(--text-primary);
+  background: var(--nav-hover-bg);
+}
+
+.help-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  margin-bottom: 18px;
+  border-radius: 7px;
+  background: var(--bg-search);
+}
+
+.help-search i {
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.help-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.help-search input::placeholder {
+  color: var(--text-search-placeholder);
+}
+
+.help-nav,
+.help-toc-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.help-nav a,
+.help-toc-nav a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 7px 10px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: all 0.12s ease;
+}
+
+.help-nav a:hover,
+.help-toc-nav a:hover {
+  color: var(--text-primary);
+}
+
+.help-nav a.active,
+.help-toc-nav a.active {
+  color: #ef4444;
+  border-left-color: #ef4444;
+  background: var(--nav-hover-bg);
+}
+
+/* ── Right sidebar — "On this page" ─────────────────────────── */
+.help-toc {
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 24px 16px;
+  border-left: 1px solid var(--border-card);
+}
+
+.help-toc-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 0 10px;
+  margin-bottom: 10px;
+}
+
+.help-toc-nav a {
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+}
+
+/* ── Main content column ─────────────────────────────────── */
+.help-main {
+  flex: 1;
+  min-width: 0;
+  padding: 32px 40px 80px;
+}
+
+.help-top h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.help-lede {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  max-width: 640px;
+}
+
+.help-start-here,
+.help-categories {
+  margin-top: 32px;
+}
+
+.help-start-here h2,
+.help-categories h2 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.help-start-here > p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.help-quicklink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border-table-row);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: background 0.15s ease;
+}
+
+.help-quicklink:last-of-type {
+  border-bottom: none;
+}
+
+.help-quicklink:hover {
+  background: var(--nav-hover-bg);
+}
+
+.help-quicklink i {
+  font-size: 15px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.help-categories-grid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.help-cat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border-table-row);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.help-cat-card:last-child {
+  border-bottom: none;
+}
+
+.help-cat-card:hover {
+  background: var(--nav-hover-bg);
+}
+
+.help-cat-card > i {
+  font-size: 19px;
+  color: var(--icon-chip-color);
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.help-cat-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-right: 8px;
+}
+
+.help-cat-desc {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Downloads — the 4 companion PDF manuals, one row each. */
+.help-downloads {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-table-row);
+  scroll-margin-top: 24px;
+}
+
+.help-downloads-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.help-downloads-title i {
+  font-size: 17px;
+  color: var(--icon-chip-color);
+}
+
+.help-downloads-desc {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.help-downloads-grid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.help-doc-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border-table-row);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.help-doc-card:last-child {
+  border-bottom: none;
+}
+
+.help-doc-card:hover {
+  background: var(--nav-hover-bg);
+}
+
+.help-doc-icon {
+  font-size: 22px;
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.help-doc-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.help-doc-download {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--input-focus-border);
+  white-space: nowrap;
+}
+
+.help-doc-download svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Feature sections — plain numbered headings + flowing text, book-style,
+   no card/box treatment (matches a Tufte/kaobook-style content page). */
+.help-main {
+  counter-reset: help-section;
+}
+
+.help-section {
+  counter-increment: help-section;
+  max-width: 640px;
+  margin-top: 40px;
+  scroll-margin-top: 24px;
+}
+
+.help-section h2 {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.help-section h2::before {
+  content: counter(help-section) ".  ";
+}
+
+.help-section h2 i {
+  display: none;
+}
+
+.help-section p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.help-section ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-section li {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.help-section p a,
+.help-section li a {
+  color: var(--input-focus-border);
+  text-decoration: underline;
+}
+
+.help-section p a:hover,
+.help-section li a:hover {
+  color: var(--text-primary);
+}
+
+.help-subhead {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin: 14px 0 8px;
+}
+
+.help-color-table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.help-color-table td {
+  padding: 4px 8px 4px 0;
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.help-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.help-table {
+  width: 100%;
+  max-width: 640px;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 10px 0 16px;
+}
+
+.help-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border-table-row);
+}
+
+.help-table td {
+  padding: 8px 10px 8px 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-table-row);
+  vertical-align: top;
+}
+
+.help-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Inline UI-control names (Refresh, Card Layout, Add Partner, ...) shown
+   as small red code chips, matching the reference doc-site style. */
+.help-section code {
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .help-toc {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .help-shell {
+    flex-direction: column;
+  }
+
+  .help-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-card);
+  }
+
+  .help-main {
+    padding: 24px 20px 60px;
+  }
+}

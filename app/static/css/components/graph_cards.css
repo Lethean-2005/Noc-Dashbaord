@@ -1,0 +1,1105 @@
+/* Static graph reference cards — Incident Age / Volume / Closed. Own
+   local tokens (--graph-*) rather than the site's regular --bg-card
+   theme vars, since these 3 match specific dark-card reference designs
+   that need a white variant in light mode too — light values are the
+   default below, dark values override under [data-theme="dark"]. Live
+   inside .dashboard-grid (see graph_cards.html's own comment on the
+   .graph-row wrapper and its hide/reorder trade-off). */
+.graph-row {
+  grid-column: span 4;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* .dashboard-grid itself drops from 4 to 2 outer columns at this same
+   1024px breakpoint (cards.css), so .graph-row's "span 2" here already
+   means the full row width, same as "span 4" did above 1024px — but
+   without also dropping to 2 *internal* columns, all 3 graph cards were
+   still forced to squeeze into that row 3-across, at little more than
+   half the width they had a moment before. Below ~1024px that's not
+   enough room for Incident Age's axis tick labels (0/50/100/.../250) to
+   read clearly, or for the other two cards' subtitles to sit on one
+   line — confirmed via screenshot at 850px: labels were only ~5px apart,
+   and the ticks bunched up bordering total unreadability. */
+@media (max-width: 1024px) {
+  .graph-row {
+    grid-column: span 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .graph-row {
+    grid-column: span 1;
+    grid-template-columns: 1fr;
+  }
+}
+
+.card-graph,
+.card-graph:hover {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  border-color: transparent;
+  background: var(--graph-bg);
+
+  --graph-bg: #ffffff;
+  --graph-text: #111827;
+  --graph-text-muted: #6b7280;
+  --graph-border: rgba(0, 0, 0, 0.08);
+  --graph-pill-bg: #f3f4f6;
+  --graph-pill-text: #374151;
+  --graph-tooltip-bg: #ffffff;
+  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .card-graph,
+[data-theme="dark"] .card-graph:hover {
+  /* Matches --bg-card's dark value (theme.css) so these 3 cards blend in
+     with every other card instead of standing out as near-black. */
+  --graph-bg: #1f1f23;
+  --graph-text: #f5f5f5;
+  --graph-text-muted: #8b8d98;
+  --graph-border: rgba(255, 255, 255, 0.08);
+  --graph-pill-bg: #2a2a2f;
+  --graph-pill-text: #d1d5db;
+  --graph-tooltip-bg: #2a2a2f;
+  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+.card-graph .card-header {
+  border-bottom-color: var(--graph-border);
+}
+
+/* These 3 cards have no collapse chevron (see table.js's .no-collapse
+   check) — cursor:pointer/user-select:none from the base .card-header
+   rule (cards.css) would otherwise still imply a header click does
+   something. */
+.card-graph .card-header.no-collapse {
+  cursor: default;
+}
+
+.card-graph .card-title {
+  color: var(--graph-text);
+}
+
+/* Wraps the Category + Compare-Weeks icon dropdowns on cards 2/3
+   (graph_cards.html) so both sit flush right of the title as one group,
+   same as the single .date-filter on card 1's margin-left:auto. */
+.graph-filters {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-graph .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Incident Age — "Major Expenses" style: a header icon box + title, then
+   one horizontal bar per bucket sharing a single x-axis. Each bar's
+   width is against the shared axis_max (a "nice" round number just
+   above the largest bucket — see IncidentService._nice_ticks()), so bar
+   length is directly comparable across rows, with vertical gridlines (a
+   repeating gradient, same trick as .bar-chart's dashed gridlines
+   further down) drawn at each tick position. Bars use the existing
+   global .app-tooltip (layout.css) for a real hover tooltip instead of
+   a fixed always-shown one. Each row still gets its own distinct color
+   (by ROW POSITION / loop.index, not tied to the bucket's value). The
+   WHOLE row is a .badge-item (see graph_cards.html) — label, bar, and
+   count all open the same drilldown, not just the number. */
+.expenses-header {
+  gap: 8px;
+}
+
+.expenses-rows {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 8px;
+}
+
+.expenses-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Rank number (Top Congestion Devices only — "graph start at one") — a
+   separate element from .expenses-label/.badge-label on purpose: that
+   span's text becomes the drilldown page's label (app.js's delegated
+   badge-click handler reads .badge-label's own textContent), so a
+   "1. " prefix living inside it would leak into the drilldown title. */
+.expenses-rank {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--graph-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* .expenses-label also carries the shared .badge-label class (see
+   graph_cards.html) — cards.css's generic ".badge-item .badge-label"
+   rule (min-width:80px, --text-secondary color) is meant for the wider
+   badge rows elsewhere on the dashboard; override back to this card's
+   own tighter width/--graph-* theming (3 combined classes needed to
+   out-specificity that 2-class rule). */
+.expenses-row .expenses-label.badge-label {
+  width: 58px;
+  min-width: 0;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--graph-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Top Congestion Devices' own labels are full device names
+   ("DX-PNHCC-RB01-DS01"), not Top Site Down's short site codes —
+   58px truncated every one of them to a few characters + "…"
+   (confirmed live). Widened just for this card (site_code labels
+   elsewhere keep their own tighter 58px) rather than loosening the
+   shared rule above for every badge-row card on the dashboard. */
+/* Fixed (not auto) width — auto let each row's label take only as much
+   room as its own text needed, so bar-tracks started at a different x
+   position per row instead of lining up in one column (confirmed live:
+   "IX-MYTM-CS01"'s short bar started way left of "IX-PNHCC-RB02-CSTK02"'s
+   longer one). Fixed width keeps every bar-track starting at the same
+   column regardless of how long that row's own device name is. */
+#congestionHistoryCard .expenses-label.badge-label {
+  width: 170px;
+}
+
+/* Vertical gridlines on a ::before layer (not .expenses-bar-track's own
+   background) so the mask that turns them into dashes doesn't also
+   punch holes in .expenses-bar itself — masking the track element
+   directly would mask its children too, since mask-image applies to
+   the whole element's rendered output, not just background-image. Same
+   visual dash style as card 2's SVG stroke-dasharray gridlines
+   (.campaign-gridlines), just via CSS mask since this is a plain HTML
+   background, not SVG.
+
+   .expenses-bar-track and .expenses-bar are both `position: relative`
+   with NO explicit z-index (left at its default `auto`) — position
+   alone lets .expenses-bar paint after (on top of) the ::before gridline
+   in DOM/tree order, without giving either element an actual z-index
+   value. That distinction matters: TWO earlier versions of this fix each
+   put an explicit z-index (first on .expenses-bar, then moved to
+   .expenses-bar-track) to control that ordering — but ANY explicit
+   z-index (even 0) makes that element its own stacking context, which
+   traps the hover tooltip's z-index:9998 (.app-tooltip, layout.css)
+   inside it: a stacking context's z-index only ever gets compared
+   against siblings *at its own parent's level*, so the tooltip could
+   never rise above content outside that trap (confirmed via screenshot
+   both times: the first fix broke it between "<4h" and "4-8h", moving
+   the z-index up broke it again between "12-24h" and ">24h" instead of
+   actually fixing it — the trap just moved, it didn't go away). With
+   position but no z-index, neither element creates a stacking context at
+   all, so the tooltip's z-index:9998 bubbles all the way up unblocked. */
+.expenses-bar-track {
+  position: relative;
+  flex: 1;
+  height: 20px;
+}
+
+.expenses-bar-track::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--graph-border) 0,
+    var(--graph-border) 1px,
+    transparent 1px,
+    transparent 20%
+  );
+  mask-image: repeating-linear-gradient(to bottom, #000 0 3px, transparent 3px 7px);
+  -webkit-mask-image: repeating-linear-gradient(to bottom, #000 0 3px, transparent 3px 7px);
+}
+
+/* Top Congestion Devices has no axis tick labels below it (removed per
+   request — see dashboard/index.html's own history) — the generic
+   gridlines above are tick marks for an axis that no longer exists
+   here, so they read as stray unexplained dashes (confirmed live).
+   Dropped for just this card; Top Site Down keeps both its ticks and
+   these same gridlines, where they still line up with something. */
+#congestionHistoryCard .expenses-bar-track::before {
+  content: none;
+}
+
+.expenses-bar {
+  position: relative;
+  height: 100%;
+  min-width: 3%;
+  border-radius: 4px;
+}
+
+/* Severity gradient by age, oldest = worst: <4h/4-8h fresh (green/teal),
+   8-12h yellow, 12-24h orange, >24h red. */
+.expenses-bar-1 { background: #10b981; }
+.expenses-bar-2 { background: #14b8a6; }
+.expenses-bar-3 { background: #eab308; }
+.expenses-bar-4 { background: #f97316; }
+.expenses-bar-5 { background: #ef4444; }
+
+/* Top 10 Site Down — Overtime: one hue for every bar, not a severity
+   ramp — every row measures the same thing (how many times that site
+   went down), so a rank isn't a category the way an age bucket is.
+   Same orange as _SERIES_COLORS[0] (incident_service.py), the "primary
+   week" color already used across every other Site Down trend chart. */
+.expenses-bar-site-down { background: #f97316; }
+
+/* Top Congestion Devices: same one-hue-for-every-bar reasoning as
+   .expenses-bar-site-down above (rank, not a category) — a distinct
+   indigo so this card doesn't read as "another Site Down chart" next
+   to it, and doesn't collide with the Telcotech/Ezecom owner-text
+   colors (#eab308/#a855f7, tables.css) used elsewhere on this same
+   data. */
+.expenses-bar-congestion { background: #6366f1; }
+
+/* "Wk 37 · Wk 38 · ..." caption (dashboard/index.html) — each week is a
+   real <a href> straight to that week's own drilldown (every device,
+   see AlarmService.get_congestion_week_details()), not a badge-click —
+   same reasoning as the old weekly chart's own bars once had: no JS
+   wiring needed, a plain link already carries the congestion_week param
+   app.js's delegated badge handler doesn't know about. Same indigo as
+   this card's own bars, so the link visually belongs to this card. */
+.congestion-weeks-caption {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-card);
+}
+
+.congestion-weeks-caption a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-strong);
+}
+
+.congestion-weeks-caption a:hover {
+  color: #6366f1;
+  text-decoration-color: #6366f1;
+}
+
+/* .expenses-count-value also carries the shared .badge class (see
+   graph_cards.html) so clicking it (or anywhere else in the row — see
+   .expenses-row.badge-item) reuses app.js's existing badge-click
+   drilldown handler. cards.css's generic ".badge-item .badge" rule
+   (fixed 30x19 box, forced white text) is meant for the small colored
+   square badges elsewhere on the dashboard, not a plain number here —
+   these overrides need 3 combined classes to out-specificity that
+   2-class rule. */
+.expenses-row .expenses-count-value.badge {
+  width: 26px;
+  height: auto;
+  min-width: 0;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 0;
+  text-align: right;
+  background: transparent !important;
+  color: var(--graph-text) !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.expenses-axis {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.expenses-axis-spacer {
+  width: 58px;
+  flex-shrink: 0;
+}
+
+.expenses-axis-spacer-end {
+  width: 26px;
+}
+
+.expenses-axis-ticks {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--graph-text-muted);
+}
+
+/* Incident Volume — growth-line style: two dotted/marked lines (this
+   week bold, last week muted) plus a flat dashed "weekly target"
+   reference line, all in theme-following greys/text tones (no fixed
+   red) so the chart reads correctly on both the light and dark card
+   background, y-axis, and a static callout tooltip anchored on the
+   highlighted point. */
+.campaign-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.campaign-subtitle {
+  font-size: 11.5px;
+  color: var(--graph-text-muted);
+  max-width: 60%;
+}
+
+/* Compare-Weeks legend — one colored dot + label + total per series
+   checked in the "Compare Weeks" dropdown (see graph_cards.html/
+   IncidentService week_totals). Shared by both the Volume (line) and
+   Closed (bar) cards, so the styling lives here once rather than
+   duplicated under .sales-*. Dot color comes from the series' own
+   inline style (_SERIES_COLORS), not a fixed CSS class, since the
+   number of series is dynamic (1-4). */
+.series-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  font-size: 11px;
+  color: var(--graph-text-muted);
+}
+
+.series-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.series-legend-item b {
+  color: var(--graph-text);
+  font-weight: 700;
+}
+
+.series-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.campaign-chart-row {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  min-height: 100px;
+}
+
+.campaign-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--graph-text-muted);
+  font-weight: 600;
+}
+
+.campaign-chart-inner {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.campaign-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* One path per checked "Compare Weeks" series — stroke color comes from
+   the series' own inline style (_SERIES_COLORS), not a fixed CSS class,
+   since the number of series is dynamic (1-4). Flat/clean lines only,
+   NO area fill underneath (same reasoning as the donut/expenses charts'
+   fixed colors elsewhere in this file for keeping its own palette in
+   both light and dark mode). */
+.campaign-line-series {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* Vertical gridlines, one per day (x positions from
+   get_incident_volume_trend()'s grid_x) — the "column" look requested:
+   a faint dashed vertical line under each day, like a bar chart's
+   gridlines rotated 90deg. Drawn before the area/line paths in the SVG
+   so they sit behind the chart, not on top of it. */
+.campaign-gridlines line {
+  stroke: var(--graph-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+/* Per-day hover points overlaid on top of the SVG (HTML, not SVG, so a
+   real box-shadowed/opacity-transitioned tooltip card can be a plain
+   child element instead of fighting with SVG's limited pseudo-element
+   support). Each day's hit-zone spans the chart's full height (not just
+   near its own dot) so hovering anywhere in that day's vertical strip
+   triggers the card — easier to hit than a 6px dot. */
+.volume-points {
+  position: absolute;
+  inset: 0;
+}
+
+.volume-point {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+/* .volume-tooltip's own z-index:5 only wins against its OWN dot inside
+   this same .volume-point — it has no effect on OTHER days' dots/line,
+   since those live in sibling .volume-point elements entirely outside
+   this stacking context. A wide nowrap tooltip (up to _WEEKS_AVAILABLE weeks of rows)
+   routinely overlaps the next day's point horizontally, and with every
+   .volume-point left at z-index:auto, plain DOM order wins: a later day
+   (to the right) always painted over an earlier day's open tooltip,
+   confirmed via screenshot (chart line/dots visibly cutting through the
+   card). Bumping z-index only on :hover raises the WHOLE hovered point
+   — dot and tooltip together — above every sibling day, without giving
+   the resting (non-hovered) state a z-index that would otherwise trap
+   nothing but cost a stacking context for no reason. */
+.volume-point:hover {
+  z-index: 10;
+}
+
+/* .volume-dot-wrap also carries the shared .badge-item class (see
+   graph_cards.html) so clicking either dot reuses app.js's existing
+   badge-click drilldown handler, opening the "Incident Volume" table for
+   that specific day/week. It's the positioned+clickable hit target;
+   .volume-dot inside it is just the plain visual circle. */
+.volume-dot-wrap {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.volume-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--graph-bg);
+  transition: transform 0.12s ease;
+}
+
+/* .volume-dot also carries the shared .badge class — cards.css's generic
+   ".badge-item .badge" rule (fixed 30x19px box, forced white fill via
+   background modifiers) is meant for the small colored square badges
+   elsewhere on the dashboard, not a 6px circle here — reset back to this
+   chart's own dot shape (3 combined classes to out-specificity that
+   2-class rule). */
+.volume-dot-wrap .volume-dot.badge {
+  width: 6px;
+  height: 6px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 50%;
+}
+
+/* Background color comes from each dot's own inline style
+   (_SERIES_COLORS), not a fixed CSS class — see .campaign-line-series. */
+.volume-point:hover .volume-dot { transform: scale(1.6); }
+
+/* Anchored to the actual hovered dot(s)' own vertical position
+   (day.tooltip_anchor_pct — the average top_pct across that day's
+   series, set as an inline `top`/`bottom` % by graph_cards.html), not a
+   fixed height — so the popup sits right next to the point(s) it
+   describes instead of always parking near the chart's top edge.
+   .volume-tooltip-below (anchor in the top half of the chart: grows
+   DOWN from `top`, via margin-top for a small gap) vs
+   .volume-tooltip-above (anchor in the bottom half: grows UP from
+   `bottom`, via margin-bottom) — whichever direction has more room,
+   since .volume-point spans the chart's full height and a fixed
+   top/bottom anchor can't safely flip based on the tooltip's own
+   (dynamic, N-series) height without JS measuring it. */
+.volume-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--graph-tooltip-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: nowrap;
+  box-shadow: var(--graph-tooltip-shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 5;
+}
+
+.volume-tooltip-below { margin-top: 10px; }
+.volume-tooltip-above { margin-bottom: 10px; }
+
+/* The first/last point on any of these charts sits right at the
+   chart's own left/right edge — .volume-tooltip's default centering
+   (left:50%; transform:translateX(-50%)) then puts half the tooltip
+   box outside the card entirely, which on the Overall Dashboard (right
+   next to the sidebar) spilled the tooltip over the sidebar itself.
+   Anchoring to that edge instead of centering keeps it fully inside
+   the card no matter how close to the edge the point is. */
+.volume-tooltip-edge-left { left: 0; transform: none; }
+.volume-tooltip-edge-right { left: auto; right: 0; transform: none; }
+
+.volume-point:hover .volume-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.volume-point-today .volume-dot {
+  border-width: 2px;
+}
+
+.volume-tooltip-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--graph-pill-text);
+  margin-bottom: 6px;
+}
+
+.volume-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--graph-text-muted);
+}
+
+.volume-tooltip-row + .volume-tooltip-row {
+  margin-top: 4px;
+}
+
+.volume-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Background color comes from each row's own inline style
+   (_SERIES_COLORS), not a fixed CSS class — see .campaign-line-series. */
+.volume-tooltip-label {
+  flex: 1;
+}
+
+.volume-tooltip-row b {
+  color: var(--graph-text);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+/* Per-day delta vs the next OLDER checked week, same weekday (see
+   _with_deltas()) — None (no earlier week left to compare against)
+   renders the spacer instead, so the oldest checked week's <b> value
+   still lines up in the same column as the others. */
+.volume-tooltip-delta {
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
+}
+
+.volume-tooltip-delta.up { color: #16a34a; }
+.volume-tooltip-delta.down { color: #ef4444; }
+
+/* Inline "+N"/"-N" sitting right next to a By Category table's own
+   count (that week vs the very next older one), not the tooltip's own
+   full-width delta column — smaller and no min-width so it just reads
+   as a small note beside the number instead of another table column. */
+.volume-tooltip-delta.step-delta {
+  display: inline-block;
+  min-width: 0;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.volume-tooltip-delta-spacer {
+  min-width: 34px;
+}
+
+/* "By Category — <Weekday>" popup: every category row expands its own
+   duration-breakdown panel below it (see
+   get_incident_volume_day_category_breakdowns()'s docstring — every
+   category has real duration data now, not just Site Down). */
+.volume-category-row {
+  cursor: pointer;
+}
+
+.volume-category-row:hover td {
+  background: var(--bg-table-row-hover);
+}
+
+.volume-category-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  margin-right: 2px;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.volume-category-caret i {
+  font-size: 12px;
+}
+
+.volume-category-row.is-open .volume-category-caret {
+  transform: rotate(90deg);
+}
+
+/* Collapsed by default (graph_cards.js toggles .is-visible on click,
+   one at a time — see its own comment for the accordion rule). A
+   sibling <tbody> per category, not a single colspan'd row containing
+   its own nested <table> — that nested-table version auto-sized its
+   own column widths independently of the outer table's, so its
+   borders never lined up with the outer grid once borders became
+   visible (see git history on this file). Rows of the SAME table
+   always share one column-width calculation, which is what actually
+   keeps the grid lines connected top to bottom. */
+.volume-duration-panel {
+  display: none;
+}
+
+.volume-duration-panel.is-visible {
+  display: table-row-group;
+}
+
+/* Subtle tint ties the expanded panel visually to its parent category
+   row, the same way a "Change"/nested-row band reads as grouped under
+   its parent in a financial breakdown table — plain transparent looked
+   like the panel was floating, disconnected from the row it belongs to. */
+.volume-duration-panel td {
+  background: var(--bg-table-header);
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.volume-duration-row td:first-child {
+  padding-left: 32px;
+}
+
+/* Bordered grid look (Partner Contact's .pc-grid-wrap/.pc-grid) instead
+   of the borderless .alarm-table default — a wrapper border + rounded
+   corners, and a right/bottom border on every cell so the whole thing
+   reads as a proper table grid, not a loose stack of rows. */
+.volume-category-table-wrap {
+  border: 1px solid var(--border-table);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.volume-category-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.volume-category-table th {
+  border-right: 1px solid var(--border-table-header);
+  border-bottom: 1px solid var(--border-table-header);
+}
+
+.volume-category-table th:last-child {
+  border-right: none;
+}
+
+.volume-category-table td {
+  border-right: 1px solid var(--border-table-row);
+  border-bottom: 1px solid var(--border-table-row);
+}
+
+.volume-category-table td:last-child {
+  border-right: none;
+}
+
+/* "By Category"/"By Severity"/"By Province"/"By Vendor" popups — sized
+   to match the Add Partner card (.pc-modal-card, tables.css) instead of
+   their previous ad-hoc 600px, and capped so a long list (26 provinces)
+   no longer runs off the bottom of the screen with no way to reach the
+   rest — header stays put, only the table body scrolls. Same idea as
+   performance.css's .perf-help-modal-content. */
+.volume-breakdown-modal-content {
+  width: 420px;
+  max-width: 92vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.volume-breakdown-modal-content .modal-header { flex: none; }
+.volume-breakdown-modal-content .modal-body { overflow-y: auto; }
+
+/* Per-weekday Incident Volume popup (opened from an x-axis day label) —
+   wider than .volume-breakdown-modal-content above since Category's own
+   tab keeps its Change column plus a duration-drilldown accordion, but
+   same capped-height/scrolling idea: header and tab bar stay put, only
+   the active tab's table scrolls. */
+.volume-day-modal-content {
+  width: 720px;
+  max-width: 94vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.volume-day-modal-content .modal-header { flex: none; }
+.volume-day-modal-content .modal-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.volume-day-tabs {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.volume-day-tab-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.volume-day-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.volume-day-tab-btn.is-active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+/* Only the active tab's panel renders and scrolls — the other 3 are
+   already-computed markup sitting inert in the DOM, not re-fetched on
+   tab switch (see graph_cards.html's own comment on why all 4 fields
+   are rendered server-side up front). */
+.volume-day-tab-panel {
+  display: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.volume-day-tab-panel.is-active {
+  display: block;
+}
+
+.campaign-x-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 34px;
+  font-size: 10px;
+  color: var(--graph-text-muted);
+  font-weight: 600;
+}
+
+/* Incident Volume's x-axis labels are real buttons (open that weekday's
+   "By Category" popup — see volumeDayCategoryModal_N), so this strips
+   all the default <button> chrome back down to looking exactly like
+   the plain <span> it replaced, plus a hover cue that it's clickable. */
+.campaign-x-axis-btn {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.campaign-x-axis-btn:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+/* Site-Down Duration's own x-axis buttons reuse this class too (see
+   performance_cards.html) — cross-filters "Site-Down Root Cause —
+   Breakdown" to just that bucket. Bold + accent color marks whichever
+   bucket is currently selected, same "is-active means currently
+   filtering" convention as .btn-icon-only.is-active elsewhere. */
+.campaign-x-axis-btn.is-active {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+/* Incidents Closed — "Sales Overview" style: grouped orange/maroon bars,
+   dashed gridlines, "View Details" header link. */
+.sales-top-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sales-subtitle {
+  font-size: 11.5px;
+  color: var(--graph-text-muted);
+}
+
+.sales-chart-row {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  min-height: 100px;
+}
+
+.sales-y-axis2 {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--graph-text-muted);
+  font-weight: 600;
+}
+
+.sales-x-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--graph-text-muted);
+  font-weight: 600;
+}
+
+.sales-y-axis2-spacer {
+  width: 22px;
+  flex-shrink: 0;
+}
+
+/* Horizontal gridlines on a ::before layer (not .bar-chart's own
+   background) so the dash mask doesn't also punch holes in the bars
+   themselves — same reasoning as .expenses-bar-track::before above.
+   .bar-chart, .bar (below), and .bar-day (further below) are all
+   `position: relative` with NO explicit z-index — same fix as
+   .expenses-bar-track/.expenses-bar above (see that comment for the
+   full explanation of why an explicit z-index, even 0, traps the hover
+   tooltip's z-index inside a new stacking context instead of letting it
+   rise above other days' bars). Position alone (z-index left at `auto`)
+   still puts .bar after ::before in DOM/tree order, painting it on top,
+   without creating a trap. */
+.bar-chart {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.bar-chart::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    to top,
+    var(--graph-border) 0,
+    var(--graph-border) 1px,
+    transparent 1px,
+    transparent 33.33%
+  );
+  mask-image: repeating-linear-gradient(to right, #000 0 3px, transparent 3px 7px);
+  -webkit-mask-image: repeating-linear-gradient(to right, #000 0 3px, transparent 3px 7px);
+}
+
+/* align-items:stretch (not center) so .bar-pair gets a definite width
+   to distribute to its own flex:1 children — without a definite width
+   here, .bar-item's flex-basis:0% (part of the flex:1 shorthand) has
+   nothing to grow from, and .bar's width:100% of that resolves to 0,
+   making every bar invisible despite correct height/color (confirmed via
+   getComputedStyle: width was literally "0px"). */
+.bar-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+
+/* Same fix as .volume-point:hover above (see that comment for the full
+   explanation) — .bar-tooltip's z-index:5 only beats its own bar, not
+   sibling days, so a wide tooltip can get cut through by a neighboring
+   day's bar without this. */
+.bar-day:hover {
+  z-index: 10;
+}
+
+.bar-pair {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Wraps each bar so it's a clickable .badge-item (see graph_cards.html —
+   clicking opens the "Incidents Closed" drilldown for that day/week via
+   app.js's existing badge-click handler). Needs its own height:100% so
+   .bar's height:N% still resolves against a real height, and
+   align-items:flex-end (not the global .badge-item's own
+   align-items:center) so the bar still grows up from the bottom.
+   min-width:0 + flex:1 let it shrink below its content size — without
+   this, a flex item's default min-width:auto floors it at .bar's 22px
+   max-width, so at the dashboard's 3-column card width all 14 bars
+   (7 days x 2) can't actually fit and silently overflow past the card's
+   rounded corner instead of shrinking (confirmed via screenshot: Sunday's
+   bar was clipped at the card edge). */
+.bar-item.badge-item {
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+}
+
+/* Fluid width (not a fixed px) so bars shrink to fit narrower card
+   widths instead of overflowing — max-width caps how big they get on
+   wide cards, matching the "bigger bars" look from before without
+   breaking layout at the 3-column dashboard width. */
+.bar {
+  position: relative;
+  width: 100%;
+  max-width: 14px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+/* Background color comes from each bar's own inline style
+   (_SERIES_COLORS), not a fixed CSS class — see .campaign-line-series. */
+
+/* .bar also carries the shared .badge class (see graph_cards.html) so
+   clicking it reuses app.js's existing badge-click drilldown handler.
+   cards.css's generic ".badge-item .badge" rule (a fixed 30x19px box,
+   width:30px, min-width:30px) is meant for the small colored square
+   badges elsewhere on the dashboard and outranks plain .bar on
+   specificity (2 classes vs 1) — width must be redeclared here (not just
+   min/max-width) or that fixed 30px silently wins and overflows this
+   chart's narrower 3-column card width. 3 combined classes to
+   out-specificity cards.css's 2-class rule. */
+.bar-item .bar.badge {
+  width: 100%;
+  max-width: 14px;
+  min-width: 0;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+/* Per-day hover card — same "full-column hit zone + point-anchored
+   popup" pattern as .volume-point/.volume-tooltip on the line chart
+   above (see that rule's comment for the below/above direction logic;
+   day.tooltip_anchor_pct here is the average TOP-of-bar position, i.e.
+   100 - bar height%). Bars stay bars (only this combined this/last-week
+   card is new); each bar keeps its own .badge click-through to the
+   existing per-day drilldown. */
+.bar-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--graph-tooltip-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  white-space: nowrap;
+  box-shadow: var(--graph-tooltip-shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 5;
+}
+
+.bar-tooltip-below { margin-top: 10px; }
+.bar-tooltip-above { margin-bottom: 10px; }
+
+/* Same edge-overflow fix as .volume-tooltip-edge-left/-right above —
+   see that comment. */
+.bar-tooltip-edge-left { left: 0; transform: none; }
+.bar-tooltip-edge-right { left: auto; right: 0; transform: none; }
+
+.bar-day:hover .bar-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.bar-tooltip-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--graph-pill-text);
+  margin-bottom: 6px;
+}
+
+.bar-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--graph-text-muted);
+}
+
+.bar-tooltip-row + .bar-tooltip-row {
+  margin-top: 4px;
+}
+
+.bar-tooltip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.bar-tooltip-label {
+  flex: 1;
+}
+
+.bar-tooltip-row b {
+  color: var(--graph-text);
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+/* Per-day delta vs the next OLDER checked week, same weekday (see
+   _with_deltas()) — None (no earlier week left to compare against)
+   renders the spacer instead, so the oldest checked week's <b> value
+   still lines up in the same column as the others. */
+.bar-tooltip-delta {
+  font-weight: 700;
+  min-width: 34px;
+  text-align: right;
+}
+
+.bar-tooltip-delta.up { color: #16a34a; }
+.bar-tooltip-delta.down { color: #ef4444; }
+
+.bar-tooltip-delta-spacer {
+  min-width: 34px;
+}

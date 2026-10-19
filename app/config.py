@@ -1,12 +1,9 @@
 """Application configuration.
 
-Config (below) reads every setting from the environment once, at class-
-definition time — so app/__init__.py MUST call load_dotenv() before this
-module is ever imported, or .env values are silently ignored in favor of
-the hardcoded defaults here. That one-time read is fine for things that
-only matter at startup (DB host, secret key, ...), but dashboard card
-visibility needs to change without restarting the app — see
-get_feature_flags() below for that.
+Config reads every setting from the environment once, at class-
+definition time — app/__init__.py must call load_dotenv() before this
+module is imported, or .env values are silently ignored. Feature flags
+are the exception (see get_feature_flags() — re-read per request).
 
 DevelopmentConfig / TestingConfig / ProductionConfig only override what
 differs from the base Config; config_map picks one by APP_ENV.
@@ -23,13 +20,10 @@ def _bool(value, default=False):
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-# ── Feature flags — dashboard card visibility ───────────────────────
-# One flag per card on dashboard/index.html and reports/index.html.
-# Unlike everything else in Config, these are re-read straight from
-# .env on every request (see get_feature_flags() + the `features`
-# context processor in app/__init__.py) instead of once at startup —
-# so toggling a card on/off, whether by hand or via configurator.py,
-# takes effect on the very next page load with no restart needed.
+# One flag per dashboard card. Re-read straight from .env on every
+# request (see get_feature_flags() + app/__init__.py's `features`
+# context processor) instead of once at startup, so toggling a card
+# takes effect on the next page load with no restart.
 _FEATURE_DEFAULTS = {
     "FEATURE_VVIP_SITE": True,
     "FEATURE_MENTOR_SITE": True,
@@ -52,8 +46,7 @@ _ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 def get_feature_flags():
     """Parse .env fresh (never touching os.environ) and return every
-    FEATURE_* flag as {key: bool}, falling back to its default (True)
-    if the file is missing or the key isn't set."""
+    FEATURE_* flag as {key: bool}, defaulting to True if unset."""
     values = dict(_FEATURE_DEFAULTS)
     if _ENV_PATH.exists():
         for line in _ENV_PATH.read_text(encoding="utf-8").splitlines():
@@ -73,24 +66,24 @@ class Config:
     # ── Application ──────────────────────────────────────────────
     APP_NAME = os.environ.get("APP_NAME", "Dashboard")
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-me")
+    # Caps request body size so an oversized upload can't be read fully
+    # into memory in one go. 5 MB was generous for a site_code CSV (the
+    # only upload in the app until now); 20 MB leaves room for the
+    # Incident Report's Picture Reference photos (a handful of phone
+    # photos per report, base64-encoded into the database — see
+    # incident_report_service.py's own note on why).
+    MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", 20 * 1024 * 1024))
 
     # ── Server ───────────────────────────────────────────────────
     HOST = os.environ.get("HOST", "0.0.0.0")
     PORT = int(os.environ.get("PORT", 8000))
-    # waitress's own default is 4 — too few once several NOC staff have the
-    # dashboard open at once: the Overall page alone makes ~10 sequential
-    # SQLite cache reads per load, and every open tab full-page-reloads on
-    # its own DASHBOARD_LOG_INTERVAL_SECONDS timer (dashboard/index.html),
-    # so those reloads land in synchronized bursts across everyone's
-    # browsers rather than spread out — a small thread pool means that
-    # burst queues up instead of running concurrently. See run.py.
+    # waitress's default of 4 threads is too few once several NOC staff
+    # have the dashboard open — page loads make several sequential
+    # SQLite reads and reload on a synchronized timer. See run.py.
     WAITRESS_THREADS = int(os.environ.get("WAITRESS_THREADS", 8))
 
     # ── PostgreSQL — Incident/Site/VIP data source ──────────────
-    # Read by app/database/connection.py's run_query(). Backs the Incident,
-    # INC-WO, Site, and VIP caches synced by app/services/incident/
-    # incident_sync_service.py, app/services/site/site_sync_service.py, and
-    # app/services/vip/*_sync_service.py.
+    # Read by app/database/connection.py's run_query().
     DB_HOST = os.environ.get("DB_HOST", "localhost")
     DB_PORT = os.environ.get("DB_PORT", "5432")
     DB_NAME = os.environ.get("DB_NAME", "dashboard_db")
@@ -108,9 +101,8 @@ class Config:
     }
 
     # ── MSSQL — alarm source for the ISP POP / EZE / TCT cards ──
-    # Read by app/database/mssql.py. A background job (app/services/alarm/alarm_scheduler.py)
-    # syncs this into the local cache (instance/localstorage.db) every
-    # MSSQL_SYNC_INTERVAL_SECONDS — pages read the cache, never MSSQL directly.
+    # Synced into the local cache every MSSQL_SYNC_INTERVAL_SECONDS by
+    # app/services/alarm/alarm_scheduler.py; pages read the cache only.
     MSSQL_HOST = os.environ.get("MSSQL_HOST", "")
     MSSQL_DATABASE = os.environ.get("MSSQL_DATABASE", "")
     MSSQL_USER = os.environ.get("MSSQL_USER", "")
@@ -118,67 +110,72 @@ class Config:
     MSSQL_SYNC_INTERVAL_SECONDS = int(os.environ.get("MSSQL_SYNC_INTERVAL_SECONDS", 10))
 
     # ── Site cache — Site table (object_160) on PostgreSQL ──────
-    # Read by app/repositories/site/site_repository.py. A background job
-    # (app/services/site/site_scheduler.py) syncs this into the local cache
-    # (instance/localstorage.db) every SITE_SYNC_INTERVAL_SECONDS. Site data
-    # changes far less often than live alarms, so this defaults to a much
-    # longer interval than MSSQL_SYNC_INTERVAL_SECONDS.
+    # Longer interval than MSSQL's — site data changes far less often
+    # than live alarms.
     SITE_SYNC_INTERVAL_SECONDS = int(os.environ.get("SITE_SYNC_INTERVAL_SECONDS", 300))
 
     # ── site_lookup cache — site_lookup_mv on PostgreSQL ─────────
-    # Read by app/repositories/site/site_lookup_repository.py. A background
-    # job (app/services/site/site_lookup_scheduler.py) syncs this into the
-    # local cache every SITE_LOOKUP_SYNC_INTERVAL_SECONDS. This is the
-    # lookup table Postgres's own get_processed_site() function used to
-    # query per-row inside ape_alarm.sql — see app/utils/get_processed_site.py.
-    # Changes about as rarely as Site data, so it shares SITE's interval.
+    # The lookup table get_processed_site() uses — see
+    # app/utils/get_processed_site.py.
     SITE_LOOKUP_SYNC_INTERVAL_SECONDS = int(
         os.environ.get("SITE_LOOKUP_SYNC_INTERVAL_SECONDS", 300)
     )
 
     # ── Incident cache — Incident table (object_322) on PostgreSQL ──
-    # Read by app/repositories/incident/incident_repository.py. A background job
-    # (app/services/incident/incident_scheduler.py) syncs this into the local cache
-    # (instance/localstorage.db) every INCIDENT_SYNC_INTERVAL_SECONDS.
-    # Same 5-minute default as SITE_SYNC_INTERVAL_SECONDS, so every
-    # Postgres-backed sync job puts the same, predictable load on the DB.
     INCIDENT_SYNC_INTERVAL_SECONDS = int(os.environ.get("INCIDENT_SYNC_INTERVAL_SECONDS", 300))
 
+    # ── Congestion History cache — historical TCT bandwidth/congestion
+    # alarms on MSSQL (noc.TBL_PPD), for the dashboard's Congestion
+    # History card + drilldown. A much slower cadence than the 10s
+    # active-only alarm sync (MSSQL_SYNC_INTERVAL_SECONDS above) since
+    # this reads a wide historical window, not just currently-active
+    # rows. CONGESTION_HISTORY_WEEKS is the single source of truth for
+    # both how far back to sync AND how many weeks the chart displays.
+    CONGESTION_SYNC_INTERVAL_SECONDS = int(os.environ.get("CONGESTION_SYNC_INTERVAL_SECONDS", 300))
+    CONGESTION_HISTORY_WEEKS = int(os.environ.get("CONGESTION_HISTORY_WEEKS", 4))
+
     # ── Dashboard data-freshness heartbeat (logs/dashboard.log) ─────
-    # app/routes/dashboard.py's start() logs the same "Dashboard data as
-    # of: ..." line the homepage logs per-view, but on its own clock-
-    # aligned schedule (00:00, 00:05, 00:10, ... for the 300s default) so
+    # Logs "Dashboard data as of: ..." on a clock-aligned schedule so
     # dashboard.log has a regular trace even between page views.
     DASHBOARD_LOG_INTERVAL_SECONDS = int(os.environ.get("DASHBOARD_LOG_INTERVAL_SECONDS", 300))
 
     # ── ape_alarm cache — broader NE/connectivity alarms on object_138 ──
-    # Read by app/repositories/ape_alarm/ape_alarm_repository.py. A background job
-    # (app/services/ape_alarm/ape_alarm_scheduler.py) syncs this into the local cache
-    # (instance/localstorage.db) every APE_ALARM_SYNC_INTERVAL_SECONDS.
-    # object_138 is a 10M-row foreign table with no supporting index, so
-    # every sync here is a genuinely heavy scan — matches
-    # SITE/INCIDENT_SYNC_INTERVAL_SECONDS's 300s (5 min) rather than a
-    # longer interval, at the cost of hitting that scan 3x more often.
+    # object_138 is a 10M-row foreign table with no supporting index —
+    # every sync is a heavy scan.
     APE_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("APE_ALARM_SYNC_INTERVAL_SECONDS", 300))
 
-    # ── vip_alarm cache — every alarm type at VIP/VVIP sites, derived
-    # locally from the already-synced ape_alarm cache (no Postgres call of
-    # its own) ──
-    # A background job (app/services/vip/vip_alarm_scheduler.py) rebuilds
-    # this from ape_alarm + site_cache (both already-synced local tables)
-    # every VIP_ALARM_SYNC_INTERVAL_SECONDS — see
-    # app/services/vip/vip_alarm_sync_service.py.
+    # ── vip_alarm cache — derived locally from ape_alarm + site_cache,
+    # no separate Postgres call. See vip_alarm_sync_service.py.
     VIP_ALARM_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_ALARM_SYNC_INTERVAL_SECONDS", 300))
 
-    # ── vip_site cache — VIP/VVIP Site master data, pulled directly from
-    # MSSQL's SITE_INFO (see app/services/vip/vip_site_sync_service.py) ──
-    # A background job (app/services/vip/vip_site_scheduler.py) refreshes
-    # this every VIP_SITE_SYNC_INTERVAL_SECONDS.
+    # ── vip_site cache — VIP/VVIP Site master data from MSSQL's SITE_INFO.
     VIP_SITE_SYNC_INTERVAL_SECONDS = int(os.environ.get("VIP_SITE_SYNC_INTERVAL_SECONDS", 300))
 
+    # ── pop cache — POP master data from MSSQL's TBL_POP.
+    POP_SYNC_INTERVAL_SECONDS = int(os.environ.get("POP_SYNC_INTERVAL_SECONDS", 300))
+
+    # ── mssql_site_onair cache — On-Air site master data from MSSQL's
+    # TBL_SITE joined to TBL_NE for VENDOR, independent from
+    # Postgres's site_cache.
+    MSSQL_SITE_ONAIR_SYNC_INTERVAL_SECONDS = int(
+        os.environ.get("MSSQL_SITE_ONAIR_SYNC_INTERVAL_SECONDS", 300)
+    )
+
+    # ── partner_contact cache — from MSSQL's TBL_PARTNER /
+    # TBL_PARTNER_CONTACT.
+    PARTNER_CONTACT_SYNC_INTERVAL_SECONDS = int(
+        os.environ.get("PARTNER_CONTACT_SYNC_INTERVAL_SECONDS", 300)
+    )
+
+    # Shared password gate in front of Partner Contact's bulk Import button
+    # (checked server-side in routes/partner_contact.py — the browser
+    # never holds this value, only what the user typed).
+    PARTNER_CONTACT_IMPORT_PASSWORD = os.environ.get(
+        "PARTNER_CONTACT_IMPORT_PASSWORD", "nocdashboard"
+    )
+
     # ── all-tasks summary — one combined "Total" log line across every
-    # cache table (app/services/all_tasks_scheduler.py), on its own timer
-    # independent of each job's own sync interval above ──
+    # cache table, on its own timer.
     ALL_TASKS_SUMMARY_INTERVAL_SECONDS = int(
         os.environ.get("ALL_TASKS_SUMMARY_INTERVAL_SECONDS", 300)
     )
@@ -188,20 +185,14 @@ class Config:
     DEFAULT_THEME = os.environ.get("DEFAULT_THEME", "light")
     ROWS_PER_PAGE = int(os.environ.get("ROWS_PER_PAGE", 25))
 
-    # Each user's Card Layout choices (order/hidden cards — see
-    # app/static/js/card-layout.js) live only in their own browser's
-    # localStorage, keyed partly on this value. Bumping it (a config
-    # change, not a code edit) makes every existing saved key invisible to
-    # the JS — old data is left alone in the browser, just never read
-    # again — so every user resets to default the next time they open the
-    # dashboard, with no action needed from them.
+    # Card Layout choices live in each user's browser localStorage,
+    # keyed partly on this value — bumping it resets everyone's saved
+    # layout to default on next load, with no code change needed.
     CARD_LAYOUT_RESET_VERSION = os.environ.get("CARD_LAYOUT_RESET_VERSION", "1")
 
     # ── Logging ──────────────────────────────────────────────────
-    # app/utils/logger.py writes every record (at LOG_LEVEL or above) to
-    # LOG_PATH, and additionally mirrors ERROR/CRITICAL records to
-    # LOG_ERROR_PATH, so failures are easy to find without grepping the
-    # full app log.
+    # app/utils/logger.py writes every record to LOG_PATH and mirrors
+    # ERROR/CRITICAL to LOG_ERROR_PATH.
     LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
     LOG_PATH = os.environ.get("LOG_PATH", "logs/app.log")
     LOG_ERROR_PATH = os.environ.get("LOG_ERROR_PATH", "logs/error.log")
@@ -214,41 +205,26 @@ class Config:
     # ── Notifications (optional integrations) ───────────────────
     TEAMS_WEBHOOK = os.environ.get("TEAMS_WEBHOOK", "")
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    # Comma-separated — one alert can go to more than one chat/group.
-    TELEGRAM_CHAT_IDS = os.environ.get("TELEGRAM_CHAT_IDS", "")
+    TELEGRAM_CHAT_IDS = os.environ.get("TELEGRAM_CHAT_IDS", "")  # comma-separated
 
-    # ── Site Down Telegram alert (app/services/telegram/telegram_alert.py) ──
-    # Sends Incident Site Down rows whose outage has passed
-    # ALERT_THRESHOLD_MIN, every ALERT_INTERVAL_SECONDS.
+    # ── Site Down Telegram alert (telegram_alert.py) ──
+    # Sends Incident Site Down rows over ALERT_THRESHOLD_MIN, every
+    # ALERT_INTERVAL_SECONDS.
     ALERT_THRESHOLD_MIN = int(os.environ.get("ALERT_THRESHOLD_MIN", 240))
     ALERT_INTERVAL_SECONDS = int(os.environ.get("ALERT_INTERVAL_SECONDS", 14400))
 
-    # ── INC-WO Site Down Telegram alert
-    # (app/services/telegram/telegram_inc_wo_alert.py) ──
-    # Same shape as the alert above, but for the "INC-WO Site Down" card
-    # (inc_wo_site_down cache) instead of "Incident Site Down", sent via a
-    # SEPARATE bot (TELEGRAM_BOT_INC_WO_TOKEN) to its OWN chat/group
-    # (TELEGRAM_CHAT_IDS_INC_WO) — a different bot posting to a different
-    # group entirely, independent of TELEGRAM_CHAT_IDS above. Never starts
-    # unless both TELEGRAM_BOT_INC_WO_TOKEN and TELEGRAM_CHAT_IDS_INC_WO
-    # are set, independent of whether the Site Down alert above is
-    # configured.
-    #
-    # Deliberately different defaults from the Site Down alert above:
-    # threshold 0 (every current INC-WO Site Down row gets sent, not just
-    # ones open past a threshold) and interval 900s/15min (not 4h) — this
-    # alert is meant to read as "here's the current INC-WO Site Down list
-    # right now", refreshed often, not "here's what's been open too long".
+    # ── INC-WO Site Down Telegram alert (telegram_inc_wo_alert.py) ──
+    # Own bot/chat, independent of the Site Down alert above. Threshold
+    # 0 / interval 900s by design — reads as "current list right now",
+    # not "open too long". Never starts unless both env vars are set.
     TELEGRAM_BOT_INC_WO_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_TOKEN", "")
     TELEGRAM_CHAT_IDS_INC_WO = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO", "")
     INC_WO_ALERT_THRESHOLD_MIN = int(os.environ.get("INC_WO_ALERT_THRESHOLD_MIN", 0))
     INC_WO_ALERT_INTERVAL_SECONDS = int(os.environ.get("INC_WO_ALERT_INTERVAL_SECONDS", 900))
 
     # ── INC-WO Category Power Telegram alert
-    # (app/services/telegram/telegram_inc_wo_power_alert.py) ──
-    # Same shape as the INC-WO Site Down alert above, for category='power'
-    # instead — a third, separate bot/chat, Telegram-only (no dashboard
-    # card). Never starts unless both env vars are set.
+    # (telegram_inc_wo_power_alert.py) ── category='power', own
+    # bot/chat, Telegram-only. Never starts unless both env vars are set.
     TELEGRAM_BOT_INC_WO_POWER_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_POWER_TOKEN", "")
     TELEGRAM_CHAT_IDS_INC_WO_POWER = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO_POWER", "")
     INC_WO_POWER_ALERT_THRESHOLD_MIN = int(os.environ.get("INC_WO_POWER_ALERT_THRESHOLD_MIN", 0))
@@ -257,11 +233,8 @@ class Config:
     )
 
     # ── INC-WO General Telegram alert
-    # (app/services/telegram/telegram_inc_wo_general_alert.py) ──
-    # Every INC-WO category EXCEPT site_down/power (those two already have
-    # their own dedicated alerts above) — a fourth, separate bot/chat,
-    # Telegram-only (no dashboard card). Same threshold-0/900s defaults.
-    # Never starts unless both env vars are set.
+    # (telegram_inc_wo_general_alert.py) ── every category except
+    # site_down/power, own bot/chat, Telegram-only.
     TELEGRAM_BOT_INC_WO_GENERAL_TOKEN = os.environ.get("TELEGRAM_BOT_INC_WO_GENERAL_TOKEN", "")
     TELEGRAM_CHAT_IDS_INC_WO_GENERAL = os.environ.get("TELEGRAM_CHAT_IDS_INC_WO_GENERAL", "")
     INC_WO_GENERAL_ALERT_THRESHOLD_MIN = int(
@@ -271,23 +244,59 @@ class Config:
         os.environ.get("INC_WO_GENERAL_ALERT_INTERVAL_SECONDS", 900)
     )
 
+    # ── Site Down 24h Teams alert
+    # (app/services/incident/site_down_24h_alert_service.py) ── 2 posts
+    # per incident: a down-over-24h alert, and later a separate
+    # restored-confirmation once it actually resolves — never resent,
+    # unlike every alert in webhook/. Each has its own Power Automate
+    # flow/URL (SITE_DOWN_24H_ALERT_WEBHOOK_URL / _RESTORE_WEBHOOK_URL
+    # in .env) — renamed from the original placeholder TESTING_WEBHOOK_URL/
+    # TESTING_REPLY names once both flows were confirmed working, so .env
+    # now names each by what it actually does instead of "testing".
+    SITE_DOWN_24H_ALERT_WEBHOOK_URL = os.environ.get("SITE_DOWN_24H_ALERT_WEBHOOK_URL", "")
+    # Separate flow/URL for the restore-confirmation — the down-alert's
+    # own flow saves each post's Teams Message ID into a SharePoint list
+    # keyed by incident_ref (no Premium license for a Response action),
+    # and THIS flow looks that row up, replies in the same thread using
+    # it, then deletes the row. Two independent flows rather than one
+    # flow with a branch, since this trigger type's designer doesn't
+    # support moving already-built actions into a condition branch
+    # without a fragile manual drag — a second copy of the same simple
+    # trigger->actions shape the user already knows how to build.
+    SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL = os.environ.get(
+        "SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL", ""
+    )
+    SITE_DOWN_24H_ALERT_INTERVAL_SECONDS = int(
+        os.environ.get("SITE_DOWN_24H_ALERT_INTERVAL_SECONDS", 86400)
+    )
+    SITE_DOWN_24H_ALERT_THRESHOLD_HOURS = int(
+        os.environ.get("SITE_DOWN_24H_ALERT_THRESHOLD_HOURS", 24)
+    )
+
     # ── Teams webhook alerts (webhook/ package) ─────────────────────
-    # Master on/off for the scheduled Teams sends (webhook.start(), called
-    # from _init_webhook_alerts() below) and how often send_all() runs.
-    # Each individual card's on/off is really "is its TEAMS_WEBHOOK_* URL
-    # set in .env" (see webhook/common.py's resolve_url()), not a flag here.
+    # Each card's on/off is really "is its TEAMS_WEBHOOK_* URL set" (see
+    # webhook/common.py's resolve_url()), not a flag here.
     TEAMS_ALERTS_ENABLED = os.environ.get("TEAMS_ALERTS_ENABLED", "true").strip().lower() == "true"
     TEAMS_ALERT_INTERVAL_SECONDS = int(os.environ.get("TEAMS_ALERT_INTERVAL_SECONDS", 900))
-    # When an alert has 0 active rows, the send is skipped by default (see
-    # webhook/common.py's _send_empty_enabled()). Set to true to still post
-    # a "no active alarms" card every cycle.
+    # An alert with 0 active rows is skipped by default; true posts a
+    # "no active alarms" card every cycle.
     WEBHOOK_SEND_EMPTY = os.environ.get("WEBHOOK_SEND_EMPTY", "false").strip().lower() == "true"
-    # Base dashboard URL used to build each Teams card's "View Report" /
-    # "View Dashboard" links (webhook/common.py). Blank = links omitted.
+    # Base dashboard URL for each Teams card's link. Blank omits it.
     DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "")
 
     # ── Security ─────────────────────────────────────────────────
     WTF_CSRF_ENABLED = _bool(os.environ.get("CSRF_ENABLED"), default=True)
+    # Flask-WTF defaults this to 3600s (1 hour) if unset. Pages like
+    # Partner Contact render their csrf_token once at page load and never
+    # reload (no periodic location.reload() like the dashboard has), so a
+    # NOC operator who leaves the tab open past an hour hit "Bad Request —
+    # the CSRF token has expired" on their next Edit/Delete (confirmed
+    # live). This app has no login system to tie token lifetime to (see
+    # MEMORY: unused Flask-Login scaffold), so there's no real security
+    # boundary a time limit is protecting here — None disables the
+    # time-based expiry entirely; the token still only validates for
+    # requests carrying the matching session cookie.
+    WTF_CSRF_TIME_LIMIT = None
 
     JSON_SORT_KEYS = False
 
@@ -305,13 +314,9 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    # Defaults to True (cookie only sent over HTTPS) — the correct setting
-    # once this is actually served over HTTPS. Until then, plain HTTP
-    # deployments (e.g. http://172.16.8.145:5000) need this set to False in
-    # .env, or the session cookie holding the CSRF token never gets sent
-    # back, and every form submit fails with "The CSRF session token is
-    # missing." Set SESSION_COOKIE_SECURE=False in .env as a temporary
-    # measure only — switch back to True once HTTPS is set up.
+    # Defaults True (HTTPS-only cookie). Plain-HTTP deployments need
+    # this False in .env, or CSRF form submits fail — switch back to
+    # True once HTTPS is set up.
     SESSION_COOKIE_SECURE = _bool(os.environ.get("SESSION_COOKIE_SECURE"), default=True)
 
 

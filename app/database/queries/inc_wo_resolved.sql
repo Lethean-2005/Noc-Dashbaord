@@ -1,16 +1,18 @@
 -- ==============================================================
--- INC-WO Resolved — for the "INC-WO Resolved" card on the Custom
--- Dashboard (reports/index.html), synced into the local
--- "inc_wo_resolved" cache table (see app/database/cache.py) every
--- INCIDENT_SYNC_INTERVAL_SECONDS.
+-- "INC-WO Resolved" card (reports/index.html), synced into
+-- inc_wo_resolved every INCIDENT_SYNC_INTERVAL_SECONDS. INNER JOINs on
+-- inc.status = 'in_progress' (Resolved WO, parent Incident still open) —
+-- unlike the LEFT JOINs in inc_wo_by_status.sql/inc_wo_site_down.sql.
 --
--- Every INC-WO that's Resolved, whose parent Incident is still
--- In-Progress overall (the incident itself isn't fully closed out yet,
--- even though this particular work order is done) — hence the INNER JOIN
--- with inc.status = 'in_progress' baked into the join condition, unlike
--- the LEFT JOINs used in inc_wo_by_status.sql/inc_wo_site_down.sql. Same
--- "Other Site" fallback as those two too — see inc_wo_by_status.sql's
--- header.
+-- Deliberately NOT filtered here to "every WO on this incident is
+-- resolved" — that needs comparing against sibling WOs of every status,
+-- which would mean joining/subquerying object_324 (100k+ rows) on this
+-- replica, measurably widening exposure to its "conflict with recovery"
+-- cancellations (see ape_alarm.sql's own note on the same tradeoff, and
+-- git history on this file — that approach was tried and reverted).
+-- That same-incident-fully-resolved check is done in Python instead,
+-- in IncWoService.get_resolved_details() (incwo_service.py), against
+-- the already-synced inc_wo_by_status cache — no extra DB round trip.
 -- ==============================================================
 
 -- name: inc_wo_resolved
@@ -30,7 +32,7 @@ SELECT
     ELSE INITCAP(REPLACE(wo.status, '_', ' '))
   END AS "INC-WO Status",
   wo.resolved_at AS "Resolved At",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level

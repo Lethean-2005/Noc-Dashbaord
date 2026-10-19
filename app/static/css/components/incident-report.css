@@ -1,0 +1,918 @@
+/* Incident Report page — one page styled to look like Telcotech's own
+   Wholesale Products & Service Delivery Incident Report template
+   (orange section bars, same field order/labels — see
+   IR_SMART-IX1222_11-Sep-2026.pdf, the reference this mirrors), with
+   editable inputs laid directly on it instead of a plain top-to-bottom
+   form. Reuses the app's own .alarm-header/.btn-export/.pc-field-group
+   input styling (tables.css, loaded globally) for chrome outside the
+   document itself. */
+
+/* Amazon Ember — copied from the user's own preychhor project
+   (src/fonts/, a licensed source, unlike the app's other self-hosted
+   fonts which are open-license) — used only on THIS page, not site-wide,
+   since this file is only linked from document.html. The PDF/DOCX
+   exports keep the original template's own Times New Roman untouched;
+   this only affects the on-screen editing page. */
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* :not(i) excludes tabler-icons' <i class="ti ..."> glyph elements —
+   without it, this would win the cascade over tabler-icons.css's own
+   font-family (equal specificity, but this file loads later) and every
+   icon on the page would render as a stray Ember letter instead. */
+#incidentReportPageHeader,
+#incidentReportPageHeader *:not(i),
+.ir-toolbar,
+.ir-toolbar *:not(i),
+.ir-document,
+.ir-document *:not(i) {
+  font-family: 'Amazon Ember', 'Nunito', sans-serif;
+}
+
+.ir-status-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.ir-status-badge-draft {
+  background: #fef9c3;
+  color: #b45309;
+}
+
+.ir-status-badge-final {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.ir-finalize-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+
+.ir-finalize-error i {
+  flex: none;
+  font-size: 16px;
+}
+
+/* .btn-view (Back) has its own padding/sizing (cards.css, used
+   elsewhere for a dark pill-shaped button) that doesn't match
+   .btn-export's — scoped here to just this page's toolbar so Back
+   lines up the same height/padding as the Actions button beside it,
+   without touching .btn-view's other uses site-wide. */
+.ir-toolbar .btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  height: auto;
+}
+
+.ir-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ir-toolbar select {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+  min-width: 220px;
+}
+
+/* Actions menu — PDF/DOCX/Delete collapsed into one <details> dropdown
+   instead of three separate toolbar buttons. Same "<details> as a free
+   click-to-open/close dropdown" mechanic as the app's own .date-filter
+   (tables.css), just with a plain stacked-item menu instead of a filter
+   form panel. */
+.ir-actions-menu {
+  position: relative;
+}
+
+.ir-actions-menu summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.ir-actions-menu summary::-webkit-details-marker,
+.ir-actions-menu summary::marker {
+  display: none;
+  content: '';
+}
+
+.ir-actions-menu[open] summary i.ti-chevron-down {
+  transform: rotate(180deg);
+}
+
+.ir-actions-menu summary i.ti-chevron-down {
+  transition: transform 0.15s ease;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.ir-actions-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-card, #e5e7eb);
+  box-shadow: var(--shadow-card-hover, 0 8px 24px rgba(0, 0, 0, 0.16));
+  padding: 4px;
+}
+
+.ir-actions-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ir-actions-menu-item:hover {
+  background: var(--nav-hover-bg, #f4f4f4);
+}
+
+.ir-actions-menu-item-danger {
+  color: #b91c1c;
+}
+
+.ir-document {
+  max-width: 900px;
+  margin: 16px auto 40px;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-card, #e5e7eb);
+  padding: 24px 28px 28px;
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+
+.ir-document-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 2px solid #e36c0a;
+  padding-bottom: 12px;
+  margin-bottom: 18px;
+}
+
+.ir-document-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Editable in place of the old static <h2> — same size/weight, just a
+   plain text input styled to look like a heading until you click into
+   it (border only appears on focus/hover so it still reads as a title
+   at rest, not a form field). */
+.ir-document-title-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text-primary);
+  padding: 2px 4px;
+  margin: 0 0 2px -4px;
+}
+
+.ir-document-title-input:hover,
+.ir-document-title-input:focus {
+  border-color: var(--border-card, #e5e7eb);
+  outline: none;
+}
+
+.ir-document-title-input:focus {
+  border-color: #e36c0a;
+}
+
+.ir-document-logo {
+  height: 46px;
+  width: auto;
+  flex: none;
+}
+
+.ir-filename-field {
+  max-width: 360px;
+  margin: 0 0 18px;
+}
+
+.ir-filename-field input {
+  border-color: #e36c0a;
+}
+
+.ir-section {
+  margin-bottom: 16px;
+}
+
+.ir-section-title {
+  background: #e36c0a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-align: center;
+  padding: 7px 10px;
+  letter-spacing: 0.2px;
+}
+
+.ir-section-body {
+  border: 1px solid #e5c3a3;
+  border-top: none;
+  padding: 14px 14px 6px;
+}
+
+.ir-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 14px;
+}
+
+.ir-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px 10px;
+}
+
+.ir-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.ir-field-full { grid-column: 1 / -1; }
+
+.ir-field label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #b25400;
+}
+
+.ir-field input,
+.ir-field textarea,
+.ir-field select {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.ir-field input:focus,
+.ir-field textarea:focus,
+.ir-field select:focus {
+  outline: none;
+  border-color: #e36c0a;
+}
+
+/* Duration of Interruption (both the field itself and its Incident
+   Description mirror) — greyed out to signal it's derived, not typed,
+   now that it's calculated live from Report Time + Restored Time (see
+   incident-report.js's own Report/Restored/Duration calculator). Still
+   a real, submittable value — readonly blocks typing, not scripted
+   .value writes, so the calculator keeps working exactly as before. */
+.ir-field input[readonly] {
+  background: #f4f4f4;
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.ir-field input[readonly]:focus {
+  border-color: var(--border-card, #e5e7eb);
+}
+
+/* Fault Analysis & Resolution (both 1st and 2nd Cause) — the reference
+   PDF renders this as a real bordered table (label cell | value cell),
+   unlike every other section on this page which stacks label above
+   input. .ir-fault-body drops the section-body's own border/padding so
+   the table supplies every border itself (no doubled edges where the
+   two would otherwise overlap). */
+.ir-section-body.ir-fault-body {
+  border: none;
+  padding: 0;
+}
+
+.ir-fault-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ir-fault-table td {
+  border: 1px solid #e5c3a3;
+  vertical-align: middle;
+}
+
+.ir-fault-table-label {
+  width: 220px;
+  padding: 8px 12px;
+  background: #fdf1e6;
+}
+
+.ir-fault-table-label label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #b25400;
+}
+
+.ir-fault-table-value {
+  padding: 0;
+}
+
+.ir-fault-table-value input,
+.ir-fault-table-value textarea,
+.ir-fault-table-value select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 8px 12px;
+  resize: vertical;
+}
+
+/* Every row the same height regardless of field type — a single-line
+   input/select would otherwise render visibly shorter than a 2-row
+   textarea (Cause of Outage/Resolution), making the table's rows look
+   uneven instead of the uniform row height the reference has. */
+.ir-fault-table-value input,
+.ir-fault-table-value select {
+  min-height: 47px;
+}
+
+.ir-fault-table-value input:focus,
+.ir-fault-table-value textarea:focus,
+.ir-fault-table-value select:focus {
+  outline: 2px solid #e36c0a;
+  outline-offset: -2px;
+}
+
+/* Date field with a calendar-icon picker (_date_field.html) — the
+   visible text input stays a plain text field (holds "11-Sep-2026",
+   not the browser's native YYYY-MM-DD) with room on the right for the
+   icon button; the actual <input type="date"> is invisible and only
+   ever opened programmatically via its showPicker() call
+   (incident-report.js), never focused/tabbed to directly. */
+.ir-date-field {
+  position: relative;
+}
+
+.ir-date-field .ir-date-text {
+  width: 100%;
+  padding-right: 32px;
+}
+
+/* Chronology event rows' own Time field — same wrap/icon idea as
+   .ir-date-field, just for time-only (see incident-report.js's
+   .ir-time-field handling, which hides the calendar's day-grid and
+   shows just its time row when opened from here). Reuses
+   .ir-date-pick-btn's own icon-button styling below, just with a clock
+   icon in the markup instead of a calendar one. */
+.ir-time-field {
+  position: relative;
+}
+
+.ir-time-field .ir-time-only-text {
+  width: 100%;
+  padding-right: 32px;
+}
+
+.ir-date-pick-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #b25400;
+  cursor: pointer;
+}
+
+.ir-date-pick-btn:hover {
+  color: #e36c0a;
+}
+
+/* Shared calendar+time dropdown card (#irCalendar, document.html) —
+   repositioned + rebound to whichever date field's icon was clicked
+   (incident-report.js). Blue accent + filled-circle selected day +
+   spinner-box time fields + a Cancel/Apply footer, matching the
+   reference design requested for this component exactly — a
+   deliberate departure from the rest of this page's own orange accent,
+   which everything else here still uses. */
+.ir-calendar {
+  position: absolute;
+  z-index: 50;
+  width: 288px;
+  background: #fff;
+  border-radius: 3px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 16px;
+  font-family: 'Amazon Ember', 'Nunito', sans-serif;
+}
+
+.ir-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ir-calendar-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #22282f;
+}
+
+.ir-calendar-nav {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+  color: #4285f4;
+  cursor: pointer;
+}
+
+.ir-calendar-nav:hover {
+  opacity: 0.7;
+}
+
+.ir-calendar-weekdays,
+.ir-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.ir-calendar-weekdays span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #9aa3af;
+  padding: 4px 0;
+}
+
+.ir-calendar-day {
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  aspect-ratio: 1;
+  width: 100%;
+  font-size: 12.5px;
+  color: #22282f;
+  cursor: pointer;
+}
+
+.ir-calendar-day:hover {
+  background: #eaf1fd;
+}
+
+.ir-calendar-day.is-outside-month {
+  color: #c7ccd3;
+}
+
+.ir-calendar-day.is-selected {
+  background: #4285f4;
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Divider + time row — only shown for a datetime or time-only field
+   (incident-report.js's data-datetime/.ir-time-field handling); a
+   plain date-only field never sees this. Clock icon, then 3 spinner
+   boxes (Hour/Minute/AM-PM) inline, vertically centered. */
+.ir-calendar-time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #eef0f3;
+}
+
+/* `display: flex` above has the same specificity as the browser's own
+   `[hidden] { display: none }` UA rule, and an author stylesheet wins
+   that tie regardless of source order — so incident-report.js setting
+   .hidden = true on this element (date-only fields, no time row) was
+   being silently overridden back to visible. This re-asserts `none`
+   with higher specificity so the attribute actually hides it again. */
+.ir-calendar-time-row[hidden] {
+  display: none;
+}
+
+.ir-time-icon {
+  flex: none;
+  font-size: 18px;
+  color: #8a919b;
+}
+
+.ir-time-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.ir-time-sep {
+  font-size: 15px;
+  font-weight: 700;
+  color: #22282f;
+  line-height: 1;
+}
+
+/* One "12 ▲▼" spinner box — a real, directly-typable input plus a
+   pair of small up/down buttons, styled to look like a native number
+   spinner without depending on one (browsers render those completely
+   inconsistently — this looks the same everywhere). */
+.ir-time-spinner {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #d7dbe0;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ir-time-spinner-input {
+  width: 34px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #22282f;
+  text-align: center;
+  padding: 7px 0;
+}
+
+.ir-time-ampm .ir-time-spinner-input {
+  width: 38px;
+  cursor: default;
+}
+
+.ir-time-spinner-input:focus {
+  outline: none;
+  background: #f5f8ff;
+}
+
+.ir-time-spinner-arrows {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  border-left: 1px solid #d7dbe0;
+  padding: 0 5px;
+}
+
+.ir-time-spinner-arrow {
+  border: none;
+  background: transparent;
+  color: #8a919b;
+  font-size: 7px;
+  line-height: 1;
+  padding: 1px 0;
+  cursor: pointer;
+}
+
+.ir-time-spinner-arrow:hover {
+  color: #4285f4;
+}
+
+.ir-calendar-footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.ir-calendar-cancel,
+.ir-calendar-apply {
+  flex: 1;
+  border: none;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.ir-calendar-cancel {
+  background: #eef0f3;
+  color: #565e69;
+}
+
+.ir-calendar-cancel:hover {
+  background: #e3e6ea;
+}
+
+.ir-calendar-apply {
+  background: #4285f4;
+  color: #fff;
+}
+
+.ir-calendar-apply:hover {
+  background: #2f6fdb;
+}
+
+/* Read-only preview of the two fixed/derived lines the exported report
+   always carries — see incident_report_docx.py's own _ACTIONS_TAKEN_TEXT
+   and its "reuses Incident Date" comment. Shown so the form still looks
+   like the document (matching those two lines' own bold black / bold
+   orange-red styling), but never editable — nothing here has a `name`
+   attribute, so nothing posts back. */
+.ir-fixed-line {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+/* A day-change header (the 2nd+ line in a multi-day chronology) gets
+   extra room above it, same "clear separation from the previous day's
+   group" reasoning as the exported document's own space_before on
+   these same lines (incident_report_docx.py). */
+.ir-fixed-line + .ir-fixed-line {
+  margin-top: 10px;
+}
+
+.ir-fixed-line-date {
+  color: #e36c0a;
+}
+
+.ir-fixed-line-placeholder {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.ir-subhead {
+  background: #f4f4f4;
+  font-weight: 700;
+  font-size: 11.5px;
+  padding: 6px 10px;
+  margin: 4px 0 10px;
+}
+
+/* Date | Time | Description | Remove — each event carries its own date
+   (not just time) so a chronology that rolls past midnight still shows
+   which day every line belongs to, instead of relying on one shared
+   date for the whole list. */
+.ir-event-row {
+  display: grid;
+  grid-template-columns: 132px 90px 1fr 32px;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: start;
+}
+
+.ir-event-row input {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+}
+
+/* Description text colored blue on the web form too, matching the
+   exported DOCX/PDF's own description run color
+   (_EVENT_DESCRIPTION_COLOR, incident_report_docx.py) — same #4285f4
+   accent the calendar picker already uses elsewhere on this page. */
+.ir-event-row input[name="event_description"] {
+  color: #4285f4;
+}
+
+/* The date sub-field reuses .ir-date-field/.ir-date-text/.ir-date-pick-btn
+   (same shared calendar dropdown as the page's other date fields —
+   incident-report.js's picker click handler is delegated, so it works
+   on rows added later by "Add Event" too, no extra wiring needed), just
+   sized to fit this narrower column instead of a full-width .ir-field. */
+.ir-event-row .ir-date-field {
+  width: 100%;
+}
+.ir-event-row .ir-date-text {
+  width: 100%;
+  padding-right: 28px;
+}
+
+.ir-event-remove {
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: #b91c1c;
+  cursor: pointer;
+  height: 32px;
+}
+
+.ir-add-event {
+  margin: 4px 0 12px;
+}
+
+.ir-footer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-card, #e5e7eb);
+}
+
+/* The "real" save — filled orange so it reads as the stronger of the
+   two actions vs. Save as Draft's plain outline .btn-export look. */
+.ir-save-complete-btn {
+  background: #e36c0a;
+  border-color: #e36c0a;
+  color: #fff;
+}
+
+.ir-save-complete-btn:hover {
+  background: #c65e08;
+  border-color: #c65e08;
+}
+
+.ir-save-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-basis: 100%;
+}
+
+@media (max-width: 720px) {
+  .ir-grid,
+  .ir-grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .ir-event-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "date time" "desc desc" "remove remove";
+  }
+  .ir-event-row .ir-date-field { grid-area: date; }
+  .ir-event-row input[name="event_time"] { grid-area: time; }
+  .ir-event-row input[name="event_description"] { grid-area: desc; }
+  .ir-event-row .ir-event-remove { grid-area: remove; justify-self: end; }
+}
+
+/* Improvement and Preventive Plan — one action per row, same shell as
+   .ir-event-row above minus the date/time columns it doesn't need. */
+.ir-plan-row {
+  display: grid;
+  grid-template-columns: 1fr 32px;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: start;
+}
+
+.ir-plan-row input {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: var(--text-primary);
+}
+
+/* Picture Reference — a wrapping row of thumbnails (already-saved
+   photos load straight from their own base64, see document.html —
+   no round trip needed), each with its own remove button pinned to
+   the corner. */
+#irPictureList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ir-picture-item {
+  position: relative;
+  width: 120px;
+}
+
+.ir-picture-item img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border: 1px solid var(--border-card, #e5e7eb);
+  display: block;
+}
+
+.ir-picture-item .ir-event-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  height: 24px;
+  width: 24px;
+  padding: 0;
+}
+
+/* Report picker (top toolbar) — custom dropdown replacing the old
+   native <select> (see document.html's own note on why: capping
+   visible rows before scroll isn't possible on a native select's own
+   popup). The trigger stays a fixed width with its label truncated so a
+   long report name never stretches the toolbar; the dropdown card below
+   it caps at ~10 rows before scrolling. */
+.ir-report-picker {
+  min-width: 260px;
+}
+
+.ir-report-picker #irReportPickerToggle {
+  width: 100%;
+  justify-content: space-between;
+}
+
+#irReportPickerLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ir-report-picker-card {
+  width: 340px;
+  /* Matches the rest of this page's own controls (.btn-export etc. use
+     3px), not the 10px the shared Partner Contact dropdown card
+     defaults to. */
+  border-radius: 3px;
+}
+
+.ir-report-picker-options {
+  max-height: 330px;
+}
+
+/* Scoped to just this dropdown, not the shared .pc-field-dropdown-option
+   class itself — Partner Contact/Incident Received By keep their own
+   6px-radius, semi-bold look untouched. */
+.ir-report-picker-options .pc-field-dropdown-option {
+  border-radius: 3px;
+  font-weight: 400;
+}
+
+/* "[Draft]"/"[Final]" prefix — both in the trigger's own label and each
+   dropdown option — colored so status reads at a glance without having
+   to read the file name next to it. Same yellow/green pairing as the
+   page header's own .ir-status-badge-draft/-final. */
+.ir-report-status {
+  font-weight: 700;
+}
+
+.ir-report-status-draft {
+  color: #b45309;
+}
+
+.ir-report-status-final {
+  color: #16a34a;
+}

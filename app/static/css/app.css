@@ -1,20 +1,4 @@
 @font-face {
-  font-family: 'Poppins';
-  src: url('../fonts/Poppins-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../fonts/Poppins-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: 'Nunito';
   /* Variable font (weight axis) — one file covers every weight in the
      200-1000 range below, so a normal font-weight: 700 etc. just works,
@@ -28,14 +12,21 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Form controls don't inherit the page font by default (browser UA
+   stylesheets give button/input/select/textarea their own system font) —
+   without this, every button/input on the site silently falls back to
+   the OS font instead of Nunito, no matter what body's font-family is. */
+button, input, select, textarea {
+  font-family: inherit;
+}
+
 body {
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-body);
   color: var(--text-primary);
   display: flex;
   min-height: 100vh;
   overflow-x: hidden;
-  color-scheme: light dark;
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -59,8 +50,12 @@ body {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(4px);
+    /* No backdrop-filter: blur() — GPU compositing it requires is a
+       known contributor to cursor-rendering glitches (invisible
+       cursor over Chrome/its native dialogs) on weaker or virtual
+       GPUs. A flat darker overlay costs nothing to composite and
+       reads almost the same at a glance. */
+    background-color: rgba(0, 0, 0, 0.7);
 }
 
 .modal-content {
@@ -90,12 +85,56 @@ body {
     align-items: center;
 }
 
+.modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .modal-header h2 {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
 }
+
+/* Status icon next to the title — showModal(title, message) (app.js)
+   sets this based on whether title is "Success"/"Error", so every popup
+   across the app (Partner Contact's included) reads as good/bad at a
+   glance instead of a plain neutral box regardless of what happened.
+   Empty (no icon set) collapses to zero width, same :empty trick as
+   Partner Contact's field hint. */
+.modal-status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+}
+
+.modal-status-icon:empty {
+    display: none;
+}
+
+.modal-status-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.modal-content.is-success .modal-status-icon {
+    background: rgba(22, 163, 74, 0.14);
+    color: #16a34a;
+}
+
+.modal-content.is-error .modal-status-icon {
+    background: rgba(220, 38, 38, 0.14);
+    color: #dc2626;
+}
+
+.modal-content.is-success .modal-header h2 { color: #16a34a; }
+.modal-content.is-error .modal-header h2 { color: #dc2626; }
 
 .close-modal {
     color: var(--text-muted);
@@ -135,12 +174,21 @@ body {
 
 .modal-btn:hover { background: #2563eb; }
 
+.modal-content.is-success .modal-btn { background: #16a34a; }
+.modal-content.is-success .modal-btn:hover { background: #15803d; }
+
+.modal-content.is-error .modal-btn { background: #dc2626; }
+.modal-content.is-error .modal-btn:hover { background: #b91c1c; }
+
 /* Confirm popup — replaces the browser's native confirm() dialog.
    Any form with data-confirm="message" uses it. */
 .confirm-overlay {
     position: fixed;
     inset: 0;
-    z-index: 3000;
+    /* Above .modal's 9999 — showConfirm() (app.js) can now be triggered
+       from inside an already-open modal (e.g. Partner Contact's mini-
+       table delete) and still render on top of it, not hidden behind. */
+    z-index: 10000;
     background: rgba(15, 23, 42, 0.45);
     display: flex;
     align-items: center;
@@ -156,7 +204,7 @@ body {
     width: min(340px, calc(100vw - 40px));
     text-align: center;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Nunito', sans-serif;
 }
 .confirm-icon { display: flex; justify-content: center; margin-bottom: 10px; color: #ef4444; }
 .confirm-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; }

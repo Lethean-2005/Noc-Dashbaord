@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>By Category — Mon (mockup)</title>
+<style>
+  :root {
+    --bg-page: #0d0d10;
+    --bg-card: #1f1f23;
+    --text-primary: #f3f4f6;
+    --text-secondary: #d1d5db;
+    --text-muted: #8b8d98;
+    --border-row: rgba(255, 255, 255, 0.07);
+    --link: #4f8ef7;
+    --up: #22c55e;
+    --down: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    padding: 40px;
+  }
+  .modal-box {
+    max-width: 620px;
+    margin: 0 auto;
+    background: var(--bg-card);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    padding: 22px 24px 10px;
+  }
+  .modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .close-x {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    background: none;
+    border: none;
+    padding: 2px;
+  }
+  .close-x:hover { color: var(--text-primary); }
+  .sub {
+    color: var(--text-muted);
+    font-size: 13px;
+    margin: 6px 0 18px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td {
+    padding: 12px 6px;
+    text-align: right;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  th {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-row);
+  }
+  tr.category-row {
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-row);
+  }
+  tr.category-row:hover td { background: rgba(255, 255, 255, 0.03); }
+  tr.category-row td:first-child {
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .caret {
+    display: inline-block;
+    width: 10px;
+    color: var(--text-muted);
+    font-size: 10px;
+    transition: transform .15s ease;
+  }
+  tr.category-row.open .caret { transform: rotate(90deg); }
+
+  .count { color: var(--link); }
+  .step-delta { font-size: 12px; font-weight: 600; margin-left: 5px; }
+  .step-delta.up { color: var(--up); }
+  .step-delta.down { color: var(--down); }
+  .step-delta.flat { color: var(--text-muted); }
+  td.change.up { color: var(--up); font-weight: 600; }
+  td.change.down { color: var(--down); font-weight: 600; }
+  td.change.flat { color: var(--text-muted); font-weight: 600; }
+
+  tr.duration-row { border-bottom: 1px solid var(--border-row); }
+  tr.duration-row td:first-child {
+    padding-left: 26px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  tr.duration-row td { padding: 8px 6px; }
+  tr.duration-panel { display: none; }
+  tr.duration-panel.expanded { display: table-row; }
+  tr.duration-panel td { padding: 0; border-bottom: 1px solid var(--border-row); }
+  tr.duration-panel table { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="modal-box">
+  <div class="modal-head">
+    <h2>By Category — Mon</h2>
+    <button class="close-x" type="button">&times;</button>
+  </div>
+  <p class="sub">Incidents Created on Mon, sorted by biggest increase first.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Category</th>
+        <th>Last week</th>
+        <th>Week 36</th>
+        <th>Change</th>
+      </tr>
+    </thead>
+    <tbody id="categoryBody"></tbody>
+  </table>
+</div>
+
+<script>
+  const DATA = [
+    {
+      category: "Customer Complaint", lastWeek: 169, week36: 102, change: 67,
+      durations: [
+        { label: "≤15m", lastWeek: 9, week36: 6, change: 3 },
+        { label: "16m-4h", lastWeek: 85, week36: 50, change: 35 },
+        { label: "4-8h", lastWeek: 60, week36: 38, change: 22 },
+        { label: "8-12h", lastWeek: 10, week36: 6, change: 4 },
+        { label: "12-24h", lastWeek: 4, week36: 2, change: 2 },
+        { label: ">24h", lastWeek: 1, week36: 0, change: 1 },
+      ],
+    },
+    {
+      category: "Power", lastWeek: 88, week36: 64, change: 24,
+      durations: [
+        { label: "≤15m", lastWeek: 6, week36: 4, change: 2 },
+        { label: "16m-4h", lastWeek: 40, week36: 28, change: 12 },
+        { label: "4-8h", lastWeek: 30, week36: 22, change: 8 },
+        { label: "8-12h", lastWeek: 8, week36: 6, change: 2 },
+        { label: "12-24h", lastWeek: 3, week36: 3, change: 0 },
+        { label: ">24h", lastWeek: 1, week36: 1, change: 0 },
+      ],
+    },
+    {
+      category: "Telecom Infrastructure", lastWeek: 1, week36: 0, change: 1,
+      durations: [
+        { label: "≤15m", lastWeek: 0, week36: 0, change: 0 },
+        { label: "16m-4h", lastWeek: 1, week36: 0, change: 1 },
+        { label: "4-8h", lastWeek: 0, week36: 0, change: 0 },
+        { label: "8-12h", lastWeek: 0, week36: 0, change: 0 },
+        { label: "12-24h", lastWeek: 0, week36: 0, change: 0 },
+        { label: ">24h", lastWeek: 0, week36: 0, change: 0 },
+      ],
+    },
+    {
+      category: "Transmission", lastWeek: 4, week36: 4, change: 0,
+      durations: [
+        { label: "≤15m", lastWeek: 1, week36: 1, change: 0 },
+        { label: "16m-4h", lastWeek: 2, week36: 2, change: 0 },
+        { label: "4-8h", lastWeek: 1, week36: 1, change: 0 },
+        { label: "8-12h", lastWeek: 0, week36: 0, change: 0 },
+        { label: "12-24h", lastWeek: 0, week36: 0, change: 0 },
+        { label: ">24h", lastWeek: 0, week36: 0, change: 0 },
+      ],
+    },
+    {
+      category: "BSS Hardware", lastWeek: 11, week36: 19, change: -8,
+      durations: [
+        { label: "≤15m", lastWeek: 1, week36: 2, change: -1 },
+        { label: "16m-4h", lastWeek: 5, week36: 9, change: -4 },
+        { label: "4-8h", lastWeek: 3, week36: 5, change: -2 },
+        { label: "8-12h", lastWeek: 1, week36: 2, change: -1 },
+        { label: "12-24h", lastWeek: 1, week36: 1, change: 0 },
+        { label: ">24h", lastWeek: 0, week36: 0, change: 0 },
+      ],
+    },
+    {
+      category: "Site Down", lastWeek: 348, week36: 425, change: -77,
+      durations: [
+        { label: "≤15m", lastWeek: 18, week36: 22, change: -4 },
+        { label: "16m-4h", lastWeek: 160, week36: 195, change: -35 },
+        { label: "4-8h", lastWeek: 110, week36: 135, change: -25 },
+        { label: "8-12h", lastWeek: 40, week36: 50, change: -10 },
+        { label: "12-24h", lastWeek: 15, week36: 18, change: -3 },
+        { label: ">24h", lastWeek: 5, week36: 5, change: 0 },
+      ],
+    },
+  ];
+
+  function deltaClass(n) { return n > 0 ? "up" : n < 0 ? "down" : "flat"; }
+  function signed(n) { return (n > 0 ? "+" : "") + n; }
+
+  const body = document.getElementById("categoryBody");
+
+  DATA.forEach(function (row, index) {
+    const catRow = document.createElement("tr");
+    catRow.className = "category-row";
+    catRow.dataset.index = index;
+    catRow.innerHTML =
+      '<td><span class="caret">▶</span>' + row.category + '</td>' +
+      '<td><span class="count">' + row.lastWeek + '</span>' +
+        (row.change !== 0 ? ' <span class="step-delta ' + deltaClass(row.change) + '">' + signed(row.change) + '</span>' : '') +
+      '</td>' +
+      '<td><span class="count">' + row.week36 + '</span></td>' +
+      '<td class="change ' + deltaClass(row.change) + '">' + signed(row.change) + '</td>';
+    body.appendChild(catRow);
+
+    const panelRow = document.createElement("tr");
+    panelRow.className = "duration-panel";
+    panelRow.dataset.index = index;
+    const innerTable = document.createElement("table");
+    const tbody = document.createElement("tbody");
+    row.durations.forEach(function (d) {
+      const tr = document.createElement("tr");
+      tr.className = "duration-row";
+      tr.innerHTML =
+        '<td>' + d.label + '</td>' +
+        '<td><span class="count">' + d.lastWeek + '</span>' +
+          (d.change !== 0 ? ' <span class="step-delta ' + deltaClass(d.change) + '">' + signed(d.change) + '</span>' : '') +
+        '</td>' +
+        '<td><span class="count">' + d.week36 + '</span></td>' +
+        '<td class="change ' + deltaClass(d.change) + '">' + signed(d.change) + '</td>';
+      tbody.appendChild(tr);
+    });
+    innerTable.appendChild(tbody);
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.appendChild(innerTable);
+    panelRow.appendChild(td);
+    body.appendChild(panelRow);
+
+    catRow.addEventListener("click", function () {
+      const isOpen = catRow.classList.contains("open");
+      document.querySelectorAll("tr.category-row.open").forEach(function (r) {
+        r.classList.remove("open");
+      });
+      document.querySelectorAll("tr.duration-panel.expanded").forEach(function (r) {
+        r.classList.remove("expanded");
+      });
+      if (!isOpen) {
+        catRow.classList.add("open");
+        panelRow.classList.add("expanded");
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,9 +1,7 @@
-"""Read/write access to the local vip_incident_status cache
-(instance/localstorage.db) — same shape as incident_by_status, but scoped
-to only VIP/VVIP sites and to status != 'closed' (so Resolved stays). Used
-only by VipAlarmService's enrichment — see
-app/database/queries/vip_incident_status.sql for why this needs to be its
-own table rather than a change to incident_by_status.sql itself."""
+"""Read/write access to the local vip_incident_status cache — same
+shape as incident_by_status, scoped to VIP/VVIP sites with
+status != 'closed' (so Resolved stays). Used only by VipAlarmService's
+enrichment."""
 
 from app.database.cache import VIP_INCIDENT_STATUS_CACHE_TABLES
 from app.repositories.base_cache_repository import BaseCacheRepository

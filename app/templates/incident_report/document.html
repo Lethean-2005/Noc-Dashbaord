@@ -1,0 +1,464 @@
+{% extends "layouts/base.html" %}
+{% block title %}Incident Report{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_static('css/components/incident-report.css') }}">
+{% endblock %}
+{% block content %}
+<div class="alarm-header" id="incidentReportPageHeader">
+  <div>
+    <h1>Wholesale Products &amp; Service Delivery
+      {% if report_id %}
+      <span class="ir-status-badge ir-status-badge-{{ (report.get('status') or 'Draft')|lower }}">{{ report.get('status') or 'Draft' }}</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="alarm-actions ir-toolbar">
+    {# Custom dropdown (not a native <select>) so the option list can be
+       capped to ~10 visible rows with the rest reachable by scrolling
+       (.ir-report-picker-options below) — a native select's own popup
+       doesn't give us control over how many rows show before it
+       scrolls. Reuses Partner Contact's own dropdown-card shell
+       (pc-field-dropdown-*, tables.css) and its established
+       "any click outside .pc-field-with-dropdown closes it" delegated
+       handler (incident-report.js, same file as Incident Received By's
+       own dropdown above), rather than building a new pattern. #}
+    <div class="pc-field-with-dropdown ir-report-picker">
+      <button type="button" class="btn-export" id="irReportPickerToggle">
+        <span id="irReportPickerLabel">
+          {%- if report_id -%}
+            {% set r_status = (report.get('status') or 'Draft') %}
+            <span class="ir-report-status ir-report-status-{{ r_status|lower }}">[{{ r_status }}]</span>
+            {{ report.get('file_name') or report.get('incident_number') or report.get('service_disruption') or report_id }}
+          {%- else -%}
+            + New Report
+          {%- endif -%}
+        </span>
+        <i class="ti ti-chevron-down"></i>
+      </button>
+      <div class="pc-field-dropdown-card ir-report-picker-card" id="irReportPickerCard" style="display:none;">
+        <div class="pc-field-dropdown-options ir-report-picker-options" id="irReportPickerOptions">
+          <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if not report_id else '' }}" data-href="{{ url_for('incident_report.index') }}">
+            <span class="pc-field-dropdown-option-label">+ New Report</span>
+            <i class="ti ti-check pc-field-dropdown-option-check"></i>
+          </button>
+          {% for r in reports %}
+          <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if r.id == report_id else '' }}" data-href="{{ url_for('incident_report.index', id=r.id) }}">
+            {% set r_status = (r.get('status') or 'Draft') %}
+            <span class="pc-field-dropdown-option-label"><span class="ir-report-status ir-report-status-{{ r_status|lower }}">[{{ r_status }}]</span> {{ r.file_name or r.incident_number or r.service_disruption or r.id }} &mdash; {{ r.updated_at }}</span>
+            <i class="ti ti-check pc-field-dropdown-option-check"></i>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% if report_id %}
+    <details class="ir-actions-menu">
+      <summary class="btn-export"><i class="ti ti-dots-vertical"></i> Actions <i class="ti ti-chevron-down"></i></summary>
+      <div class="ir-actions-menu-panel">
+        <a class="ir-actions-menu-item" href="{{ url_for('incident_report.export_pdf', report_id=report_id) }}" onclick="this.closest('details').removeAttribute('open')">
+          <i class="ti ti-file-type-pdf"></i> PDF
+        </a>
+        <a class="ir-actions-menu-item" href="{{ url_for('incident_report.export_docx', report_id=report_id) }}" onclick="this.closest('details').removeAttribute('open')">
+          <i class="ti ti-file-type-doc"></i> DOCX
+        </a>
+        <form method="post" action="{{ url_for('incident_report.set_status', report_id=report_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if (report.get('status') or 'Draft') == 'Final' %}
+          <input type="hidden" name="status" value="Draft">
+          <button type="submit" class="ir-actions-menu-item" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-file-off"></i> Revert to Draft
+          </button>
+          {% else %}
+          <input type="hidden" name="status" value="Final">
+          <button type="submit" class="ir-actions-menu-item" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-file-check"></i> Mark as Final
+          </button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('incident_report.delete', report_id=report_id) }}"
+              data-confirm="Delete this Incident Report? This cannot be undone." data-confirm-title="Delete Report" data-confirm-yes="Yes, Delete!">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="ir-actions-menu-item ir-actions-menu-item-danger" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-trash"></i> Delete
+          </button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+    <a class="btn-view btn-back" href="{{ url_for('dashboard.index') }}">Back</a>
+  </div>
+</div>
+
+{% if request.args.get('finalize_error') %}
+<div class="ir-finalize-error">
+  <i class="ti ti-alert-triangle"></i>
+  This report isn't complete yet — fill in every required field (including at least one
+  chronology event) before it can be marked as Final.
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('incident_report.save') }}" id="incidentReportForm" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="report_id" value="{{ report_id or '' }}">
+
+  <div class="ir-document">
+    <div class="ir-document-head">
+      <div class="ir-document-title-wrap">
+        {# Default text pre-filled (still fully editable) only for a
+           brand-new, never-saved report — same report.get() fallback
+           trick as Actions Taken above: the key is absent only for a
+           genuinely new report's {}, never for an existing one (which
+           always has this key, even "" if someone cleared it on
+           purpose), so an intentional blank is never forced back. #}
+        <input type="text" name="document_title" class="ir-document-title-input"
+               value="{{ report.get('document_title', 'Official Incident Report') }}"
+               placeholder="Official Incident Report" required>
+      </div>
+      <img class="ir-document-logo" src="{{ versioned_static('img/telcotech_logo.png') }}" alt="Telcotech">
+    </div>
+
+    <div class="ir-field ir-filename-field">
+      <label>Export File Name</label>
+      <input type="text" name="file_name" id="irFileName" value="{{ report.get('file_name', '') }}" placeholder="e.g. IX1222" required>
+      <p style="margin:4px 0 0;font-size:11px;color:#e36c0a;">Auto-fills from the fields below — edit anytime.</p>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">Initial Incident Details</div>
+      <div class="ir-section-body">
+        <div class="ir-grid">
+          <div class="ir-field"><label>Incident Raised By</label><input type="text" name="incident_raised_by" value="{{ report.get('incident_raised_by', '') }}" placeholder="e.g. SMART (Mr. Chhun Pao)" required></div>
+          <div class="ir-field">
+            <label>Incident Received By</label>
+            {# Same input+dropdown-card shell as Partner Contact's Domain
+               field (tables.css's .pc-field-* classes — already shared
+               with the dashboard's Filter by Category, so reused here
+               rather than duplicated) — still a real <input>, typing a
+               name not on the fixed list below works exactly the same
+               as before, the dropdown is just a shortcut. #}
+            <div class="pc-field-with-dropdown">
+              <input type="text" name="incident_received_by" id="irReceivedBy" value="{{ report.get('incident_received_by', '') }}" placeholder="e.g. Mr. HOUT Heang" required autocomplete="off">
+              <button type="button" class="pc-field-selector-btn" id="irReceivedByToggle" title="Choose a name">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-selector">
+                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                  <path d="M8 9l4 -4l4 4" />
+                  <path d="M16 15l-4 4l-4 -4" />
+                </svg>
+              </button>
+              <div class="pc-field-dropdown-card" id="irReceivedByDropdown" style="display:none;">
+                <div class="pc-field-dropdown-header">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-users">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+                    <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+                  </svg>
+                  <span>Choose a Name</span>
+                </div>
+                <div class="pc-field-dropdown-options" id="irReceivedByOptions"></div>
+              </div>
+            </div>
+          </div>
+          {% set field_name, field_label, field_value, field_placeholder = "reported_date", "Reported Date", report.get('reported_date', ''), "e.g. 11-Sep-2026" %}
+          {% include "incident_report/_date_field.html" with context %}
+          <div class="ir-field"><label>Service Disruption</label><input type="text" name="service_disruption" value="{{ report.get('service_disruption', '') }}" placeholder="e.g. IX1222" required></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">Detailed Incident Information</div>
+      <div class="ir-section-body">
+        <div class="ir-grid">
+          {% set field_name, field_label, field_value, field_placeholder = "incident_date", "Incident Date", report.get('incident_date', ''), "e.g. 11-Sep-2026" %}
+          {% include "incident_report/_date_field.html" with context %}
+          <div class="ir-field"><label>Report Time</label><input type="text" name="report_time" value="{{ report.get('report_time', '') }}" placeholder="e.g. 16:37" required></div>
+          <div class="ir-field"><label>Incident Number</label><input type="text" name="incident_number" class="ir-incident-number" value="{{ report.get('incident_number', 'TCT#') }}" placeholder="e.g. TCT#1968379" required></div>
+          <div class="ir-field"><label>Incident Category</label><input type="text" name="incident_category" value="{{ report.get('incident_category', '') }}" placeholder="e.g. SLA" required></div>
+          <div class="ir-field"><label>Customers Impacted</label><input type="text" name="customers_impacted" value="{{ report.get('customers_impacted', '') }}" placeholder="e.g. SMART" required></div>
+          <div class="ir-field"><label>Duration of Interruption</label><input type="text" name="duration_of_interruption" value="{{ report.get('duration_of_interruption', '') }}" placeholder="fills in from Report Time + Restored Time" readonly required></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">Incident Description / Root Cause Analysis</div>
+      <div class="ir-section-body">
+        <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">Incident Number and Duration share the same value as "Detailed Incident Information" above — editable from either place, both stay in sync.</p>
+        <div class="ir-grid-4">
+          <div class="ir-field"><label>Incident Number</label><input type="text" id="irDescIncidentNumber" class="ir-incident-number" value="{{ report.get('incident_number', 'TCT#') }}" placeholder="e.g. TCT#1968379"></div>
+          {# No picker here on purpose — unlike every other date/time field
+             on this page, this one is always derived (Reported Date +
+             Report Time above, or back-computed from Restored Time -
+             Duration — see incident-report.js), never a value someone
+             types or picks directly, so a picker would just invite an
+             edit that either gets silently overwritten by the next
+             auto-fill or, worse, desyncs this field from its own
+             sources with no way back short of re-triggering them. #}
+          <div class="ir-field"><label>Report Time</label><input type="text" name="raise_time" value="{{ report.get('raise_time', '') }}" placeholder="fills in from Reported Date + Report Time" readonly></div>
+          {% set field_name, field_label, field_value, field_placeholder = "restored_time", "Restored Time", report.get('restored_time', ''), "e.g. 11-Sep-2026 17:03" %}
+          {% include "incident_report/_datetime_field.html" with context %}
+          <div class="ir-field"><label>Duration</label><input type="text" id="irDescDuration" value="{{ report.get('duration_of_interruption', '') }}" placeholder="fills in from Report Time + Restored Time" readonly></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">Root Cause Analysis &ndash; Chronology of Events</div>
+      <div class="ir-section-body">
+        <div class="ir-subhead">Details of Incident</div>
+        <div class="ir-grid">
+          <div class="ir-field"><label>Incident Number</label><input type="text" id="irDetailsIncidentNumber" class="ir-incident-number" value="{{ report.get('incident_number', 'TCT#') }}" placeholder="e.g. TCT#1968379"></div>
+          <div class="ir-field"><label>Date and Time</label><input type="text" name="details_date_and_time" value="{{ report.get('details_date_and_time', '') }}" placeholder='e.g. 11th-Sep 2026' required></div>
+          <div class="ir-field"><label>Time of Complaint</label><input type="text" name="time_of_complaint" value="{{ report.get('time_of_complaint', '') }}" placeholder="e.g. 11th-Sep-2026 13:00" required></div>
+          <div class="ir-field ir-field-full"><label>Issue Reported</label><textarea name="issue_reported" rows="2" placeholder="e.g. SMART reported a connection issue with CID: IX1222..." required>{{ report.get('issue_reported', '') }}</textarea></div>
+        </div>
+
+        <div class="ir-field">
+          <label>Actions Taken</label>
+          {# Default text pre-filled (still fully editable) only for a
+             brand-new, never-saved report — report.get()'s fallback only
+             fires when the key itself is absent, which is true for a
+             new report's {} but never true for an existing one (every
+             saved report has this key, even set to "" if someone
+             cleared it on purpose) — so an intentional blank is never
+             silently forced back to this text on the next page load. #}
+          <input type="text" name="actions_taken_summary" id="irActionsTaken"
+                 value="{{ report.get('actions_taken_summary', 'Acknowledgment, Investigation, Resolution & Root Cause Analysis') }}"
+                 placeholder="Acknowledgment, Investigation, Resolution &amp; Root Cause Analysis" required>
+        </div>
+        <div id="irChronologyDatePreviews">
+          <p class="ir-fixed-line">Date and Time: <span class="ir-fixed-line-date{{ '' if report.get('incident_date') else ' ir-fixed-line-placeholder' }}">{{ report.get('incident_date') or '(same as Incident Date above)' }}</span></p>
+        </div>
+
+        <label style="font-size:10.5px;font-weight:700;color:#b25400;">Events</label>
+        <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">Each event has its own date, so a chronology that runs past midnight still shows which day every line belongs to.</p>
+        <div id="irEventRows">
+          {% for event in report.get('chronology_events', []) %}
+          <div class="ir-event-row">
+            <div class="ir-date-field">
+              <input type="text" name="event_date" value="{{ event.get('date', '') }}" placeholder="22-Sep-2026" class="ir-date-text" required>
+              <button type="button" class="ir-date-pick-btn" aria-label="Pick a date"><i class="ti ti-calendar"></i></button>
+            </div>
+            <div class="ir-time-field">
+              <input type="text" name="event_time" value="{{ event.time }}" placeholder="13:00" class="ir-time-only-text" required>
+              <button type="button" class="ir-date-pick-btn" aria-label="Pick a time"><i class="ti ti-clock"></i></button>
+            </div>
+            <input type="text" name="event_description" value="{{ event.description }}" placeholder="What happened at this time..." required>
+            <button type="button" class="ir-event-remove" onclick="this.closest('.ir-event-row').remove()"><i class="ti ti-x"></i></button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn-export ir-add-event" id="irAddEvent"><i class="ti ti-plus"></i> Add Event</button>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">Fault Analysis &amp; Resolution</div>
+      <div class="ir-section-body ir-fault-body" id="irFault1Body">
+        <table class="ir-fault-table">
+          <tr>
+            <td class="ir-fault-table-label"><label class="ir-fault-label">Cause of Outage</label></td>
+            <td class="ir-fault-table-value"><textarea name="cause_of_outage" rows="2" required>{{ report.get('cause_of_outage', '') }}</textarea></td>
+          </tr>
+          <tr>
+            <td class="ir-fault-table-label"><label class="ir-fault-label">Fault GPS Location</label></td>
+            <td class="ir-fault-table-value"><input type="text" name="fault_gps_location" value="{{ report.get('fault_gps_location', '') }}" required></td>
+          </tr>
+          {# Only meaningful once a report has two distinct causes (see
+             Incident_Report_PCCW-MX1052-MX1054.pdf) — a single fault
+             (the default for every new report) has no "issued" moment
+             separate from the fault itself, so this row stays hidden
+             until "Add Second Fault" reveals it (incident-report.js's
+             own toggle), same as this input isn't in _REQUIRED_FIELDS
+             unless has_second_fault (incident_report_service.py). #}
+          <tr id="irIssuedTimeRow" {% if not report.get('has_second_fault') %}hidden{% endif %}>
+            <td class="ir-fault-table-label"><label class="ir-fault-label">Issued Time (UTC+7)</label></td>
+            <td class="ir-fault-table-value"><input type="text" name="issued_time" value="{{ report.get('issued_time', '') }}" placeholder="e.g. 06th-Sep-2026 06:59 UTC+7"></td>
+          </tr>
+          <tr>
+            <td class="ir-fault-table-label"><label class="ir-fault-label">Resolution</label></td>
+            <td class="ir-fault-table-value"><textarea name="resolution" rows="2" required>{{ report.get('resolution', '') }}</textarea></td>
+          </tr>
+          <tr>
+            <td class="ir-fault-table-label"><label class="ir-fault-label">Permanent Fixed</label></td>
+            <td class="ir-fault-table-value">
+              <select name="permanent_fixed" required>
+                <option value="" {% if not report.get('permanent_fixed') %}selected{% endif %}>&mdash;</option>
+                <option value="Yes" {% if report.get('permanent_fixed') == 'Yes' %}selected{% endif %}>Yes</option>
+                <option value="No" {% if report.get('permanent_fixed') == 'No' %}selected{% endif %}>No</option>
+              </select>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="ir-section-body" style="border-top:none;padding-top:12px;">
+        <input type="hidden" name="has_second_fault" id="irHasSecondFault" value="{{ report.get('has_second_fault', '') }}">
+        <button type="button" class="btn-export" id="irAddSecondFault" {% if report.get('has_second_fault') %}hidden{% endif %}><i class="ti ti-plus"></i> Add Second Fault</button>
+        <button type="button" class="btn-export" id="irRemoveSecondFault" {% if not report.get('has_second_fault') %}hidden{% endif %}><i class="ti ti-x"></i> Remove Second Fault</button>
+      </div>
+    </div>
+
+    {# Page 2 — only for an incident with two distinct, separately
+       confirmed root causes (see Incident_Report_PCCW-MX1052-MX1054.pdf,
+       the reference this mirrors: first attributed to a submarine cable
+       partner's maintenance, later found to also involve a separate
+       fiber cut). Hidden unless has_second_fault is already set — "Add
+       Second Fault" above reveals it and sets that flag client-side;
+       incident-report.js's own toggle also prefixes irFault1Body's own
+       labels with "1st " while this is showing, matching the reference
+       numbering both faults' fields once there are two. #}
+    <div id="irPage2" {% if not report.get('has_second_fault') %}hidden{% endif %}>
+      <div class="ir-section">
+        <div class="ir-section-title">Fault Analysis &amp; Resolution (2nd Cause)</div>
+        <div class="ir-section-body ir-fault-body">
+          <table class="ir-fault-table">
+            <tr>
+              <td class="ir-fault-table-label"><label>2nd Cause of Outage</label></td>
+              <td class="ir-fault-table-value"><textarea name="cause_of_outage_2" rows="2">{{ report.get('cause_of_outage_2', '') }}</textarea></td>
+            </tr>
+            <tr>
+              <td class="ir-fault-table-label"><label>2nd Fault GPS Location</label></td>
+              <td class="ir-fault-table-value"><input type="text" name="fault_gps_location_2" value="{{ report.get('fault_gps_location_2', '') }}"></td>
+            </tr>
+            <tr>
+              <td class="ir-fault-table-label"><label>2nd Issued Time (UTC+7)</label></td>
+              <td class="ir-fault-table-value"><input type="text" name="issued_time_2" value="{{ report.get('issued_time_2', '') }}" placeholder="e.g. 12th-Sep-2026 06:39 UTC+7"></td>
+            </tr>
+            <tr>
+              <td class="ir-fault-table-label"><label>2nd Resolution</label></td>
+              <td class="ir-fault-table-value"><textarea name="resolution_2" rows="2">{{ report.get('resolution_2', '') }}</textarea></td>
+            </tr>
+            <tr>
+              <td class="ir-fault-table-label"><label>2nd Permanent Fixed</label></td>
+              <td class="ir-fault-table-value">
+                <select name="permanent_fixed_2">
+                  <option value="" {% if not report.get('permanent_fixed_2') %}selected{% endif %}>&mdash;</option>
+                  <option value="Yes" {% if report.get('permanent_fixed_2') == 'Yes' %}selected{% endif %}>Yes</option>
+                  <option value="No" {% if report.get('permanent_fixed_2') == 'No' %}selected{% endif %}>No</option>
+                </select>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="ir-section">
+        <div class="ir-section-title">Improvement and Preventive Plan</div>
+        <div class="ir-section-body">
+          <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">One action per line — "TELCOTECH will take the following actions:" is added automatically in the exported document.</p>
+          <div id="irPlanItems">
+            {% for item in report.get('improvement_plan', []) %}
+            <div class="ir-plan-row">
+              <input type="text" name="improvement_item" value="{{ item }}" placeholder="e.g. Strengthen coordination and escalation with relevant network partners">
+              <button type="button" class="ir-event-remove" onclick="this.closest('.ir-plan-row').remove()"><i class="ti ti-x"></i></button>
+            </div>
+            {% endfor %}
+          </div>
+          <button type="button" class="btn-export" id="irAddPlanItem"><i class="ti ti-plus"></i> Add Item</button>
+        </div>
+      </div>
+
+    </div>
+
+    {# Picture Reference — its own always-visible section, NOT gated
+       behind "Add Second Fault": a single fault can still have photos
+       attached (see IR_SMART-IX1222_15-Sep-2026.pdf, a real single-
+       fault report whose only page-2 content is its photos). The DOCX
+       export mirrors this — incident_report_docx.py's
+       _build_picture_only_section() adds a picture-only page 2 for a
+       single-fault report that has photos, separate from
+       _build_second_fault_section()'s own fuller page 2. #}
+    <div class="ir-section">
+      <div class="ir-section-title">Picture Reference</div>
+      <div class="ir-section-body">
+        <div id="irPictureList">
+          {% for pic in report.get('picture_references', []) %}
+          <div class="ir-picture-item">
+            <input type="hidden" name="keep_picture_id" value="{{ pic.id }}">
+            <img src="data:{{ pic.content_type }};base64,{{ pic.data_base64 }}" alt="{{ pic.filename }}">
+            <button type="button" class="ir-event-remove" onclick="this.closest('.ir-picture-item').remove()"><i class="ti ti-x"></i></button>
+          </div>
+          {% endfor %}
+        </div>
+        {# Each click on "Add Picture" (incident-report.js) creates its
+           own single-file input, same "Add Event" pattern as
+           Chronology of Events — a native file input's own FileList
+           is read-only, so a shared multiple-file input has no clean
+           way to remove just ONE already-picked file; a fresh input
+           per photo makes "remove" just this row's own .remove(),
+           same as every other add/remove list on this page. #}
+        <button type="button" class="btn-export" id="irAddPicture"><i class="ti ti-plus"></i> Add Picture</button>
+      </div>
+    </div>
+
+    <div class="ir-footer-actions">
+      {% if report.get('status') == 'Final' %}
+      <span class="ir-save-hint">This report is marked Final &mdash; use <b>Revert to Draft</b> in the Actions menu
+        above if it needs editing again.</span>
+      {% else %}
+      <button type="submit" name="intent" value="draft" formnovalidate id="irSaveDraftBtn" class="btn-export">
+        <i class="ti ti-file-off"></i> Save as Draft
+      </button>
+      <button type="submit" name="intent" value="final" class="btn-export ir-save-complete-btn">
+        <i class="ti ti-file-check"></i> Save &amp; Complete
+      </button>
+      <span class="ir-save-hint">Export File Name is always required &mdash; Save as Draft skips everything else below; Save &amp; Complete needs all of it filled in.</span>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+{# One shared calendar dropdown for every date field on the page
+   (incident-report.js repositions + rebinds it to whichever field's
+   calendar icon was clicked) rather than one instance per field —
+   there's only ever one open at a time. #}
+<div class="ir-calendar" id="irCalendar" hidden>
+  <div id="irCalendarBody">
+    <div class="ir-calendar-header">
+      <button type="button" class="ir-calendar-nav" data-dir="-1" aria-label="Previous month">&lsaquo;</button>
+      <span class="ir-calendar-title" id="irCalendarTitle"></span>
+      <button type="button" class="ir-calendar-nav" data-dir="1" aria-label="Next month">&rsaquo;</button>
+    </div>
+    <div class="ir-calendar-weekdays">
+      <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+    </div>
+    <div class="ir-calendar-days" id="irCalendarDays"></div>
+  </div>
+  <div class="ir-calendar-time-row" id="irCalendarTimeRow" hidden>
+    <i class="ti ti-clock ir-time-icon"></i>
+    <div class="ir-time-picker">
+      <div class="ir-time-spinner">
+        <input type="text" inputmode="numeric" class="ir-time-spinner-input" id="irCalendarHourInput" maxlength="2" value="12" aria-label="Hour">
+        <div class="ir-time-spinner-arrows">
+          <button type="button" class="ir-time-spinner-arrow" data-field="hour" data-dir="1" aria-label="Increase hour">&#9650;</button>
+          <button type="button" class="ir-time-spinner-arrow" data-field="hour" data-dir="-1" aria-label="Decrease hour">&#9660;</button>
+        </div>
+      </div>
+      <span class="ir-time-sep">:</span>
+      <div class="ir-time-spinner">
+        <input type="text" inputmode="numeric" class="ir-time-spinner-input" id="irCalendarMinuteInput" maxlength="2" value="00" aria-label="Minute">
+        <div class="ir-time-spinner-arrows">
+          <button type="button" class="ir-time-spinner-arrow" data-field="minute" data-dir="1" aria-label="Increase minute">&#9650;</button>
+          <button type="button" class="ir-time-spinner-arrow" data-field="minute" data-dir="-1" aria-label="Decrease minute">&#9660;</button>
+        </div>
+      </div>
+      <div class="ir-time-spinner ir-time-ampm">
+        <input type="text" class="ir-time-spinner-input" id="irCalendarAmPmInput" value="AM" readonly aria-label="AM or PM">
+        <div class="ir-time-spinner-arrows">
+          <button type="button" class="ir-time-spinner-arrow" data-field="ampm" data-dir="1" aria-label="Toggle AM/PM">&#9650;</button>
+          <button type="button" class="ir-time-spinner-arrow" data-field="ampm" data-dir="-1" aria-label="Toggle AM/PM">&#9660;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ir-calendar-footer">
+    <button type="button" class="ir-calendar-cancel" id="irCalendarCancel">Cancel</button>
+    <button type="button" class="ir-calendar-apply" id="irCalendarApply">Apply</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ versioned_static('js/incident-report.js') }}"></script>
+{% endblock %}

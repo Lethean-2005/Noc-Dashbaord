@@ -67,22 +67,19 @@ def classify_site_technology_coverage(alarm_rows, inventory_by_site):
     (completely_down, partially_down) — by comparing which technologies are
     down against each site's known inventory (site_code -> set of
     2g/3g/4g/5g, from site_technology_cache). Shared by
-    app/services/alarm_site_down/alarm_completely_site_down_service.py
-    ("Alarm Completely Site Down") and app/services/ran/ran_site_down_service.py
-    /ran_tech_down_service.py ("RAN Site Down"/"RAN Tech Down" — the same
-    "all techs down" vs "one tech down" distinction, just for the RAN
-    Status card), so all three read this one definition instead of each
-    re-deriving it.
+    alarm_completely_site_down_service.py and
+    ran_site_down_service.py/ran_tech_down_service.py (same "all techs
+    down" vs "one tech down" distinction for the RAN Status card), so all
+    three read one definition instead of each re-deriving it.
 
-    completely_down: a SRAN alarm is present (the shared baseband — takes
-    down every technology, not just one) OR the union of specific-generation
-    alarms fully covers the site's inventory.
-    partially_down: at least one specific-generation alarm is present but
-    it does NOT fully cover the site's inventory, and no SRAN alarm is
-    present either.
+    completely_down: a SRAN alarm is present (shared baseband — takes
+    down every technology) OR the union of specific-generation alarms
+    fully covers the site's inventory. partially_down: at least one
+    specific-generation alarm is present but doesn't fully cover the
+    inventory, and no SRAN alarm is present either.
 
-    A site with no known technology inventory lands in neither set — there
-    is nothing to have fully or partially covered."""
+    A site with no known technology inventory lands in neither set —
+    nothing to have fully or partially covered."""
     down_techs_by_site = {}
     covers_all_by_site = set()
     for row in alarm_rows:

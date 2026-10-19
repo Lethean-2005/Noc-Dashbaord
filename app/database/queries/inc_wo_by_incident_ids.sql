@@ -1,14 +1,8 @@
 -- ==============================================================
--- Every INC-WO belonging to a specific batch of incidents, in ONE
--- round-trip — used by incident_by_status.sql/incident_site_down.sql/
--- vip_incident_status.sql's sync to resolve "latest INC-WO per
--- (incident, site)" without a per-row LATERAL subquery against the
--- foreign object_324 table. No status filter (a Closed WO can still be
--- the latest one); "latest per (incident, site)" is picked in Python
--- afterward — see IncidentSyncService._latest_wo_by_incident_site().
---
--- Responsible Team is the WO's own team (object_310 FK), not the parent
--- Incident's — used to enrich VipAlarmService/MentorSiteService's rows.
+-- Every INC-WO for a batch of incidents in one round-trip — resolves
+-- "latest INC-WO per (incident, site)" without a per-row LATERAL
+-- subquery. No status filter; "latest" is picked in Python afterward
+-- (IncidentSyncService._latest_wo_by_incident_site()).
 -- ==============================================================
 
 -- name: inc_wo_by_incident_ids

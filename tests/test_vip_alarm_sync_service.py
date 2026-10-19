@@ -33,6 +33,14 @@ class FakeCacheRepo:
         self.written = rows
 
 
+class FakeVipSiteRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self, table):
+        return self._rows
+
+
 def _ape_alarm_row(site_code, **overrides):
     row = {
         "occurred_at": "2026-01-01 00:00:00",
@@ -87,6 +95,48 @@ def test_sync_carries_through_ape_alarm_fields_and_adds_strategic_type(app):
         assert row["event_name"] == "Door Alarm"
         assert row["occurrence_count"] == 5
         assert row["site_strategic_type"] == "VIP"
+
+
+def test_sync_includes_site_mssql_flags_vip_even_when_postgres_does_not(app):
+    """Site 1517/CHI_PECH, confirmed live on 2026-09-22: MSSQL's
+    TBL_SITE.SITE_STRATEGIC says 'VIP', Postgres's site_cache.
+    site_strategic_type says 'none_strategic' — the two systems disagree,
+    and this site must still show up on the VIP card since MSSQL says
+    VIP. See VipAlarmSyncService's own module docstring."""
+    with app.app_context():
+        ape_alarm_rows = [_ape_alarm_row("1517")]
+        site_rows = [{"standard_code": "1517", "site_strategic_type": "none_strategic"}]
+        vip_site_rows = [{"site_code": "1517", "site_strategic": "VIP"}]
+        cache_repo = FakeCacheRepo()
+        svc = VipAlarmSyncService(
+            FakeApeAlarmRepo(ape_alarm_rows),
+            cache_repo,
+            FakeSiteRepo(site_rows),
+            FakeVipSiteRepo(vip_site_rows),
+        )
+
+        svc.sync()
+
+        assert {row["site_code"] for row in cache_repo.written} == {"1517"}
+        assert cache_repo.written[0]["site_strategic_type"] == "VIP"
+
+
+def test_sync_excludes_site_neither_source_flags_vip(app):
+    with app.app_context():
+        ape_alarm_rows = [_ape_alarm_row("NORMAL1")]
+        site_rows = [{"standard_code": "NORMAL1", "site_strategic_type": "Normal"}]
+        vip_site_rows = [{"site_code": "NORMAL1", "site_strategic": "Normal"}]
+        cache_repo = FakeCacheRepo()
+        svc = VipAlarmSyncService(
+            FakeApeAlarmRepo(ape_alarm_rows),
+            cache_repo,
+            FakeSiteRepo(site_rows),
+            FakeVipSiteRepo(vip_site_rows),
+        )
+
+        svc.sync()
+
+        assert cache_repo.written == []
 
 
 def test_sync_writes_empty_list_when_no_vip_sites_match(app):

@@ -9,54 +9,97 @@
     </script>
     <div class="sidebar-top">
         <a class="sidebar-brand" href="{{ url_for('dashboard.index') }}">
-            <img src="{{ url_for('static', filename='images/Noc Dashboard.svg') }}" class="brand-logo" alt="Noc Dashboard logo">
+            <img src="{{ versioned_static('images/Noc Dashboard.svg') }}" class="brand-logo" alt="Noc Dashboard logo">
         </a>
         <button class="sidebar-toggle-btn" onclick="toggleSidebar()">
             <i class="ti ti-layout-sidebar-left-collapse"></i>
         </button>
     </div>
 
-    <div class="menu-label">Menu</div>
+    <div class="menu-label">Dashboard Management</div>
 
     <nav class="nav">
         <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.path == url_for('dashboard.index') %}active{% endif %}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-layout-dashboard">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" />
-                <path d="M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" />
-                <path d="M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" />
-                <path d="M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" />
-            </svg> <span class="nav-text">Overall Dashboard</span>
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-layout-dashboard">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M5 4h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" />
+                    <path d="M5 16h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" />
+                    <path d="M15 12h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1" />
+                    <path d="M15 4h4a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1v-2a1 1 0 0 1 1 -1" />
+                </svg>
+            </span>
+            <span class="nav-text">Overall Dashboard</span>
         </a>
         <a href="{{ url_for('reports.index') }}" class="nav-item {% if request.path.startswith('/reports') %}active{% endif %}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-minus">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M4 10a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
-                <path d="M6 4v4" />
-                <path d="M6 12v8" />
-                <path d="M13.954 15.574a2 2 0 1 0 -1.954 2.426" />
-                <path d="M12 4v10" />
-                <path d="M12 18v2" />
-                <path d="M16 7a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
-                <path d="M18 4v1" />
-                <path d="M18 9v6" />
-                <path d="M16 19h6" />
-            </svg> <span class="nav-text">Custom Dashboard</span>
-        </a>
-        <a href="{{ url_for('mentor.index') }}" class="nav-item {% if request.path.startswith('/mentor') %}active{% endif %}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-tooltip">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M10 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
-                <path d="M12 13l-1.707 -1.707a1 1 0 0 0 -.707 -.293h-2.586a2 2 0 0 1 -2 -2v-3a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-2.586a1 1 0 0 0 -.707 .293l-1.707 1.707" />
-            </svg> <span class="nav-text">Mentor Site</span>
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-adjustments-minus">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M4 10a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                    <path d="M6 4v4" />
+                    <path d="M6 12v8" />
+                    <path d="M13.954 15.574a2 2 0 1 0 -1.954 2.426" />
+                    <path d="M12 4v10" />
+                    <path d="M12 18v2" />
+                    <path d="M16 7a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+                    <path d="M18 4v1" />
+                    <path d="M18 9v6" />
+                    <path d="M16 19h6" />
+                </svg>
+            </span>
+            <span class="nav-text">Custom Dashboard</span>
         </a>
         <a href="{{ url_for('mapview.index') }}" class="nav-item {% if request.path.startswith('/map') %}active{% endif %}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-2">
-                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                <path d="M3 7l6 -3l6 3l6 -3v13l-6 3l-6 -3l-6 3v-13" />
-                <path d="M9 4v13" />
-                <path d="M15 7v13" />
-            </svg> <span class="nav-text">Map View</span>
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-map-2">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M3 7l6 -3l6 3l6 -3v13l-6 3l-6 -3l-6 3v-13" />
+                    <path d="M9 4v13" />
+                    <path d="M15 7v13" />
+                </svg>
+            </span>
+            <span class="nav-text">Map View</span>
+        </a>
+    </nav>
+
+    <div class="menu-label">Site &amp; Partner Resources</div>
+
+    <nav class="nav">
+        <a href="{{ url_for('mentor.index') }}" class="nav-item {% if request.path.startswith('/mentor') %}active{% endif %}">
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-tooltip">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M10 18a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                    <path d="M12 13l-1.707 -1.707a1 1 0 0 0 -.707 -.293h-2.586a2 2 0 0 1 -2 -2v-3a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v3a2 2 0 0 1 -2 2h-2.586a1 1 0 0 0 -.707 .293l-1.707 1.707" />
+                </svg>
+            </span>
+            <span class="nav-text">Mentor Site</span>
+        </a>
+        <a href="{{ url_for('partner_contact.index') }}" class="nav-item {% if request.path.startswith('/partner-contact') %}active{% endif %}">
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-address-book">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M20 6v12a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2" />
+                    <path d="M10 16h6" />
+                    <path d="M11 11a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+                    <path d="M4 8h3" />
+                    <path d="M4 12h3" />
+                    <path d="M4 16h3" />
+                </svg>
+            </span>
+            <span class="nav-text">Partner Contact</span>
+        </a>
+        <a href="{{ url_for('incident_report.index') }}" class="nav-item {% if request.path.startswith('/incident-report') %}active{% endif %}">
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-report">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                    <path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-2" />
+                    <path d="M4 12a1 1 0 0 1 1 1v5a1 1 0 0 1 -2 0v-5a1 1 0 0 1 1 -1" />
+                    <path d="M9 17v-5a1 1 0 0 1 2 0v5a1 1 0 0 1 -2 0" />
+                </svg>
+            </span>
+            <span class="nav-text">Incident Report</span>
         </a>
     </nav>
 </aside>

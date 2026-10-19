@@ -10,3 +10,9 @@ logs/
 .ruff_cache/
 *.egg-info/
 deploy_zips/
+
+# Raw geo-data sources (see data/geo-sources/README.md) — the processed
+# versions actually served by the app live in app/static/data/ instead.
+data/geo-sources/*.geojson
+data/geo-sources/*.csv
+data/geo-sources/*.pbf

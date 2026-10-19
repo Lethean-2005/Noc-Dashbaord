@@ -1,0 +1,55 @@
+{# Generic single-field filter for drilldowns with more than one
+filterable dimension (Incident Volume's Severity/Province/Vendor,
+alongside its own Category via _category_filter.html) — caller must
+{% set scope = '...' %} and pass `field_name` (the query param name,
+e.g. "severity"), `field_label` (display heading, e.g. "Severity"),
+`available_field_values`, and `selected_field_values` (list) before
+including this. Checkboxes, not radio buttons — more than one value
+can be selected at once. Carries every OTHER known filter field forward
+as hidden inputs (read straight from the request) so applying this one
+doesn't clear category/severity/province/vendor selections made on a
+sibling include of this same partial — a field this drilldown doesn't
+actually use just contributes no hidden inputs, so this stays a safe
+no-op include anywhere none of these apply. #}
+<details class="date-filter">
+    <summary class="btn-export">
+        <i class="ti ti-filter"></i>
+        <span>
+            {% if selected_field_values %}{{ selected_field_values|length }} selected{% else %}All {{ field_label }}{% endif %}
+        </span>
+        <i class="ti ti-chevron-down"></i>
+    </summary>
+    <form class="date-filter-form" method="get">
+        <input type="hidden" name="title" value="{{ title }}">
+        <input type="hidden" name="label" value="{{ label }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="type" value="{{ request.args.get('type', '') }}">
+        {% if field_name != 'category' %}{% for v in request.args.getlist('category') %}<input type="hidden" name="category" value="{{ v }}">{% endfor %}{% endif %}
+        {% if field_name != 'severity' %}{% for v in request.args.getlist('severity') %}<input type="hidden" name="severity" value="{{ v }}">{% endfor %}{% endif %}
+        {% if field_name != 'province' %}{% for v in request.args.getlist('province') %}<input type="hidden" name="province" value="{{ v }}">{% endfor %}{% endif %}
+        {% if field_name != 'vendor' %}{% for v in request.args.getlist('vendor') %}<input type="hidden" name="vendor" value="{{ v }}">{% endfor %}{% endif %}
+        <div class="date-filter-field-label">Filter by {{ field_label }}</div>
+        <div class="category-filter-options">
+            {% if available_field_values %}
+            <label class="category-filter-option category-filter-all">
+                <input type="checkbox" class="category-filter-all-checkbox" {% if not selected_field_values %}checked{% endif %}>
+                All {{ field_label }}
+            </label>
+            {% endif %}
+            {% for val in available_field_values %}
+            <label class="category-filter-option">
+                <input type="checkbox" name="{{ field_name }}" value="{{ val }}" {% if not selected_field_values or val in selected_field_values %}checked{% endif %}>
+                {{ val }}
+            </label>
+            {% else %}
+            <span class="category-filter-empty">No {{ field_label|lower }} in this table.</span>
+            {% endfor %}
+        </div>
+        <div class="date-filter-actions">
+            <button type="submit" class="btn-export">Apply</button>
+            {% if selected_field_values %}
+            <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=request.args.get('type', ''), category=request.args.getlist('category') if field_name != 'category' else None, severity=request.args.getlist('severity') if field_name != 'severity' else None, province=request.args.getlist('province') if field_name != 'province' else None, vendor=request.args.getlist('vendor') if field_name != 'vendor' else None) }}">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</details>

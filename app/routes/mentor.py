@@ -54,6 +54,8 @@ def upload():
     file = request.files.get("file")
     if not file or not file.filename:
         return redirect(url_for("mentor.index", error="No file selected."))
+    if not file.filename.lower().endswith(".csv"):
+        return redirect(url_for("mentor.index", error="Please upload a .csv file."))
     added, duplicate, invalid, error = mentor_site_service.add_from_csv(file.stream)
     if error:
         return redirect(url_for("mentor.index", error=error))

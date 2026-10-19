@@ -1,0 +1,485 @@
+{% extends "layouts/bare.html" %}
+
+{% block title %}Help &ndash; Noc-Dashboard{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_static('css/components/help.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="help-shell">
+    <aside class="help-sidebar">
+        <a href="{{ request.referrer or url_for('dashboard.index') }}" class="help-back-link">
+            <i class="ti ti-arrow-left"></i> Back
+        </a>
+
+        <div class="help-search">
+            <i class="ti ti-search"></i>
+            <input type="text" id="helpSearchInput" placeholder="Search" autocomplete="off">
+        </div>
+
+        <nav class="help-nav" id="helpNav">
+            <a href="#getting-started" data-target="getting-started">Getting Started</a>
+            <a href="#data-sources" data-target="data-sources">Data Sources</a>
+            <a href="#topbar-toolbar" data-target="topbar-toolbar">Topbar Toolbar</a>
+            <a href="#dashboard" data-target="dashboard">Dashboard</a>
+            <a href="#map-view" data-target="map-view">Map View</a>
+            <a href="#partner-contact" data-target="partner-contact">Partner Contact</a>
+            <a href="#reports" data-target="reports">Reports</a>
+            <a href="#notifications" data-target="notifications">Notifications</a>
+            <a href="#tech-stack" data-target="tech-stack">Technology Stack</a>
+            <a href="#mentor-site" data-target="mentor-site">Mentor Site</a>
+            <a href="#troubleshooting" data-target="troubleshooting">Troubleshooting</a>
+            <a href="#downloads" data-target="downloads">Downloads</a>
+        </nav>
+    </aside>
+
+    <main class="help-main">
+        <div class="help-top">
+            <h1>Getting Started with Noc-Dashboard</h1>
+            <p class="help-lede">Noc-Dashboard is an internal, browser-based monitoring dashboard that gives NOC
+               staff a single, always-current view of network alarms, incidents, site status, and partner
+               contacts. There is no login step &mdash; opening the dashboard's URL goes straight to live
+               data, read from a local cache that background jobs keep in sync. This page walks through
+               every area of the app; use the sidebar to jump straight to one.</p>
+        </div>
+
+        <section class="help-start-here">
+            <h2>Start here</h2>
+            <p>New to Noc-Dashboard? These three are the fastest way in.</p>
+            <a class="help-quicklink" href="#getting-started">
+                <span>Getting Started &mdash; the sidebar and topbar</span> <i class="ti ti-arrow-up-right"></i>
+            </a>
+            <a class="help-quicklink" href="#topbar-toolbar">
+                <span>The Topbar Toolbar &mdash; refresh, theme, layout, fullscreen</span> <i class="ti ti-arrow-up-right"></i>
+            </a>
+            <a class="help-quicklink" href="#downloads">
+                <span>Full Documentation &mdash; download the PDF manuals</span> <i class="ti ti-arrow-up-right"></i>
+            </a>
+        </section>
+
+        <section class="help-categories">
+            <h2>Categories</h2>
+            <div class="help-categories-grid">
+                <a class="help-cat-card" href="#dashboard">
+                    <i class="ti ti-layout-dashboard"></i>
+                    <span class="help-cat-title">Dashboard</span>
+                    <span class="help-cat-desc">Live badges, drilldowns, and trend charts.</span>
+                </a>
+                <a class="help-cat-card" href="#map-view">
+                    <i class="ti ti-map-2"></i>
+                    <span class="help-cat-title">Map View</span>
+                    <span class="help-cat-desc">Site status, search, and boundary export.</span>
+                </a>
+                <a class="help-cat-card" href="#partner-contact">
+                    <i class="ti ti-address-book"></i>
+                    <span class="help-cat-title">Partner Contact</span>
+                    <span class="help-cat-desc">Partners, escalation contacts.</span>
+                </a>
+                <a class="help-cat-card" href="#mentor-site">
+                    <i class="ti ti-tooltip"></i>
+                    <span class="help-cat-title">Mentor Site</span>
+                    <span class="help-cat-desc">Focused monitoring for specific sites.</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="help-downloads" id="downloads">
+            <h2 class="help-downloads-title"><i class="ti ti-file-download"></i> Full Documentation (PDF)</h2>
+            <p class="help-downloads-desc">Everything on this page, in more depth, as a downloadable manual.</p>
+            <div class="help-downloads-grid">
+                {% for filename, title in downloads.items() %}
+                <a class="help-doc-card" href="{{ url_for('help.download', filename=filename) }}">
+                    <i class="ti ti-file-type-pdf help-doc-icon"></i>
+                    <span class="help-doc-name">{{ title }}</span>
+                    <span class="help-doc-download">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-cloud-download">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                            <path d="M19 18a3.5 3.5 0 0 0 0 -7h-1a5 4.5 0 0 0 -11 -2a4.6 4.4 0 0 0 -2.1 8.4" />
+                            <path d="M12 13l0 9" />
+                            <path d="M9 19l3 3l3 -3" />
+                        </svg>
+                        Download
+                    </span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="help-section" id="getting-started">
+            <h2><i class="ti ti-rocket"></i> Getting Started</h2>
+            <p>There is no login step &mdash; opening the dashboard's URL goes straight to live data.</p>
+            <ul>
+                <li>The <code>sidebar</code> switches between the five pages: Overall Dashboard, Custom
+                    Dashboard (Reports), Map View, Mentor Site, and Partner Contact.</li>
+                <li><code>Search Cards</code> in the topbar jumps straight to any card on the current
+                    page by name.</li>
+                <li>Every colored badge number is a live count &mdash; click it, its label, or its
+                    bar/dot to open a filtered drilldown table.</li>
+            </ul>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a screenshot-by-screenshot walkthrough of every page.</p>
+        </section>
+
+        <section class="help-section" id="data-sources">
+            <h2><i class="ti ti-database"></i> Where the Data Comes From</h2>
+            <p>Every page reads from a local cache &mdash; never live from MSSQL or PostgreSQL directly &mdash;
+               so pages load instantly and the two source databases only ever see a small, steady stream
+               of background sync queries.</p>
+            <ul>
+                <li><code>MSSQL</code> is the source for ISP POP / EZE / TCT / IT NODE alarms, On-Air
+                    site master data, POP data, VIP/VVIP sites, and Partner Contact.</li>
+                <li><code>PostgreSQL</code> (Streamline) is the source for Incidents, INC-WOs, the
+                    broader alarm feed, and Planned/Other site master data.</li>
+                <li>On-Air site status comes from MSSQL specifically because it reflects real network
+                    inventory more directly and updates sooner than Streamline's own status field &mdash;
+                    the two sources are kept independent rather than merged, so if they ever disagree about
+                    a site, the Map shows both instead of silently picking one.</li>
+                <li>Full technical detail &mdash; every query, every cache table, and the Cambodia
+                    Province/District/Commune/Village hierarchy &mdash; is in the
+                    <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+                    PDF under Downloads.</li>
+            </ul>
+        </section>
+
+        <section class="help-section" id="topbar-toolbar">
+            <h2><i class="ti ti-adjustments-horizontal"></i> The Topbar Toolbar</h2>
+            <ul>
+                <li><code>Refresh</code> reloads the page immediately instead of waiting for the next
+                    background sync.</li>
+                <li><code>Theme</code> switches between Light and Dark &mdash; saved in the browser,
+                    applied instantly, no reload.</li>
+                <li><code>Card Layout</code> lets you reorder dashboard cards (Default, same for
+                    everyone, or Custom, drag-to-reorder) &mdash; independently for the Overall and
+                    Custom Dashboard pages.</li>
+                <li><code>Fullscreen</code> toggles the browser's fullscreen mode.</li>
+            </ul>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a screenshot of each of these, including the Card Layout modal and
+               dark mode.</p>
+        </section>
+
+        <section class="help-section" id="dashboard">
+            <h2><i class="ti ti-layout-dashboard"></i> Dashboard</h2>
+            <p>Each card's badge shows a live count. Click any badge to open its drilldown table.</p>
+            <ul>
+                <li><code>IP Ezecom</code> combines ISP POP badges (POP DOWN, POP POWER) with Ezecom's own
+                    alarm badges in one card; <code>IP Telcotech/Cellcard</code> is the same idea for TCT
+                    &mdash; both are MSSQL-sourced, alongside <code>VVIP Site</code> and <code>Mentor Site</code>.</li>
+                <li><code>RAN Status</code> has four independent badge groups side by side &mdash; Site
+                    Down, Main AC Alarm, DC Low/High, and Tech Down &mdash; each with its own View button and
+                    a Hub-Site/Diamond/Gold/Silver/Bronze grade breakdown.</li>
+                <li><code>Incident / INC-WO by Status</code> shows Incident and INC-WO badge groups side
+                    by side, each with its own View button.</li>
+                <li>Three chart cards summarize trend data: Incident Age, Incidents Closed, and Incident Volume.
+                    Every bar, dot, or segment on them is clickable the same way a badge is, and hovering
+                    shows an exact-value tooltip first.</li>
+                <li>The Incidents Closed and Incident Volume drilldowns support a <code>Filter by Category</code>
+                    checkbox control &mdash; only categories actually present in that table are listed. Checking
+                    more than one category shows rows matching any of them, and the export respects the same
+                    selection.</li>
+            </ul>
+            <p class="help-subhead">Badge colors</p>
+            <table class="help-color-table">
+                <tbody>
+                    <tr><td><span class="help-swatch" style="background:#10b981"></span></td><td>Green</td><td>Count is 0 &mdash; healthy</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#ef4444"></span></td><td>Red</td><td>Count is above 0 &mdash; needs attention</td></tr>
+                </tbody>
+            </table>
+            <p>Every badge on every card follows this same rule, including the ISP POP badges inside
+               <code>IP Ezecom</code> and every badge in <code>IP Telcotech/Cellcard</code>. See the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a full screenshot of the Dashboard and its chart interactivity.</p>
+        </section>
+
+        <section class="help-section" id="map-view">
+            <h2><i class="ti ti-map-2"></i> Map View</h2>
+            <ul>
+                <li>Use the status filter (top left) to switch between On Air, Planned, Other, and Site Down,
+                    or a specific vendor under On Air.</li>
+                <li>Search by site code, POP code, or village name using the search box.</li>
+                <li>Draw a boundary by searching a province, district, or commune to see a scoped list and export.</li>
+                <li>Clicking any site or POP dot opens a popup with its name, status, and &mdash; for a site
+                    with an open Site Down incident &mdash; a direct link to that incident.</li>
+                <li>The map refreshes itself automatically &mdash; no manual reload needed for status or Site
+                    Down changes on sites already shown.</li>
+            </ul>
+            <p class="help-subhead">Site dot colors</p>
+            <table class="help-color-table">
+                <tbody>
+                    <tr><td><span class="help-swatch" style="background:#ef4444"></span></td><td>Red</td><td>Open Site Down incident &mdash; overrides every status color below</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#10b981"></span></td><td>Green</td><td>On Air</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#0487e2"></span></td><td>Blue</td><td>Planned</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#94a3b8"></span></td><td>Grey</td><td>Other</td></tr>
+                </tbody>
+            </table>
+            <p class="help-subhead">POP dot colors, by owner</p>
+            <table class="help-color-table">
+                <tbody>
+                    <tr><td><span class="help-swatch" style="background:#eab308"></span></td><td>Amber</td><td><code>Telcotech</code>-owned POP</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#a855f7"></span></td><td>Purple</td><td><code>Ezecom</code>-owned POP</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#8b5cf6"></span></td><td>Violet</td><td>Unknown/blank owner</td></tr>
+                </tbody>
+            </table>
+            <p>See <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+               under Downloads for the full color reference, including the location search dropdown's
+               Province/District/Commune/Village section colors.</p>
+        </section>
+
+        <section class="help-section" id="partner-contact">
+            <h2><i class="ti ti-address-book"></i> Partner Contact</h2>
+            <ul>
+                <li>Use <code>Add Partner</code> to create a new partner with its first contact in one step.</li>
+                <li>Use a row's <code>Add Contact</code> button to attach another contact to an existing
+                    partner &mdash; this never creates a duplicate partner record.</li>
+            </ul>
+            <p>Backed directly by MSSQL (<code>TBL_PARTNER</code>, <code>TBL_PARTNER_CONTACT</code>)
+               &mdash; every query behind this page is in the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+               PDF under Downloads.</p>
+        </section>
+
+        <section class="help-section" id="reports">
+            <h2><i class="ti ti-file-export"></i> Reports & Exporting</h2>
+            <p>The Custom Dashboard (Reports) works exactly like the Overall Dashboard &mdash; live badge
+               counts with their own drilldowns &mdash; combining eight cards onto one page:
+               <code>Current Site Down</code>, <code>Alarm Site Down</code>,
+               <code>Alarm Completely Site Down</code>, <code>Alarm Main Failure</code>,
+               <code>INC-WO Site Down</code>, <code>Alarm DG On</code>, <code>INC-WO Resolved</code>,
+               and <code>IT NODE</code>.</p>
+            <p>Every drilldown table, the Map, and Reports each have their own export control &mdash; CSV
+               for tabular drilldowns, styled .xlsx for the Map and Reports.</p>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a screenshot of this page.</p>
+        </section>
+
+        <section class="help-section" id="notifications">
+            <h2><i class="ti ti-brand-telegram"></i> Notifications & Alerting</h2>
+            <p>Background alert jobs watch the same local cache every page reads from &mdash; nothing here
+               puts extra load on MSSQL or PostgreSQL. Bot tokens and chat/group IDs live in the app's
+               environment file; the destinations below are illustrative labels for the role each one plays.</p>
+            <p class="help-subhead">Telegram Alerts</p>
+            <p>Four independent bots run on their own schedules, each posting to its own chat as a table
+               image with a styled .xlsx attachment, falling back to plain text if image rendering isn't
+               available.</p>
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Alert</th>
+                        <th>Watches</th>
+                        <th>Illustrative Destination</th>
+                        <th>Default Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Site Down</code></td>
+                        <td>Incident Site Down, past a configurable outage threshold</td>
+                        <td>NOC &ndash; Site Down Alerts</td>
+                        <td>Every 4 hours</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Site Down</code></td>
+                        <td>Open INC-WO Site Down rows, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO Site Down</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Category Power</code></td>
+                        <td>Open INC-WO Power rows, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO Power</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO General</code></td>
+                        <td>Every other open INC-WO category, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO General</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="help-subhead">Teams Webhook Alerts</p>
+            <p>A separate scheduler posts the same class of active-alarm summaries to a Microsoft Teams
+               channel via incoming webhook, on a single shared interval. Each card's webhook URL is
+               configured independently, so an individual card can be silenced without affecting the others.</p>
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Alert</th>
+                        <th>Watches</th>
+                        <th>Default Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>EZE Active Alarms</code></td>
+                        <td>Ezecom device alarms</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>TCT Active Alarms</code></td>
+                        <td>Telcotech/Cellcard device alarms</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>POP/PON Down</code></td>
+                        <td>ISP POP sites with an active POP/PON Down alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>POP/PON Power Failure</code></td>
+                        <td>ISP POP sites with an active POP/PON Power alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Alarm Main Failure</code></td>
+                        <td>Sites with an active Main AC Failure alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Current Site Down Alarms</code></td>
+                        <td>Sites currently in Alarm Site Down</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>CSO Sub-Con</code></td>
+                        <td>Same Current Site Down alarms, routed to the CSO Sub-Con channel</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Current Sites Outage</code></td>
+                        <td>Same Current Site Down alarms, routed to the Current Sites Outage channel</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Alarm DG On</code></td>
+                        <td>Sites with an active DG-On alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Site Down</code></td>
+                        <td>Open INC-WO Site Down rows</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Full detail on every alert job is in the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-Feature-Report.pdf') }}">Feature Report</a>
+               PDF under Downloads.</p>
+        </section>
+
+        <section class="help-section" id="tech-stack">
+            <h2><i class="ti ti-stack-2"></i> Technology Stack</h2>
+            <p class="help-subhead">Backend</p>
+            <ul>
+                <li><code>Flask</code> web framework, <code>Jinja2</code> templates.</li>
+                <li><code>SQLAlchemy</code> + <code>psycopg2</code> for PostgreSQL, <code>pymssql</code> for MSSQL.</li>
+                <li><code>SQLite</code> (WAL mode) local cache, <code>Waitress</code> production server.</li>
+            </ul>
+            <p class="help-subhead">Frontend</p>
+            <ul>
+                <li><code>Leaflet</code> for map rendering, <code>Tabler Icons</code> throughout.</li>
+                <li>Vanilla JavaScript &mdash; no frontend framework.</li>
+            </ul>
+            <p class="help-subhead">Export & Alerting</p>
+            <ul>
+                <li><code>openpyxl</code> for spreadsheet export, <code>Pillow</code> for alert table images.</li>
+                <li>Telegram Bot API and Teams incoming webhooks, both plain HTTP.</li>
+            </ul>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-Feature-Report.pdf') }}">Feature Report</a>
+               PDF under Downloads for the full architecture behind this stack.</p>
+        </section>
+
+        <section class="help-section" id="mentor-site">
+            <h2><i class="ti ti-tooltip"></i> Mentor Site</h2>
+            <p>Flags specific sites for focused monitoring, independent of their normal status.</p>
+            <ul>
+                <li>Use <code>Download template</code> to get a blank CSV with the right site_code column
+                    header, then use <code>Import File</code> to bulk-add sites from it.</li>
+                <li>Use <code>Input Site Codes</code> to add one or more sites by typing their codes directly
+                    &mdash; space-separated to add several at once.</li>
+                <li>Use <code>View Alarms</code> to open the alarm drilldown scoped to only the configured
+                    mentor sites.</li>
+                <li>Monitors the same alarm types as the Dashboard's other cards: Site Down, Main AC Failure,
+                    Low/High DC Voltage, DG-On, RECT Failure, Door Alarm, and Other.</li>
+            </ul>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a screenshot of this page.</p>
+        </section>
+
+        <section class="help-section" id="troubleshooting">
+            <h2><i class="ti ti-info-circle"></i> Troubleshooting</h2>
+            <p>For questions about a specific card's logic, data source, or an unexpected count, check the
+               relevant drilldown's date filter and export first. Most apparent discrepancies trace back to
+               a sync-timing window (every background job refreshes every few minutes, not instantly) rather
+               than a data error.</p>
+            <p>Still stuck? The <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+               PDF under Downloads explains exactly which query and cache table feeds each card, and the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-Virtual-Machine-Setup.pdf') }}">Virtual Machine Setup Guide</a>
+               covers dependency and startup issues.</p>
+        </section>
+    </main>
+
+    <aside class="help-toc">
+        <div class="help-toc-label"><i class="ti ti-list"></i> On this page</div>
+        <nav class="help-toc-nav" id="helpToc">
+            <a href="#getting-started" data-target="getting-started">Getting Started</a>
+            <a href="#data-sources" data-target="data-sources">Data Sources</a>
+            <a href="#topbar-toolbar" data-target="topbar-toolbar">Topbar Toolbar</a>
+            <a href="#dashboard" data-target="dashboard">Dashboard</a>
+            <a href="#map-view" data-target="map-view">Map View</a>
+            <a href="#partner-contact" data-target="partner-contact">Partner Contact</a>
+            <a href="#reports" data-target="reports">Reports</a>
+            <a href="#notifications" data-target="notifications">Notifications</a>
+            <a href="#tech-stack" data-target="tech-stack">Technology Stack</a>
+            <a href="#mentor-site" data-target="mentor-site">Mentor Site</a>
+            <a href="#troubleshooting" data-target="troubleshooting">Troubleshooting</a>
+            <a href="#downloads" data-target="downloads">Downloads</a>
+        </nav>
+    </aside>
+</div>
+
+<script>
+(function () {
+    // Search filters the left nav's own links (not the page content) — hides
+    // any item whose text doesn't match, same idea as a docs-site quick filter.
+    var searchInput = document.getElementById('helpSearchInput');
+    var navLinks = document.querySelectorAll('#helpNav a');
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            var q = searchInput.value.trim().toLowerCase();
+            navLinks.forEach(function (a) {
+                a.style.display = !q || a.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+            });
+        });
+    }
+
+    // Scroll-spy: whichever tracked section is most visible gets `.active`
+    // in both the left nav and the right "On this page" nav, live as you scroll.
+    var targets = Array.prototype.map.call(navLinks, function (a) { return a.dataset.target; });
+    var sections = targets.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    var allLinks = document.querySelectorAll('#helpNav a, #helpToc a');
+
+    function setActive(id) {
+        allLinks.forEach(function (a) {
+            a.classList.toggle('active', a.dataset.target === id);
+        });
+    }
+
+    if ('IntersectionObserver' in window && sections.length) {
+        var visible = new Map();
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) visible.set(entry.target.id, entry.intersectionRatio);
+                else visible.delete(entry.target.id);
+            });
+            if (visible.size) {
+                var topId = Array.from(visible.entries()).sort(function (a, b) { return b[1] - a[1]; })[0][0];
+                setActive(topId);
+            }
+        }, { rootMargin: '-15% 0px -70% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] });
+        sections.forEach(function (s) { observer.observe(s); });
+    }
+})();
+</script>
+{% endblock %}

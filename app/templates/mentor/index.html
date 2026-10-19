@@ -2,7 +2,7 @@
 block head %}
 <link
   rel="stylesheet"
-  href="{{ url_for('static', filename='css/components/mentor-sites.css') }}"
+  href="{{ versioned_static('css/components/mentor-sites.css') }}"
 />
 {% endblock %} {% block content %} {# Site codes are typed in or uploaded via
 CSV (app/routes/mentor.py), persisted to the mentor_sites table, then checked
@@ -360,5 +360,5 @@ see app/services/mentor/mentor_site_service.py. #}
   </div>
 </div>
 {% endblock %} {% block scripts %}
-<script src="{{ url_for('static', filename='js/mentor-sites.js') }}"></script>
+<script src="{{ versioned_static('js/mentor-sites.js') }}"></script>
 {% endblock %}

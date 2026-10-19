@@ -1,31 +1,24 @@
 """Cross-process "only one of us actually syncs" lock.
 
-The existing WERKZEUG_RUN_MAIN check in app/__init__.py only prevents the
-Werkzeug debug reloader's own watcher/child pair from double-starting
-background jobs *within one `python run.py` invocation*. It can't help
-when something outside this app (an antivirus/EDR process-monitoring
-agent, confirmed on this machine — even a bare unrelated `python -c` command
-spawns an extra copy of itself here) launches a second, fully independent
-`run.py` process: that process has its own memory, so it has no way of
-knowing a first process already exists and already started every
-scheduler.
+The existing WERKZEUG_RUN_MAIN check in app/__init__.py only prevents
+Werkzeug's debug reloader from double-starting jobs within one
+`python run.py` invocation — it can't help when something outside this
+app (an antivirus/EDR process-monitoring agent, confirmed on this
+machine) launches a second, fully independent run.py process, unaware a
+first process already started every scheduler.
 
-This closes that gap without needing to know *why* the duplicate exists:
-the first process to bind a fixed local TCP port becomes the "leader" and
-starts every background job as normal; any other process that fails to
-bind that same port (because the leader already holds it) is a "follower"
-— it still serves HTTP requests normally, it just skips starting its own
-duplicate set of schedulers. The bound socket is intentionally never
-closed: as soon as the leader process exits for any reason, the OS
-releases the port immediately, so a follower (or a fresh restart) can
-become the new leader on its very next attempt — no stale-lock file to
-clean up.
+This closes that gap without needing to know why the duplicate exists:
+the first process to bind a fixed local TCP port becomes the "leader"
+and starts every background job; any process that fails to bind that
+port is a "follower" — it still serves HTTP normally, it just skips its
+own duplicate schedulers. The bound socket is never closed: as soon as
+the leader exits, the OS releases the port immediately, so a follower
+can become leader on its next attempt — no stale-lock file to clean up.
 
-A follower that gave up once used to stay a follower forever, even if the
-leader later disappeared — meaning every remaining process needed a manual
-restart to get background sync running again. wait_for_leadership() below
-fixes that: a follower keeps retrying in the background and automatically
-takes over (starting its own schedulers) the moment the lock frees up.
+A follower that gave up once used to stay a follower forever, even after
+the leader disappeared. wait_for_leadership() below fixes that — it
+keeps retrying in the background and takes over automatically once the
+lock frees up.
 """
 
 import socket

@@ -229,11 +229,11 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
           <div class="badge-item">
             <span
               class="badge {{ eze_counts['BANDWIDTH']|badge_color }}"
-              data-badge-key="eze_bandwidth"
+              data-badge-key="eze_congestion"
               data-scope="EZE"
               data-type="BANDWIDTH"
               >{{ eze_counts['BANDWIDTH'] }}</span
-            ><span class="badge-label">BANDWIDTH</span>
+            ><span class="badge-label">CONGESTION</span>
           </div>
           <div class="badge-item">
             <span
@@ -319,15 +319,6 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
         <div class="badge-column">
           <div class="badge-item">
             <span
-              class="badge {{ tct_counts['bandwidth']|badge_color }}"
-              data-badge-key="tct_bandwidth"
-              data-scope="IP Telcotech/Cellcard"
-              data-type="bandwidth"
-              >{{ tct_counts['bandwidth'] }}</span
-            ><span class="badge-label">BANDWIDTH</span>
-          </div>
-          <div class="badge-item">
-            <span
               class="badge {{ tct_counts['bgp']|badge_color }}"
               data-badge-key="tct_bgp"
               data-scope="IP Telcotech/Cellcard"
@@ -340,7 +331,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
               class="badge {{ tct_counts['congestion']|badge_color }}"
               data-badge-key="tct_congestion"
               data-scope="IP Telcotech/Cellcard"
-              data-type="congestion"
+              data-type="bandwidth,congestion"
               >{{ tct_counts['congestion'] }}</span
             ><span class="badge-label">CONGESTION</span>
           </div>
@@ -879,4 +870,5 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
     </div>
   </div>
   {% endif %}
+  {% include "dashboard/partials/graph_cards.html" %}
 </div>

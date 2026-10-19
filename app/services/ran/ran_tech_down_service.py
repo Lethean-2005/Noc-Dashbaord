@@ -1,20 +1,14 @@
 """Business logic for the RAN Status card's "RAN Tech Down" column.
 
-The complement of app/services/ran/ran_site_down_service.py: a site counts
-here when it has at least one open Site-Down alarm mapping to a SPECIFIC
-radio generation (5G/4G/3G/2G — see app/utils/alarm_category.py's
-site_down_technology()), but that alarm does NOT cover every technology
-the site actually has, and no SRAN (shared-baseband, covers-everything)
-alarm is present either — i.e. one technology is down, not the whole
-site. A site that's fully covered (or has any SRAN alarm) belongs to "RAN
-Site Down" instead, never both — the split is computed once by
-app/utils/alarm_category.py's classify_site_technology_coverage() and
-shared across both services so there's exactly one definition of the
-boundary between them.
+The complement of ran_site_down_service.py: a site counts here when it
+has an open Site-Down alarm for one specific radio generation, but that
+alarm doesn't cover every technology the site has and no SRAN
+(shared-baseband) alarm is present — one technology down, not the whole
+site. A fully-covered site belongs to "RAN Site Down" instead, never
+both — split computed once by classify_site_technology_coverage().
 
-Badge naming (Hub-Site) and Incident/INC-WO enrichment follow the same
-conventions as ran_site_down_service.py — see that file for the fuller
-reasoning.
+Badge naming and Incident/INC-WO enrichment follow
+ran_site_down_service.py's conventions.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository

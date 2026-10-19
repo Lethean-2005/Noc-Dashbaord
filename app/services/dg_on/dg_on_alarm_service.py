@@ -1,34 +1,24 @@
-"""Business logic for the "Alarm DG On" card on the Custom Dashboard
-(reports/index.html). Same architecture as
-app/services/ran/ran_main_ac_alarm_service.py — see that file for the full
-reasoning, summarized here:
+"""Business logic for the "Alarm DG On" card on the Custom Dashboard.
+Same architecture as ran_main_ac_alarm_service.py — see that file for
+the full reasoning, summarized here:
 
-Reads from the local ape_alarm cache (instance/localstorage.db) that
-app/services/ape_alarm/ape_alarm_scheduler.py keeps in sync in the
-background — no query of its own, purely local. Narrows to alarms whose
-event_name OR additional_info mentions "DG on" (a DG-On alarm is sometimes
-only described in the free-text additional_info, not event_name). Only
-rows whose site_code has a matching site_cache record are counted — that
-cache already excludes off_air sites, same "an off_air site isn't
-legitimately down" call already made for RAN Site Down/RAN Tech
-Down/Alarm Site Down/Alarm Main Failure.
+Reads the local ape_alarm cache (synced by ape_alarm_scheduler.py), no
+query of its own. Narrows to alarms whose event_name OR additional_info
+mentions "DG on" (sometimes only described in the free-text
+additional_info). Only rows whose site_code has a matching site_cache
+record are counted — that cache already excludes off_air sites, same
+"not legitimately down" call made for RAN Site Down/Tech Down/Alarm
+Site Down/Main Failure.
 
-Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) both come from
-site_cache (hub_site / site_grade), and a site can technically be both a
-hub site and graded — but Hub takes priority: a hub site's DG-On alarm
-counts only toward "Hub", never also toward its grade badge, so the same
-site never double-counts across two badges (same convention as
-ran_main_ac_alarm_service.py).
+Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) come from
+site_cache — Hub takes priority, so a hub site's alarm never also counts
+toward its grade badge (same convention as ran_main_ac_alarm_service.py).
 
 get_details() enriches each row with its site's current Power-category
-Incident/INC-WO (from incident_by_status) if any — no site-down Remark
-cross-reference here, unlike ran_main_ac_alarm_service.py (not part of
-this card's column list). Real incident_by_status.category value for a
-Power incident is "Power" (title case) — confirmed against real data.
-
-ape_alarm.nms is the alarm's own raw numeric vendor code straight from
-object_138 — translated here via app/utils/nms.py's NMS_NAMES, same as
-every other drilldown in this project.
+Incident/INC-WO, if any — no Site Down fallback here, unlike
+ran_main_ac_alarm_service.py (not part of this card's columns).
+ape_alarm.nms is the raw numeric vendor code, translated via
+app/utils/nms.py's NMS_NAMES, same as every other drilldown.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository

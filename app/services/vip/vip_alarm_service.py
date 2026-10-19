@@ -1,33 +1,25 @@
 """Business logic for the VVIP Site dashboard card.
 
-Reads from the local cache (instance/localstorage.db) that
-app/services/vip/vip_alarm_scheduler.py keeps in sync in the background —
-by filtering the already-synced ape_alarm cache down to VIP/VVIP sites
-(see app/services/vip/vip_alarm_sync_service.py), not by querying Postgres
-directly. The card always reports its full fixed set of badge categories,
-same convention as app/services/alarm/alarm_service.py: a category with no
-active alarms comes back as 0 (rendered green) instead of disappearing, so
-the card layout never shifts.
+Reads the local cache (synced by vip_alarm_scheduler.py) by filtering
+the already-synced ape_alarm cache down to VIP/VVIP sites, not by
+querying Postgres directly. Same convention as alarm_service.py: every
+badge category is always reported, 0 (green) instead of disappearing
+when nothing's active, so the card layout never shifts.
 
-vip_alarm has no event_name filter (every alarm type at a VIP/VVIP site is
-cached, same as ape_alarm), so the badge categories below are derived
-here, at read time, by matching event_name/additional_info against the
-same keyword patterns ape_alarm.sql uses to build its own curated filter.
+vip_alarm has no event_name filter (every alarm type at a VIP/VVIP site
+is cached), so badge categories are derived here at read time, matching
+event_name/additional_info against the same keyword patterns
+ape_alarm.sql uses.
 
 Only rows whose site_code has a matching site_cache record are shown —
-that cache already excludes off_air sites, same "an off_air site isn't
-legitimately down" call already made for the Custom Dashboard/RAN Status
-alarm cards (see _rows_with_site()).
+that cache already excludes off_air sites, same "not legitimately down"
+call made for the Custom Dashboard/RAN Status cards.
 
-get_details()'s Incident/INC-WO enrichment reads from vip_incident_status,
-NOT incident_by_status — that one only keeps 'new'/'in_progress' (shared by
-IncidentService and MentorSiteService, both of which need Resolved
-excluded), so a site's ticket reference would go blank the moment it's
-Resolved. vip_incident_status is a separate cache scoped to only VIP/VVIP
-sites (see app/database/queries/vip_incident_status.sql) that also keeps
-Resolved incidents (only excludes Closed) — safe to widen that way here
-specifically because it's scoped to VIP/VVIP sites only, unlike
-incident_by_status which covers every site company-wide.
+get_details()'s Incident/INC-WO enrichment reads from
+vip_incident_status, not incident_by_status, since that one only keeps
+new/in_progress and would blank a ticket reference the moment it's
+Resolved; vip_incident_status is scoped to VIP/VVIP and safely keeps
+Resolved too (only excludes Closed).
 """
 
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
@@ -40,6 +32,7 @@ from app.utils.alarm_category import SITE_DOWN_EVENTS
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
 from app.utils.nms import NMS_NAMES
+from app.utils.ttl_cache import ttl_cache
 
 _TABLE = "vip_alarm"
 _VIP_INCIDENT_STATUS_TABLE = "vip_incident_status"
@@ -57,10 +50,16 @@ BADGE_TYPES = (
 )
 
 # vip_alarm.nms is the alarm's own raw numeric vendor code straight from
-# object_138 — every other drilldown in this project (incident_by_status,
-# incwo_by_status) translates this same code via object_227's nms_name
-# (see app/utils/nms.py's NMS_NAMES, the one shared copy of this mapping),
-# so it's translated here too instead of showing a bare "7".
+# object_138 — translated via app/utils/nms.py's NMS_NAMES (the one shared
+# copy of this mapping) instead of showing a bare "7". This translated
+# value wins over the matched incident's own nms (only used as a fallback
+# when the alarm has none): the incident's nms is resolved from
+# object_227's NE inventory, which can be stale/incomplete for a site
+# whose equipment changed — confirmed live for a site with an old NE row
+# keeping a superseded vendor code and a newer NE row with no vendor code
+# recorded at all, while the live alarm feed already had the correct
+# vendor. Same order as ran_main_ac_alarm_service.py/
+# alarm_site_down_service.py.
 
 
 def _categorize(event_name, additional_info):
@@ -118,6 +117,7 @@ class VipAlarmService:
             result.append((row, site))
         return result
 
+    @ttl_cache(15)
     def get_counts(self):
         """{'Site Down': n, 'Main AC Failure': n, ...} for the VVIP Site
         badges — n is the number of DISTINCT SITES with at least one
@@ -160,9 +160,7 @@ class VipAlarmService:
             r["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             r["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             r["province"] = inc.get("province") or site.get("province") or ""
-            r["nms"] = inc.get("nms") or NMS_NAMES.get(
-                str(r.get("nms") or "").strip(), r.get("nms")
-            )
+            r["nms"] = NMS_NAMES.get(str(r.get("nms") or "").strip(), r.get("nms")) or inc.get("nms")
             rows.append(r)
         if alarm_type:
             rows = [r for r in rows if r["badge_type"] == alarm_type]

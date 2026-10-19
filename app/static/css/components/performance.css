@@ -1,0 +1,611 @@
+/* Performance page — static first pass (see performance/index.html).
+   Reuses the app's own theme tokens (theme.css: --bg-card, --border-card,
+   --text-primary/muted, --shadow-card) so it follows the app-wide
+   light/dark toggle automatically, rather than hardcoding one theme the
+   way the reference screenshot (light-only) does. */
+
+:root {
+  /* Root-cause categorical palette — validated (dataviz skill) fixed
+     order, light-mode steps. Same 7 hues/order as the dark mockup this
+     page replaced, just the light half of each hue's pair. */
+  --perf-cat-1: #2a78d6; /* Network */
+  --perf-cat-2: #eb6834; /* Database */
+  --perf-cat-3: #1baf7a; /* Compute / App */
+  --perf-cat-4: #eda100; /* Third-Party / Vendor */
+  --perf-cat-5: #e87ba4; /* Configuration */
+  --perf-cat-6: #008300; /* Human Error */
+  --perf-cat-7: #e34948; /* Security */
+}
+
+[data-theme="dark"] {
+  --perf-cat-1: #3987e5;
+  --perf-cat-2: #d95926;
+  --perf-cat-3: #199e70;
+  --perf-cat-4: #c98500;
+  --perf-cat-5: #d55181;
+  --perf-cat-6: #008300;
+  --perf-cat-7: #e66767;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --perf-cat-1: #3987e5;
+    --perf-cat-2: #d95926;
+    --perf-cat-3: #199e70;
+    --perf-cat-4: #c98500;
+    --perf-cat-5: #d55181;
+    --perf-cat-6: #008300;
+    --perf-cat-7: #e66767;
+  }
+}
+
+/* The trend chart reuses the real Incident Volume card's own classes
+   (.campaign-*/.volume-*, graph_cards.css) — but those are styled
+   entirely through --graph-* custom properties that graph_cards.css
+   only ever defines ON .card-graph itself, not globally. This card
+   uses .perf-card, not .card-graph, so every one of those tokens
+   (tooltip background included — the actual bug report: the hover
+   popup had no background at all) was silently falling back to
+   nothing. Redefining the identical light/dark values here, scoped to
+   .perf-card-graph, fixes all of them at once, not just the one that
+   happened to be visibly missing. */
+.perf-card-graph {
+  --graph-bg: var(--bg-card);
+  --graph-text: var(--text-primary);
+  --graph-text-muted: var(--text-muted);
+  --graph-border: var(--border-card);
+  --graph-pill-bg: var(--bg-table-header);
+  --graph-pill-text: var(--text-primary);
+  --graph-tooltip-bg: #ffffff;
+  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .perf-card-graph {
+  --graph-tooltip-bg: #2a2a2f;
+  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Belt-and-suspenders: .volume-tooltip's own background/box-shadow
+   (graph_cards.css) reads the --graph-tooltip-* vars above, which is
+   enough on its own — but this pins the same two properties directly
+   on the selector so the popup can never again render as bare text
+   (e.g. a stale cached copy of this file missing the vars above,
+   or the vars failing to inherit for any reason) regardless of cause. */
+.perf-card-graph .volume-tooltip {
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="dark"] .perf-card-graph .volume-tooltip {
+  background: #2a2a2f;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* An explicit pixel height, not flex-grow, is what actually caps
+   this — .campaign-chart-row's own flex:1 (graph_cards.css) only
+   resolves against a DEFINITE ancestor height, and .perf-card's
+   min-height (not a fixed height) doesn't count as one, so the chart
+   was still sizing to its own content instead of shrinking to match
+   row 1. 180px matches the campaign SVG's own viewBox (0 0 700 180)
+   1:1, so nothing inside it visually stretches or squashes. */
+.perf-card-graph .campaign-chart-row {
+  height: 180px;
+  min-height: 180px;
+  flex: none;
+}
+
+/* SLA Compliance is the one .perf-card-graph with an extra fixed
+   block above its chart (.perf-sla-pills, ~66px + gap) that
+   Site-Down Duration doesn't have — same 180px chart here would push
+   this card ~75px past the other cards' 300px height (measured via
+   Playwright: 375px vs 300px). Shrinking just this card's chart by
+   that same ~75px is what actually brings the whole bottom row
+   (CSS Grid stretches all 3 to match the tallest) back to 300px. */
+.perf-card-graph-with-pills .campaign-chart-row {
+  height: 105px;
+  min-height: 105px;
+}
+
+.perf-page {
+  font-family: 'Nunito', sans-serif;
+  color: var(--text-primary);
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ---- Tab bar ---- */
+.perf-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.perf-tabbar-actions { display: flex; gap: 8px; }
+
+.perf-btn-ghost, .perf-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.perf-btn-ghost {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  color: var(--text-primary);
+}
+
+.perf-btn-primary {
+  background: var(--perf-cat-1);
+  border: 1px solid var(--perf-cat-1);
+  color: #ffffff;
+}
+
+.perf-static-badge {
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--icon-chip-bg);
+  color: var(--icon-chip-color);
+  white-space: nowrap;
+}
+
+
+/* ---- Cards ----
+   min-height + flex column matches .card-graph's own sizing
+   (graph_cards.css) exactly, so every card here renders the same
+   height as the Overall Dashboard's Incident Age/Volume/Closed row
+   instead of stretching to whatever its own content happens to need —
+   .campaign-chart-row/.perf-chart/.perf-donut-row below each get
+   flex:1 so their chart fills the remaining space within that fixed
+   height rather than dictating the card's height themselves. */
+.perf-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  /* Grid items default to min-width: auto, meaning they refuse to
+     shrink below their content's intrinsic width — a grid item with
+     text/pills wider than its 1fr track blows the whole card out past
+     its column instead of letting its own flex-wrap children (e.g.
+     .perf-sla-pills) wrap onto a new line. min-width: 0 opts back into
+     normal shrink behavior. */
+  min-width: 0;
+}
+
+/* ---- Bar chart toolbar (Total stat) ---- */
+.perf-bar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 6px;
+}
+.perf-bar-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+.perf-bar-stat { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.perf-bar-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.perf-bar-stat-label { color: var(--text-muted); }
+.perf-bar-stat-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.perf-chart { display: block; width: 100%; height: 180px; flex: none; margin-top: 10px; }
+
+.perf-delta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+  flex: 0 0 auto;
+}
+.perf-delta-good { background: rgba(12, 163, 12, 0.12); color: #0ca30c; }
+.perf-delta-bad { background: rgba(214, 69, 69, 0.12); color: #d64545; }
+
+/* ---- Grids ---- */
+.perf-grid-2c { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+/* auto-fit + minmax, not a hardcoded 1fr 1fr 1fr: the SLA Compliance
+   card needs ~330px to fit its two stat pills, legend and chart
+   without clipping. A fixed 3-up split can hand it less than that at
+   ordinary laptop widths — the grid was forcing 3 equal columns
+   regardless of whether they actually fit, so content either blew out
+   past its column (before min-width:0 above) or got squished
+   unreadably (after). auto-fit lets the row drop to 2 or 1 columns on
+   its own once 330px per card no longer fits 3 across, instead of a
+   single hardcoded breakpoint. */
+.perf-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+
+.perf-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.perf-card-title { font-size: 14px; font-weight: 700; margin: 0; }
+.perf-card-sub { font-size: 11.5px; color: var(--text-muted); margin: 3px 0 0; }
+
+/* ---- Root Cause Breakdown's Chart/Table toggle (reuses
+   .volume-day-tab-btn's own look from graph_cards.css as-is — this only
+   adds the panel show/hide half, since .volume-day-tab-panel's own rule
+   is tuned for a modal body's flex sizing, not a plain card). ---- */
+.perf-root-cause-view-toggle { display: flex; gap: 6px; flex: 0 0 auto; }
+.perf-root-cause-view { display: none; }
+.perf-root-cause-view.is-active { display: block; }
+
+/* ---- Donut (side by side with its legend) ---- */
+.perf-donut-row { display: flex; align-items: center; gap: 22px; margin-top: 10px; height: 180px; flex: none; }
+.perf-donut-svg-wrap { position: relative; flex: 0 0 auto; }
+.perf-donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.perf-donut-center-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.perf-donut-center-label { font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.perf-donut-legend { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.perf-donut-legend-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.perf-donut-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.perf-donut-legend-label { flex: 1; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perf-donut-legend-pct { font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* Only the "Not yet assigned" slice carries a `note` (see
+   get_site_down_root_cause_breakdown()) — wraps its label + a small
+   muted explanation line instead of the single nowrap/ellipsis line
+   every real category's label uses. */
+.perf-donut-legend-text { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.perf-donut-legend-note { font-size: 10px; color: var(--text-muted); white-space: normal; }
+.perf-donut-segment { cursor: pointer; transition: opacity 0.12s ease; }
+.perf-donut-segment:hover { opacity: 0.8; }
+
+/* ---- SLA compliance ---- */
+.perf-sla-pills { display: flex; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+.perf-sla-pill {
+  flex: 1;
+  min-width: 130px;
+  background: var(--bg-table-header);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.perf-sla-pill-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.perf-sla-pct { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.perf-sla-frac { font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-size: 10.5px; color: var(--text-muted); }
+.perf-sla-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 4px; }
+
+/* Which week the pills below actually reflect — sits with the card's
+   other header controls (help/filter/compare-weeks) since it's about
+   the whole card's current view, not just one pill. The pill always
+   shows the latest of whatever's checked under Compare Weeks, not
+   necessarily the literal current calendar week, so this needs to be
+   explicit rather than assumed. */
+/* The clicked point on the SLA trend line — see performance.js's click
+   handler. Same dots the hover tooltip already uses; a thicker ring
+   plus a slight scale-up is the "spotlighted" state so it reads as
+   distinct from every other (unclicked) week's dot at rest. */
+.sla-spotlight-point.is-active .volume-dot {
+  border-width: 2.5px;
+  transform: scale(1.35);
+}
+
+.perf-card-week-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg-table-header);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ---- Response/Resolution time stat + table ---- */
+.perf-stat-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.perf-stat-value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.perf-stat-caption { font-size: 11.5px; color: var(--text-muted); }
+
+.perf-target-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin: 8px 0 10px;
+}
+.perf-target-met { font-weight: 700; color: #0ca30c; background: rgba(12, 163, 12, 0.12); padding: 1px 7px; border-radius: 999px; font-size: 10px; }
+
+table.perf-time-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.perf-time-table th {
+  text-align: right;
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 4px 0 6px;
+}
+table.perf-time-table th:first-child, table.perf-time-table td:first-child { text-align: left; }
+
+/* Response Time card's clickable week headers — opens that week's "By
+   Duration" popup (performance_cards.html/performance.js). Same blue
+   already used for Streamline links elsewhere (tables.css's
+   .alarm-table a) so it reads as clickable at a glance, inheriting the
+   header row's own font (not a plain link's default styling). */
+.perf-week-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: #2563eb;
+  cursor: pointer;
+}
+.perf-week-link:hover { color: #1d4ed8; text-decoration: underline; }
+table.perf-time-table td { text-align: right; padding: 5px 0; border-top: 1px solid var(--border-card); font-variant-numeric: tabular-nums; }
+table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-size: 10.5px; }
+.perf-time-delta { font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-weight: 700; color: #0ca30c; }
+.perf-time-delta.perf-time-delta-bad { color: #d64545; }
+
+/* ---- Tooltip ---- */
+.perf-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: var(--text-primary);
+  color: var(--bg-card);
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11.5px;
+  font-family: 'Nunito', sans-serif;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  opacity: 0;
+  transform: translate(-50%, -100%);
+  transition: opacity 0.15s ease;
+  z-index: 50;
+  white-space: nowrap;
+}
+.perf-tooltip.show { opacity: 1; }
+.perf-tooltip b { font-variant-numeric: tabular-nums; }
+
+/* Top 10 Site Down — Overtime's own "By Duration" tooltip content (a
+   small 2-column table: bucket label left, count right) — built by
+   performance.js from each bar's data-durations JSON, injected into
+   this same #perfTooltip the 2 donut charts already use. A REAL
+   <table> (not flex rows) — flex gave each row its own independently
+   sized "column" split, so the vertical divider zigzagged instead of
+   lining up straight down the tooltip (confirmed live); a table's own
+   column layout is sized ONCE across every row, which flex can't do
+   without a shared grid. Same bordered-grid idea as .volume-category-
+   table elsewhere on this dashboard, just neutral rgba(currentColor-ish)
+   borders instead of theme tokens, since this tooltip's own surface is
+   inverted relative to the page (.perf-tooltip's own background/color
+   swap) and the page's own border tokens assume a normal surface. */
+.perf-tooltip-title {
+  font-weight: 700;
+  padding-bottom: 5px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.35);
+}
+.perf-tooltip-table { border-collapse: collapse; width: 100%; }
+.perf-tooltip-table td {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.18);
+}
+.perf-tooltip-table tr:last-child td { border-bottom: none; }
+.perf-tooltip-table td:first-child {
+  padding-right: 10px;
+  border-right: 1px solid rgba(128, 128, 128, 0.18);
+}
+.perf-tooltip-table td:last-child {
+  padding-left: 10px;
+  text-align: right;
+  font-weight: 700;
+}
+
+/* Small muted line under the table when more than one incident ties
+   for the exact same MAX value (performance.js's own MAX-cell tooltip)
+   — doesn't need its own border/table row, just a quieter note. */
+.perf-tooltip-note {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(128, 128, 128, 0.18);
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
+/* Response Time's MIN/AVG/MAX table — the MIN/MAX rows' own cells,
+   when they carry a real incident behind them (data-extreme-incidents),
+   hint they're hoverable the same way every other tooltip-bearing
+   element on this page does. The value itself is a real <a> into that
+   incident's own drilldown row (requested: "both can click view in
+   drilldown") — styled to read as plain table text with just a hover
+   color change, not a default blue hyperlink, since the dotted
+   underline already signals "something's here" on its own. */
+.perf-extreme-cell {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.perf-extreme-cell a {
+  color: inherit;
+  text-decoration: none;
+}
+.perf-extreme-cell a:hover {
+  color: var(--text-chip-info, #6366f1);
+}
+
+@media (max-width: 980px) {
+  /* perf-grid-3 no longer listed here — its own auto-fit/minmax above
+     already drops to fewer columns as space runs out, and forcing it
+     to a flat 1fr here would collapse it to a single column even in
+     the ~680-980px range where 2 cards side by side still fit fine. */
+  .perf-grid-2c { grid-template-columns: 1fr; }
+}
+
+/* ---- Response Time card — real data, its own font (Nunito, matching
+   the rest of the app) instead of the other cards' monospace stat
+   styling, plus a This-Week/Last-Week vs All-Weeks toggle. The toggle
+   itself is exactly the "Compare Weeks" control from the Incident
+   Volume card (dashboard/partials/graph_cards.html) — an icon-only
+   .date-filter/.btn-export/.btn-icon-only details/summary (ti
+   ti-calendar-week, no visible label, title tooltip instead) opening
+   a .date-filter-form with a checkbox (.category-filter-options/
+   .category-filter-option) and an Apply button, same as Compare
+   Weeks' own form — all reused from tables.css as-is, nothing
+   redeclared here except the font override and the hidden-view
+   utility. ---- */
+.perf-card-weekly-time,
+.perf-card-weekly-time .perf-stat-value,
+.perf-card-weekly-time .perf-stat-caption,
+.perf-card-weekly-time .perf-delta-pill,
+.perf-card-weekly-time .perf-target-badge,
+.perf-card-weekly-time table.perf-time-table,
+.perf-card-weekly-time table.perf-time-table th,
+.perf-card-weekly-time table.perf-time-table td,
+.perf-card-weekly-time .perf-time-delta,
+.perf-card-weekly-time .perf-week-filter {
+  font-family: 'Nunito', sans-serif;
+}
+
+.perf-card-head-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.perf-week-filter { flex: 0 0 auto; }
+
+/* Help modal (real overlay + centered card, not a dropdown) — reuses
+   the app's own .modal/.modal-content/.modal-header/.close-modal
+   classes (base.html's notification modal, app.css) as-is for the
+   overlay/backdrop/centering/close-button mechanics; only the body
+   content styling below is new. Opened/closed by performance.js
+   (own dedicated open/close, not app.js's showModal()/closeModal(),
+   since those drive the single global #custom-modal with a plain
+   message string, not this multi-section content). */
+/* Capped + scrollable, same idea as Add Partner's .pc-modal-card — a
+   header that always stays put plus a body that scrolls once content
+   (the worked examples below) runs longer than fits on screen,
+   instead of the whole page having to scroll to reach the bottom
+   half of a tall modal. */
+/* Amazon Ember — same font/files as incident-report.css (see that
+   file's own note on where it's from/licensing), declared again here
+   since @font-face only takes effect on pages that load the stylesheet
+   declaring it, and this is the "recipe" (how-this-is-calculated /
+   why-these-numbers-differ) popups' own file, not incident-report.css.
+   Scoped to .perf-help-modal-content only — every OTHER card/modal on
+   the dashboard keeps the site's normal Nunito font untouched. */
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Amazon Ember';
+  src: url('../../fonts/AmazonEmber-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.perf-help-modal-content {
+  width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Amazon Ember', 'Nunito', sans-serif;
+}
+.perf-help-modal-content .modal-header { flex: none; }
+.perf-help-modal-body { overflow-y: auto; }
+
+.perf-help-modal-body h4 {
+  margin: 14px 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.perf-help-modal-body h4:first-child { margin-top: 0; }
+.perf-help-modal-body p { margin: 0 0 8px; font-size: 13px; line-height: 1.55; color: var(--text-secondary); }
+.perf-help-modal-body code {
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  background: var(--bg-table-header);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.perf-help-formula {
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--bg-table-header);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+}
+
+.perf-help-example {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  background: var(--bg-table-header);
+  border-left: 3px solid var(--perf-cat-1);
+  border-radius: 0 6px 6px 0;
+  padding: 8px 12px;
+}
+.perf-help-example b { color: var(--text-primary); }
+
+.perf-help-code {
+  font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  background: var(--bg-table-header);
+  border: 1px solid var(--border-card);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+.perf-help-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.perf-help-legend-row .perf-delta-pill,
+.perf-help-legend-row .perf-time-delta {
+  flex: 0 0 auto;
+  min-width: 56px;
+  justify-content: center;
+  text-align: center;
+  font-family: 'Nunito', sans-serif;
+}
+.perf-help-legend-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }

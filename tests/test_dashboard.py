@@ -100,3 +100,89 @@ def test_inc_wo_csv_export_is_not_capped(client, app):
     assert len(response.data.decode().strip().splitlines()) == 601
 
 
+def _seed_tct_alarm_rows(app, alarms):
+    from app.repositories.alarm.alarm_cache_repository import AlarmCacheRepository
+
+    with app.app_context():
+        rows = [
+            {
+                "id": f"ID{i}",
+                "alarm": alarm,
+                "alarm_name": f"TCT_{alarm}",
+                "device_name": f"DEV{i}",
+                "ip_address": "",
+                "pop_name": "",
+                "pop_code": "",
+                "province": "",
+                "pro_owner": "",
+                "down_time": "2026-09-01 00:00:00",
+                "restored_time": "",
+                "root_cause": "",
+                "rtid": "",
+                "interface": "",
+                "source_group": "",
+                "additional_info": "",
+                "note": "",
+                "ack": "",
+                "ab": "",
+                "mb": "",
+                "md": "",
+            }
+            for i, alarm in enumerate(alarms)
+        ]
+        AlarmCacheRepository().replace_all("tct_alarm_cache", rows)
+
+
+def test_tct_congestion_drilldown_includes_bandwidth_rows_too(client, app):
+    """The TCT card's Congestion badge count is bandwidth + congestion
+    merged (see AlarmService.get_tct_counts()) — its drilldown link sends
+    type=bandwidth,congestion so the table it opens actually shows every
+    row the badge number counted, not just the ones literally named
+    'congestion'."""
+    _seed_tct_alarm_rows(app, ["bandwidth", "bandwidth", "congestion", "bgp"])
+
+    response = client.get(
+        "/drilldown?title=Congestion&label=Congestion&value=0"
+        "&scope=IP+Telcotech%2FCellcard&type=bandwidth%2Ccongestion"
+    )
+
+    assert response.status_code == 200
+    assert response.data.count(b"<tr>") == 4  # 1 header + 3 bandwidth/congestion rows, not bgp
+
+
+def _seed_response_time_weekly_rows(app, week_counts):
+    """week_counts: {iso_week: incident_count}, one row per week."""
+    from app.repositories.incident.incident_response_time_weekly_cache_repository import (
+        IncidentResponseTimeWeeklyCacheRepository,
+    )
+
+    with app.app_context():
+        rows = [
+            {
+                "iso_week": iso,
+                "category": "Power",
+                "incident_count": count,
+                "min_minutes": 1.0,
+                "avg_minutes": 5.0,
+                "max_minutes": 10.0,
+            }
+            for iso, count in week_counts.items()
+        ]
+        IncidentResponseTimeWeeklyCacheRepository().replace_all(
+            "incident_response_time_weekly", rows
+        )
+
+
+def test_dashboard_does_not_crash_when_only_one_week_selected_for_compare(client, app):
+    """Checking just one "Compare Weeks" box used to crash the whole
+    page with IndexError (_build_weekly_time_context()'s
+    selected_rows[-2] on a length-1 list) — Response Time/Resolution
+    Time both share that helper, so a single-week pick on either one
+    must render 200, not 500, with no "vs last week" delta shown."""
+    _seed_response_time_weekly_rows(app, {"2026-W35": 10, "2026-W36": 12, "2026-W37": 8})
+
+    response = client.get("/?response_time_week=2026-W36")
+
+    assert response.status_code == 200
+
+

@@ -1,0 +1,103 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'Site-Down Duration' %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        {% if week_options %}
+        <details class="date-filter">
+            <summary class="btn-export btn-icon-only" title="Filter by Week">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+                    <path d="M16 3v4" />
+                    <path d="M8 3v4" />
+                    <path d="M4 11h16" />
+                    <path d="M11 15h1" />
+                    <path d="M12 15v3" />
+                </svg>
+            </summary>
+            <form class="date-filter-form" method="get" action="{{ url_for('dashboard.drilldown') }}">
+                <input type="hidden" name="scope" value="{{ scope }}">
+                <input type="hidden" name="title" value="{{ week_options.bucket_label }} — Site-Down Duration">
+                <input type="hidden" name="label" value="{{ week_options.bucket_label }} — Site-Down Duration">
+                <div class="date-filter-field-label">Filter by Week</div>
+                <div class="category-filter-options" id="weekFilterOptions">
+                    {% for w in week_options.options %}
+                    <label class="category-filter-option week-filter-option">
+                        <input type="checkbox" name="type" value="{{ w.badge_type }}" {% if w.selected %}checked{% endif %}>
+                        Week {{ w.week_number }} ({{ w.range_label }})
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="date-filter-actions">
+                    <button type="submit" class="btn-export">Apply</button>
+                </div>
+            </form>
+        </details>
+        {% endif %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', '')) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Duration</th>
+                <th>Occurred At</th>
+                <th>Resolved At</th>
+                <th>Closed At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{{ row.site }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.duration_display }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td>{{ row.resolved_at }}</td>
+                <td>{{ row.closed_at }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="7">No incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // "Filter by Week" is checkboxes styled (matching every other
+    // filter's look), but single-select in behavior — checking one
+    // week always means viewing exactly that week, so checking it
+    // unchecks any other rather than letting the group represent a
+    // multi-week selection it can't actually submit as (the drilldown
+    // table only ever shows one bucket+week's rows at a time).
+    (function () {
+        var group = document.getElementById('weekFilterOptions');
+        if (!group) return;
+        var boxes = group.querySelectorAll('input[type="checkbox"]');
+        boxes.forEach(function (box) {
+            box.addEventListener('change', function () {
+                if (box.checked) {
+                    boxes.forEach(function (other) {
+                        if (other !== box) other.checked = false;
+                    });
+                } else {
+                    box.checked = true;
+                }
+            });
+        });
+    })();
+</script>
+{% endblock %}

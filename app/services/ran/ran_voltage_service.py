@@ -1,18 +1,16 @@
 """Business logic for the RAN Status card's 'DC Low/High' column.
 
-Reads from the local ape_alarm cache (instance/localstorage.db) that
-app/services/ape_alarm/ape_alarm_scheduler.py keeps in sync in the
-background — no query of its own, purely local. Narrows to alarms whose
-event_name is a High or Low DC Voltage variant — same "dc" substring check
-app/services/vip/vip_alarm_service.py and app/services/mentor/mentor_site_service.py
-already use for their own High/Low DC Voltage badges, folded into one
-"Voltage" bucket here since RAN Status doesn't split by direction.
+Reads from the local ape_alarm cache (synced by ape_alarm_scheduler.py),
+purely local, no query of its own. Narrows to alarms whose event_name is
+a High or Low DC Voltage variant — same "dc" substring check
+vip_alarm_service.py and mentor_site_service.py already use for their
+own High/Low DC Voltage badges, folded into one "Voltage" bucket here
+since RAN Status doesn't split by direction.
 
-Same shape as app/services/ran/ran_main_ac_alarm_service.py in every other
-respect — see that module's docstring for the Hub-Site-takes-priority-
-over-grade rule, the Power-category-first/Site-Down-fallback Incident/INC-WO
-enrichment, and the Remark column (shows that matched incident's own
-Incident Category).
+Same shape as ran_main_ac_alarm_service.py in every other respect — see
+that module's docstring for the Hub-Site-takes-priority-over-grade rule,
+the Power-category-first/Site-Down-fallback Incident/INC-WO enrichment,
+and the Remark column.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository

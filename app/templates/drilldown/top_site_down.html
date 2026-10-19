@@ -1,0 +1,52 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{# Reused by both "Top Site Down" and "Root Cause Breakdown" (same
+   incident_site_down_duration_weekly row shape, just grouped
+   differently) — scope must come from the actual request, not a
+   hardcoded literal, or this Export link would always download Top
+   Site Down's own data even when Root Cause Breakdown's own page
+   rendered it. #}
+{% set scope = request.args.get('scope', 'Top Site Down') %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=request.args.get('category', ''), root_cause_site=request.args.get('root_cause_site', ''), root_cause_bucket=request.args.get('root_cause_bucket', ''), top_site_down_week=request.args.getlist('top_site_down_week'), site_down_duration_week=request.args.getlist('site_down_duration_week')) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Duration</th>
+                <th>Occurred At</th>
+                <th>Resolved At</th>
+                <th>Closed At</th>
+                <th>Root Cause Category</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{{ row.site }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.duration_display }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td>{{ row.resolved_at }}</td>
+                <td>{{ row.closed_at }}</td>
+                <td>{{ row.root_cause_category or "None" }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="8">No Site Down incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -5,6 +5,18 @@
   margin-top: 0;
 }
 
+/* The Congestion History card sits in its own .dashboard-grid instance
+   after the Performance section (index.html), so .dashboard-grid's own
+   margin-top: 0 leaves it flush against the section above — it reads as
+   part of the Performance block rather than the separate section it is.
+   Only this card needs the gap, so it is scoped to the card's id rather
+   than applied to .dashboard-grid, which every other row relies on
+   sitting flush against its neighbours (that page's rows get their
+   spacing from the grid's own gap: 10px). */
+#congestionHistoryCard {
+  margin-top: 16px;
+}
+
 @media (max-width: 1024px) {
   .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -92,7 +104,7 @@
   color: var(--text-primary);
   letter-spacing: -0.01em;
   margin: 0;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .card-body { flex: 1; }
@@ -119,7 +131,7 @@
   padding: 6px 12px;
   border-radius: 3px;
   transition: all 0.2s ease;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   cursor: pointer;
 }
 
@@ -144,16 +156,6 @@
   border-color: rgba(16, 185, 129, 0.5);
 }
 
-.badge-resolved {
-  background: rgba(0, 128, 0, 0.1);
-  border: 1px solid rgba(0, 128, 0, 0.35);
-  color: #008000;
-}
-.badge-resolved:hover {
-  background: rgba(0, 128, 0, 0.18);
-  border-color: rgba(0, 128, 0, 0.5);
-}
-
 .badge-red {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.35);
@@ -174,16 +176,6 @@
   border-color: rgba(148, 163, 184, 0.5);
 }
 
-.badge-orange {
-  background: rgba(249, 115, 22, 0.12);
-  border: 1px solid rgba(249, 115, 22, 0.35);
-  color: #f97316;
-}
-.badge-orange:hover {
-  background: rgba(249, 115, 22, 0.2);
-  border-color: rgba(249, 115, 22, 0.5);
-}
-
 .badge-inprogress {
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.35);
@@ -192,16 +184,6 @@
 .badge-inprogress:hover {
   background: rgba(245, 158, 11, 0.22);
   border-color: rgba(245, 158, 11, 0.5);
-}
-
-.badge-purple {
-  background: rgba(168, 85, 247, 0.15);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  color: #c084fc;
-}
-.badge-purple:hover {
-  background: rgba(168, 85, 247, 0.22);
-  border-color: rgba(168, 85, 247, 0.5);
 }
 
 .badge-new {
@@ -214,10 +196,8 @@
   border-color: rgba(4, 135, 226, 0.5);
 }
 
-.badge-sm { font-size: 10px; padding: 4px 8px; }
-
 .btn-view {
-  background: #23356e;
+  background: #18181b;
   color: #d1d5db;
   border: 0.5px solid rgba(255, 255, 255, 0.1);
   padding: 8px 16px;
@@ -227,10 +207,15 @@
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
+}
+
+[data-theme="dark"] .btn-view {
+  background: #2a2a2e;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .card-footer .btn-view {
@@ -243,7 +228,7 @@
 }
 
 .btn-view:hover {
-  background: #2a3e80;
+  background: #29292d;
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-1px);
@@ -251,28 +236,21 @@
 
 .btn-view:active {
   transform: translateY(0);
-  background: #1c2b5c;
+  background: #0d0d0f;
+}
+
+[data-theme="dark"] .btn-view:hover {
+  background: #35353a;
+}
+
+[data-theme="dark"] .btn-view:active {
+  background: #202024;
 }
 
 .btn-back {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-}
-
-.btn-secondary {
-  background: #1a3a2a;
-  border-color: rgba(100, 200, 130, 0.15);
-  color: #86efac;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-
-.btn-secondary:hover {
-  background: #1f4a35;
-  border-color: rgba(100, 200, 130, 0.3);
-  color: #bbf7d0;
 }
 
 /* Badge Column Layout — compact list: [colored number box] [label] */
@@ -317,13 +295,10 @@
   border: none !important;
 }
 
-.badge-item .badge-green,
-.badge-item .badge-resolved   { background: #16a34a !important; }
+.badge-item .badge-green      { background: #16a34a !important; }
 .badge-item .badge-red        { background: #cd1c18 !important; }
-.badge-item .badge-orange     { background: #f97316 !important; }
 .badge-item .badge-inprogress { background: #f59e0b !important; }
 .badge-item .badge-new        { background: #0487e2 !important; }
-.badge-item .badge-purple     { background: #7c3aed !important; }
 .badge-item .badge-silver     { background: #6b7280 !important; }
 
 .badge-item .badge-label {
@@ -332,27 +307,11 @@
   min-width: 80px;
   white-space: nowrap;
   color: var(--text-secondary);
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   transition: color 0.15s ease;
 }
 
 .badge-item:hover .badge-label { color: var(--text-primary); }
-
-/* small rounded icon chip before a card title */
-.card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--bg-table-header);
-  color: var(--text-muted);
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.badge-item .pill-icon { font-size: 16px; line-height: 1; color: inherit; }
 
 /* Wide card: spans two grid slots */
 .card-wide { grid-column: span 2; }
@@ -451,14 +410,4 @@
   flex-wrap: nowrap;
   align-items: flex-start;
   gap: 6px;
-}
-
-/* Card jump highlight (from search) */
-@keyframes cardJumpHighlight {
-  0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.6); }
-  50%  { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
-  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-}
-.card-jump {
-  animation: cardJumpHighlight 3s ease-out;
 }

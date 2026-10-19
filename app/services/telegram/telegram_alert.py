@@ -1,40 +1,24 @@
-"""Sends a Telegram alert listing every Incident Site Down whose outage has
-passed ALERT_THRESHOLD_MIN (default 240 minutes / 4 hours), rendered as a
-table image (via Pillow) rather than a plain text message — sent as a
-document so Telegram doesn't recompress it and blur the text. Every send
-also attaches a second document: the same rows as a styled .xlsx (via
-openpyxl) — the image stays the at-a-glance view, the Excel file is the
-"open this in a spreadsheet" copy. Same pattern shared by all 4 Telegram
-alerts, see _build_excel_bytes()/_send_telegram_excel() below.
+"""Sends a Telegram alert listing every Incident Site Down whose outage
+has passed ALERT_THRESHOLD_MIN (default 240min/4h), rendered as a table
+image via Pillow, sent as a document so Telegram doesn't recompress and
+blur it. Every send also attaches the same rows as a styled .xlsx — same
+pattern shared by all 4 Telegram alerts.
 
-Reads the already-synced incident_site_down cache (see
-app/repositories/incident/incident_site_down_cache_repository.py,
-app/database/queries/incident_site_down.sql) instead of querying Postgres directly —
-that cache is kept fresh every INCIDENT_SYNC_INTERVAL_SECONDS (default 5
-min) by app/services/incident/incident_sync_service.py, which is more than
-fresh enough for an alert that only checks every ALERT_INTERVAL_SECONDS
-(default 4h), and it means this alert no longer runs its own independent
-query against a table already prone to "conflict with recovery". Every row
-read is also written into the local telegram_alert_cache table
-(instance/localstorage.db, see
-app/repositories/telegram/telegram_alert_cache_repository.py) before the
-threshold filter below runs, so the alert's last run is inspectable
-independent of whether anything was actually over-threshold. Never runs
-unless TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS are set in .env.
+Reads the already-synced incident_site_down cache, not Postgres
+directly. Every row read is also written into telegram_alert_cache
+before the threshold filter runs, so the alert's last run stays
+inspectable. Never runs unless TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS are set.
 
-start() runs this on a background loop, once every ALERT_INTERVAL_SECONDS
-(default 14400s / 4 hours) — called once from app/__init__.py::create_app().
-The first send is timed to land on a clean clock boundary in the
-deployment's TIMEZONE (e.g. 14400s -> 00:00, 04:00, 08:00, 12:00, 16:00,
-20:00) rather than "4 hours after whenever the app happened to start" —
-see _seconds_until_next_aligned_time(). This also means restarting the dev
-server (which happens often) can't immediately resend an alert, since the
-next aligned time is never right now.
+start() runs this every ALERT_INTERVAL_SECONDS, timed to land on a clean
+clock boundary in TIMEZONE (e.g. 00:00, 04:00, ...) rather than "N hours
+after startup" — see seconds_until_next_aligned_time().
 """
 
 import io
 import os
+import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests
 from flask import current_app
@@ -74,12 +58,9 @@ _EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "fonts")
 _FONT_BOLD_PATH = os.path.join(_FONT_DIR, "Exo2-Bold.ttf")
 
-# Excel styling — matches the PNG tables' own color choices (HEADER_BG,
-# _PRIORITY_ROW_BG) so the .xlsx attachment reads as the same alert, not a
-# differently-branded dump of the same data. Border is solid black (not a
-# light grey) and the row font is sized up from openpyxl's 11pt default —
-# both per explicit request, so the sheet reads as a clean, high-contrast
-# printed table rather than a default spreadsheet dump.
+# Excel styling — matches the PNG tables' own colors so the .xlsx
+# attachment reads as the same alert. Solid black border, larger font
+# than openpyxl's 11pt default.
 _EXCEL_HEADER_ARGB = "FF1A3A5C"
 _EXCEL_ALT_ROW_ARGB = "FFF5F7FA"
 _EXCEL_PRIORITY_ARGB = "FFFFCDD2"
@@ -111,12 +92,11 @@ def _cache_telegram_rows(rows, cache_repository):
 def _site_down_over_threshold(
     threshold_min, incident_site_down_cache_repository=None, cache_repository=None
 ):
-    """Every Site Down incident not yet Closed whose alarm hasn't cleared
-    (per incident_site_down.sql), read from the already-synced incident_site_down
-    cache, and whose outage has passed `threshold_min` minutes, longest-
-    outage first. outage_min is computed for every row (not just the ones
-    over threshold) before caching, so telegram_alert_cache always has each
-    incident's current outage duration — see _cache_telegram_rows()."""
+    """Every Site Down incident not yet Closed whose alarm hasn't
+    cleared, from the incident_site_down cache, whose outage has passed
+    `threshold_min` minutes, longest-outage first. outage_min is
+    computed for every row (not just over-threshold ones) before
+    caching, so telegram_alert_cache always has the current duration."""
     incident_site_down_cache_repository = (
         incident_site_down_cache_repository or IncidentSiteDownCacheRepository()
     )
@@ -238,7 +218,7 @@ def _render_table_image(rows, title):
     draw = ImageDraw.Draw(img)
     draw.rectangle([FRAME, FRAME, img_w - FRAME - 1, img_h - FRAME - 1], fill=BG)
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).strftime("%Y-%m-%d %H:%M")
     title_y = FRAME + PAD_TOP + (TITLE_H - TITLE_SIZE) // 2
     draw.text((FRAME + PAD_X, title_y), f"{title}  —  {now_str}", fill=TITLE_COLOR, font=title_font)
 
@@ -299,41 +279,42 @@ def _render_table_image(rows, title):
 
 
 def _is_l2_support(row):
-    """True only for an L2 Support Level (e.g. "L2 On-Site") — used by the
-    three INC-WO Telegram alerts (Site Down, Category Power, General) to
-    send L2 rows only. Anything else (L3, blank, or any other value) is
-    excluded — these alerts are for the L2 On-Site team specifically."""
+    """True only for an L2 Support Level (e.g. "L2 On-Site") — the 3
+    INC-WO Telegram alerts send L2 rows only."""
     return (row.get("support_level") or "").strip().upper().startswith("L2")
 
 
+# A connection-level failure's str(e) (e.g. requests.ConnectionError) embeds
+# the full request URL, which for Telegram is "https://api.telegram.org/bot
+# <TOKEN>/sendMessage" — redacted before this ever reaches a log file.
+_BOT_TOKEN_IN_URL_RE = re.compile(r"(/bot)[^/\s]+")
+
+
 def _error_detail(e):
-    """`str(e)` on a requests HTTPError is just the status line (e.g. "400
-    Client Error: Bad Request for url: ...") — Telegram's own reason (e.g.
-    "Bad Request: chat not found", "Forbidden: bot was kicked from the
-    group chat") is in the response body instead. Falls back to str(e) for
-    any other exception (timeouts, connection errors) that has no body."""
+    """`str(e)` on a requests HTTPError is just the status line — Telegram's
+    own reason (e.g. "Bad Request: chat not found") is in the response
+    body instead. Falls back to a token-redacted str(e) for exceptions with
+    no body (e.g. a connection failure, whose message embeds the full
+    request URL including the bot token)."""
     resp = getattr(e, "response", None)
     if resp is not None:
         try:
             return resp.json().get("description", resp.text)
         except ValueError:
             return resp.text
-    return str(e)
+    return _BOT_TOKEN_IN_URL_RE.sub(r"\1<redacted>", str(e))
 
 
 def _argb(hex_color):
-    """"#1A3A5C" -> "FF1A3A5C" — openpyxl colors want an 8-digit ARGB
-    string; every color used in this codebase is a plain 6-digit RGB hex
-    (the PNG tables' own color constants), so this just adds full opacity."""
+    """"#1A3A5C" -> "FF1A3A5C" — openpyxl wants 8-digit ARGB; adds full
+    opacity to a plain 6-digit RGB hex."""
     h = hex_color.lstrip("#")
     return f"FF{h}" if len(h) == 6 else h
 
 
 # Same incident/inc_wo record links the dashboard's own drilldown pages
-# build (see incwo.html's <a href="https://prd-web-mc.cellcard.com.kh/...">)
-# — every INC-WO cache table these alerts read from already carries
-# incident_numeric_id/wo_numeric_id (see app/database/cache.py), so no new
-# data is needed to link Excel cells the same way.
+# build — every INC-WO cache table already carries
+# incident_numeric_id/wo_numeric_id.
 _INCIDENT_FORM_URL = "https://prd-web-mc.cellcard.com.kh/incident/form/{id}"
 _INC_WO_FORM_URL = "https://prd-web-mc.cellcard.com.kh/inc_wo/form/{id}"
 _EXCEL_LINK_ARGB = "FF0563C1"  # Excel's own default hyperlink blue
@@ -359,28 +340,18 @@ def _build_excel_bytes(
     hyperlinks=None,
     left_align=None,
 ):
-    """Builds a styled .xlsx workbook of `rows` — dark-navy header banner
-    matching the PNG tables' own look, a frozen header row, autofilter,
-    autosized columns, and light banded rows for readability.
+    """Builds a styled .xlsx workbook of `rows` — dark-navy header,
+    frozen header row, autofilter, autosized columns, banded rows.
 
-    `columns` is a sequence of (header, extractor) pairs, where extractor
-    is either a row dict key or a callable(row) -> value; a missing/blank
-    value renders as "—", same convention the PNG tables use. Pass
-    `status_key`/`status_colors` to color one column's text the same way
-    the PNG table does (e.g. INC-WO Status); pass `priority_fn(row)` to
-    shade a whole row the same pink the PNG table uses for hub/Gold/Diamond
-    sites. Pass `hyperlinks` as a {header: fn(row) -> url_or_None} map to
-    make that column's cells clickable (styled Excel-hyperlink-blue, no
-    underline — per explicit request) — a row with no numeric id (fn
-    returns None/falsy) stays plain text, same conditional-link behavior
-    incwo.html itself uses. Every data cell is centered by default — pass
-    `left_align` as a set/list of header strings (e.g. free-typed prose
-    columns like Fault Description) to left-align just those columns
-    instead, per explicit request.
+    `columns` is (header, extractor) pairs, extractor a row dict key or
+    callable(row) -> value; missing/blank renders as "—".
+    `status_key`/`status_colors` color one column's text.
+    `priority_fn(row)` shades a whole row (e.g. hub/Gold/Diamond sites).
+    `hyperlinks` is {header: fn(row) -> url_or_None} making that column
+    clickable. `left_align` is a set of headers to left-align (default
+    center).
 
-    Returns bytes, or None if openpyxl isn't installed — caller decides
-    whether to skip the attachment silently, same convention as
-    _render_table_image()'s own Pillow guard."""
+    Returns bytes, or None if openpyxl isn't installed."""
     if not _HAS_OPENPYXL:
         return None
 
@@ -394,7 +365,7 @@ def _build_excel_bytes(
     thick = Side(style="medium", color=_EXCEL_BORDER_ARGB)
     border = Border(left=thick, right=thick, top=thick, bottom=thick)
 
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).strftime("%Y-%m-%d %H:%M")
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(columns), 1))
     title_cell = ws.cell(row=1, column=1, value=f"{title}  —  {now_str}")
     title_cell.font = Font(bold=True, size=_EXCEL_TITLE_FONT_SIZE, color="FF1A2B3C")
@@ -547,6 +518,7 @@ def send_site_down_alert(
         rows,
         "Site Down Alerts",
         hyperlinks={"Incident ID": _incident_link, "INC-WO ID": _inc_wo_link},
+        left_align={"Site Name", "Last Comment"},
     )
     if excel:
         sent = _send_telegram_excel(token, chat_ids, excel, "site-down-alert.xlsx") and sent
@@ -567,15 +539,11 @@ def _work():
 
 
 def start(app, interval_seconds=None):
-    """Start the background alert loop, once per process. See
-    scheduler_utils.py for the shared loop/guard logic; the computed
-    `first_run_delay` is what makes the first send land on a clean clock
-    boundary instead of immediately on startup (see module docstring
-    above). `next_delay_fn` re-derives that same aligned delay before every
-    subsequent sleep too — otherwise each run's own duration (Telegram
-    network calls, image rendering) would push every following send a bit
-    later, compounding into steady drift off the clock boundary cycle after
-    cycle."""
+    """Start the background alert loop, once per process. `first_run_delay`
+    lands the first send on a clean clock boundary instead of
+    immediately on startup. `next_delay_fn` re-derives that same aligned
+    delay before every sleep, so each run's own duration doesn't
+    compound into drift off the clock boundary."""
     wait = interval_seconds or app.config["ALERT_INTERVAL_SECONDS"]
     tz_name = app.config["TIMEZONE"]
     delay = seconds_until_next_aligned_time(wait, tz_name)

@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add Partner Interface — Partner Contact</title>
+<style>
+  :root {
+    --ink: #17211f;
+    --paper: #f3f2ee;
+    --paper-raised: #ffffff;
+    --paper-sunken: #eceae3;
+    --line: #d8d5cc;
+    --muted: #6b7570;
+    --accent: #0f7d72;
+    --accent-soft: #e2efec;
+    --accent-ink: #0a5850;
+    --loop: #a8701f;
+    --loop-soft: #f4e9d8;
+    --danger: #a4463a;
+    --danger-soft: #f4e5e1;
+    --focus: #0f7d72;
+    --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: ui-sans-serif, "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e9ece9;
+      --paper: #14181a;
+      --paper-raised: #1b2124;
+      --paper-sunken: #10161a;
+      --line: #313a3a;
+      --muted: #93a19b;
+      --accent: #4fc3b3;
+      --accent-soft: #163632;
+      --accent-ink: #8fe0d2;
+      --loop: #dba552;
+      --loop-soft: #3a2f19;
+      --danger: #e08a7c;
+      --danger-soft: #3a2320;
+      --focus: #4fc3b3;
+    }
+    .toast { background: var(--paper-raised); color: var(--ink); border: 1px solid var(--line); }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.5;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  h1 { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
+  .lede { max-width: 62ch; font-size: 14.5px; color: var(--muted); margin: 0 0 28px; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .toolbar .count { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+
+  button { font-family: inherit; cursor: pointer; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    background: var(--paper-raised);
+    color: var(--ink);
+  }
+  .btn:hover { border-color: var(--muted); }
+  .btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-ink); border-color: var(--accent-ink); }
+  .btn-ghost { border-color: transparent; background: transparent; padding: 6px 8px; }
+  .btn-ghost:hover { background: var(--paper-sunken); }
+  .btn-danger-ghost { border-color: transparent; background: transparent; padding: 6px 8px; color: var(--danger); }
+  .btn-danger-ghost:hover { background: var(--danger-soft); }
+  .btn-sm { font-size: 12px; padding: 6px 10px; }
+
+  .cards { display: flex; flex-direction: column; gap: 14px; }
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 18px 10px;
+  }
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .card-title { font-size: 16px; font-weight: 650; }
+  .card-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.02em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--paper-sunken);
+    color: var(--muted);
+    border: 1px solid var(--line);
+  }
+
+  .contacts { margin: 12px 0 8px; border-top: 1px solid var(--line); }
+  .contact-row {
+    display: grid;
+    grid-template-columns: 1.2fr 0.85fr 1fr 1.35fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .contact-row .who { font-weight: 600; }
+  .contact-row .role { color: var(--muted); font-size: 12px; }
+  .contact-row .service { font-family: var(--mono); font-size: 11px; color: var(--accent-ink); }
+  .reach-line {
+    color: var(--muted);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reach-line + .reach-line { margin-top: 3px; }
+  .reach-line a { color: inherit; text-decoration: none; }
+  .reach-line a:hover { color: var(--accent-ink); text-decoration: underline; }
+  .row-actions { display: flex; gap: 2px; justify-self: end; }
+  .empty-contacts {
+    padding: 16px 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    font-style: italic;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .card-foot { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 8px; }
+  .no-delete-partner {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .no-delete-partner .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--danger); opacity: 0.7; }
+
+  /* Modal */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10, 14, 13, 0.45);
+    align-items: flex-start;
+    justify-content: center;
+    padding: 6vh 16px;
+    overflow-y: auto;
+    z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 560px;
+    padding: 22px 24px 20px;
+  }
+  .modal-head { margin-bottom: 4px; }
+  .modal-head h2 { font-size: 17px; margin: 0 0 3px; font-weight: 650; }
+  .modal-head p { margin: 0; font-size: 12.5px; color: var(--muted); }
+  .badge-context {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 12px 0 4px;
+    padding: 7px 10px;
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    border-radius: 7px;
+    font-size: 12px;
+  }
+  .badge-context b { font-weight: 650; }
+
+  fieldset { border: none; padding: 0; margin: 16px 0 0; }
+  legend {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0 8px;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 12.5px; font-weight: 600; }
+  label .req { color: var(--danger); margin-left: 2px; }
+  input, textarea, select {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+  }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--focus); outline-offset: 1px; border-color: var(--focus); }
+  input[readonly] { color: var(--muted); background: var(--paper-sunken); }
+  textarea { resize: vertical; min-height: 54px; font-family: var(--sans); }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+
+  .confirm-pop {
+    position: absolute;
+    background: var(--paper-raised);
+    border: 1px solid var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    font-size: 12.5px;
+    z-index: 20;
+    width: 210px;
+  }
+  .confirm-pop p { margin: 0 0 8px; color: var(--ink); }
+  .confirm-pop .row { display: flex; gap: 6px; justify-content: flex-end; }
+
+  .toast {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 13px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer.note {
+    margin-top: 36px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">NOC Dashboard · Partner Contact — interface preview</p>
+  <h1>Add Partner interface</h1>
+  <p class="lede">
+    A working click-through of the flow from <code style="font-family:var(--mono)">flow-addpartner.html</code>:
+    Add Partner creates a partner with its first contact, Add Contact repeats freely on
+    an existing partner, and Edit/Delete only ever touch one contact row. Nothing here
+    is wired to the real app yet — it's local to this page so you can try the flow before
+    it's built into <code style="font-family:var(--mono)">partner_contact/index.html</code>.
+  </p>
+
+  <div class="toolbar">
+    <span class="count" id="partnerCount">2 partners</span>
+    <button class="btn btn-primary" id="openAddPartner">+ Add Partner</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <footer class="note">
+    Delete Partner is not offered here on purpose — no route removes a partner
+    row in the real app either (declined for now). Each contact can still be
+    removed individually.
+  </footer>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Add Partner</h2>
+      <p id="modalSubtitle">Create a partner and its first contact together.</p>
+    </div>
+    <div id="modalBadge"></div>
+    <form id="pcForm">
+      <fieldset id="partnerFields">
+        <legend>Partner details</legend>
+        <div class="grid2">
+          <div class="field"><label>Partner name<span class="req">*</span></label>
+            <input name="partner_name" required></div>
+          <div class="field"><label>Partner type<span class="req">*</span></label>
+            <input name="partner_type" required placeholder="e.g. ISP"></div>
+          <div class="field full"><label>Domain<span class="req">*</span></label>
+            <input name="domain" required placeholder="e.g. Telcotech"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend id="contactLegend">First contact</legend>
+        <div class="grid2">
+          <div class="field"><label>Service type<span class="req">*</span></label>
+            <input name="service_type" required placeholder="e.g. Internet Peering"></div>
+          <div class="field"><label>Escalation level<span class="req">*</span></label>
+            <input name="escalation_level" required placeholder="e.g. Tier 2"></div>
+          <div class="field full"><label>Escalation matrix<span class="req">*</span></label>
+            <input name="escalation_matrix" required placeholder="e.g. NOC → Tier 2 → Duty Manager"></div>
+          <div class="field"><label>Contact name<span class="req">*</span></label>
+            <input name="contact_name" required></div>
+          <div class="field"><label>Contact role<span class="req">*</span></label>
+            <input name="contact_role" required></div>
+          <div class="field"><label>Phone number<span class="req">*</span></label>
+            <input name="phone_number" required></div>
+          <div class="field"><label>Email<span class="req">*</span></label>
+            <input name="email" type="email" required></div>
+          <div class="field"><label>Website<span class="req">*</span></label>
+            <input name="website" required></div>
+          <div class="field full"><label>Remark<span class="req">*</span></label>
+            <textarea name="remark" required placeholder="Any extra notes about this contact..."></textarea></div>
+        </div>
+      </fieldset>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cancelModal">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="submitModal">Save partner</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  var partners = [
+    {
+      id: 'p1', name: 'Apple', type: 'ISP', domain: 'Telcotech',
+      contacts: [
+        { id: 'c1', service_type: 'Internet Peering', escalation_level: 'Tier 2', escalation_matrix: 'NOC → Tier 2 → Duty Manager',
+          contact_name: 'Chan Dara', contact_role: 'Network Engineer', phone_number: '+855 12 345 678',
+          email: 'dara.chan@apple-noc.example', website: 'https://apple-noc.example', remark: 'ASN 714 : IPv4 - 17.1.190.20/31' }
+      ]
+    },
+    {
+      id: 'p2', name: 'Telcotech Backbone', type: 'Transit', domain: 'Telcotech',
+      contacts: [
+        { id: 'c2', service_type: 'Transit', escalation_level: 'Tier 1', escalation_matrix: 'NOC → Shift Lead',
+          contact_name: 'Sok Piseth', contact_role: 'NOC Lead', phone_number: '+855 89 222 111',
+          email: 'piseth.sok@telcotech.example', website: 'https://telcotech.example', remark: 'Primary uplink contact' },
+        { id: 'c3', service_type: 'Transit', escalation_level: 'Tier 2', escalation_matrix: 'NOC → Tier 2',
+          contact_name: 'Ly Ratana', contact_role: 'Field Engineer', phone_number: '+855 77 555 222',
+          email: 'ratana.ly@telcotech.example', website: 'https://telcotech.example', remark: 'On-site backup, after hours only' }
+      ]
+    }
+  ];
+  var nextP = 3, nextC = 4;
+
+  var el = function (id) { return document.getElementById(id); };
+  var cardsEl = el('cards'), countEl = el('partnerCount');
+  var overlay = el('overlay'), form = el('pcForm');
+  var partnerFields = el('partnerFields'), contactLegend = el('contactLegend');
+  var modalTitle = el('modalTitle'), modalSubtitle = el('modalSubtitle'), modalBadge = el('modalBadge');
+  var submitModal = el('submitModal');
+  var mode = 'create', ctxPartnerId = null, ctxContactId = null;
+
+  var CONTACT_FIELDS = ['service_type','escalation_level','escalation_matrix','contact_name','contact_role','phone_number','email','website','remark'];
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function render() {
+    countEl.textContent = partners.length + ' partner' + (partners.length === 1 ? '' : 's') +
+      ' · ' + partners.reduce(function (n, p) { return n + p.contacts.length; }, 0) + ' contacts';
+
+    cardsEl.innerHTML = partners.map(function (p) {
+      var rows = p.contacts.length
+        ? p.contacts.map(function (c) {
+            return '<div class="contact-row" data-partner="' + p.id + '" data-contact="' + c.id + '">' +
+              '<div><div class="who">' + esc(c.contact_name) + '</div><div class="role">' + esc(c.contact_role) + '</div></div>' +
+              '<div class="service">' + esc(c.service_type) + '</div>' +
+              '<div>' +
+                '<div class="reach-line" title="' + esc(c.phone_number) + '">' + esc(c.phone_number) + '</div>' +
+                '<div class="reach-line" title="' + esc(c.email) + '"><a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a></div>' +
+              '</div>' +
+              '<div class="reach-line" title="' + esc(c.website) + '"><a href="' + esc(c.website) + '" target="_blank" rel="noopener">' + esc(c.website) + '</a></div>' +
+              '<div class="row-actions">' +
+                '<button class="btn-ghost btn-sm edit-contact" title="Edit contact" aria-label="Edit contact">✎</button>' +
+                '<button class="btn-danger-ghost btn-sm delete-contact" title="Delete contact" aria-label="Delete contact">🗑</button>' +
+              '</div></div>';
+          }).join('')
+        : '<div class="empty-contacts">No contacts yet — add one below.</div>';
+
+      return '<div class="card" data-partner="' + p.id + '">' +
+        '<div class="card-head"><span class="card-title">' + esc(p.name) + '</span>' +
+        '<div class="card-meta"><span class="chip">' + esc(p.type) + '</span><span class="chip">' + esc(p.domain) + '</span></div></div>' +
+        '<div class="contacts">' + rows + '</div>' +
+        '<div class="card-foot">' +
+          '<button class="btn btn-sm add-contact">+ Add Contact</button>' +
+          '<span class="no-delete-partner"><span class="dot"></span>no delete-partner route</span>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function showToast(msg) {
+    var t = el('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._h);
+    showToast._h = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  function openModal(m, partnerId, contactId) {
+    mode = m; ctxPartnerId = partnerId || null; ctxContactId = contactId || null;
+    form.reset();
+    Array.prototype.forEach.call(form.elements, function (f) { if (f.name) f.readOnly = false; });
+    modalBadge.innerHTML = '';
+
+    if (m === 'create') {
+      modalTitle.textContent = 'Add Partner';
+      modalSubtitle.textContent = 'Create a partner and its first contact together.';
+      partnerFields.style.display = '';
+      contactLegend.textContent = 'First contact';
+      submitModal.textContent = 'Save partner';
+    } else if (m === 'add-contact') {
+      var p = partners.find(function (x) { return x.id === partnerId; });
+      modalTitle.textContent = 'Add Contact';
+      modalSubtitle.textContent = 'Attach another contact to this existing partner.';
+      partnerFields.style.display = 'none';
+      contactLegend.textContent = 'New contact';
+      submitModal.textContent = 'Save contact';
+      modalBadge.innerHTML = '<div class="badge-context">Adding to <b>&nbsp;' + esc(p.name) + '</b>&nbsp;· ' + esc(p.type) + ' · ' + esc(p.domain) + '</div>';
+    } else if (m === 'edit') {
+      var p2 = partners.find(function (x) { return x.id === partnerId; });
+      var c = p2.contacts.find(function (x) { return x.id === contactId; });
+      modalTitle.textContent = 'Edit Contact';
+      modalSubtitle.textContent = "Updates this contact plus the partner's name and type.";
+      partnerFields.style.display = '';
+      contactLegend.textContent = 'Contact details';
+      submitModal.textContent = 'Save changes';
+      form.partner_name.value = p2.name;
+      form.partner_type.value = p2.type;
+      form.domain.value = p2.domain;
+      form.domain.readOnly = true;
+      CONTACT_FIELDS.forEach(function (k) { form[k].value = c[k]; });
+    }
+    overlay.classList.add('open');
+    (form.partner_name.style.display !== 'none' ? form.partner_name : form.service_type).focus();
+  }
+
+  function closeModal() { overlay.classList.remove('open'); }
+
+  el('openAddPartner').addEventListener('click', function () { openModal('create'); });
+  el('cancelModal').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function (e) { if (e.target === overlay) closeModal(); });
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var data = {};
+    CONTACT_FIELDS.forEach(function (k) { data[k] = form[k].value.trim(); });
+
+    if (mode === 'create') {
+      var id = 'p' + (nextP++);
+      partners.unshift({
+        id: id, name: form.partner_name.value.trim(), type: form.partner_type.value.trim(),
+        domain: form.domain.value.trim(), contacts: [Object.assign({ id: 'c' + (nextC++) }, data)]
+      });
+      showToast('Partner "' + form.partner_name.value.trim() + '" created with its first contact.');
+    } else if (mode === 'add-contact') {
+      var p = partners.find(function (x) { return x.id === ctxPartnerId; });
+      p.contacts.push(Object.assign({ id: 'c' + (nextC++) }, data));
+      showToast('Contact added to "' + p.name + '".');
+    } else if (mode === 'edit') {
+      var p2 = partners.find(function (x) { return x.id === ctxPartnerId; });
+      p2.name = form.partner_name.value.trim();
+      p2.type = form.partner_type.value.trim();
+      var c = p2.contacts.find(function (x) { return x.id === ctxContactId; });
+      Object.assign(c, data);
+      showToast('Changes saved.');
+    }
+    closeModal();
+    render();
+  });
+
+  cardsEl.addEventListener('click', function (e) {
+    var addBtn = e.target.closest('.add-contact');
+    if (addBtn) { openModal('add-contact', addBtn.closest('.card').dataset.partner); return; }
+
+    var editBtn = e.target.closest('.edit-contact');
+    if (editBtn) {
+      var row = editBtn.closest('.contact-row');
+      openModal('edit', row.dataset.partner, row.dataset.contact);
+      return;
+    }
+
+    var delBtn = e.target.closest('.delete-contact');
+    if (delBtn) {
+      document.querySelectorAll('.confirm-pop').forEach(function (n) { n.remove(); });
+      var row = delBtn.closest('.contact-row');
+      var pop = document.createElement('div');
+      pop.className = 'confirm-pop';
+      pop.innerHTML = '<p>Delete this contact?</p><div class="row">' +
+        '<button class="btn btn-sm" data-cancel>Cancel</button>' +
+        '<button class="btn btn-sm btn-primary" style="background:var(--danger);border-color:var(--danger)" data-confirm>Delete</button></div>';
+      document.body.appendChild(pop);
+      var r = delBtn.getBoundingClientRect();
+      pop.style.top = (window.scrollY + r.bottom + 6) + 'px';
+      pop.style.left = (window.scrollX + r.right - 210) + 'px';
+
+      pop.querySelector('[data-cancel]').addEventListener('click', function () { pop.remove(); });
+      pop.querySelector('[data-confirm]').addEventListener('click', function () {
+        var pid = row.dataset.partner, cid = row.dataset.contact;
+        var p = partners.find(function (x) { return x.id === pid; });
+        p.contacts = p.contacts.filter(function (c) { return c.id !== cid; });
+        pop.remove();
+        showToast('Contact deleted.');
+        render();
+      });
+
+      setTimeout(function () {
+        document.addEventListener('click', function onDoc(ev) {
+          if (!pop.contains(ev.target) && ev.target !== delBtn) { pop.remove(); document.removeEventListener('click', onDoc); }
+        });
+      }, 0);
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

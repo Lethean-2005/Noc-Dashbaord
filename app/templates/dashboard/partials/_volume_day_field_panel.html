@@ -1,0 +1,50 @@
+{# Shared flat breakdown table for a per-weekday Incident Volume tab
+   (Severity/Province/Vendor — Category keeps its own richer markup with
+   the duration-drilldown accordion directly in graph_cards.html, since
+   only that field has per-bucket duration data attached, see
+   IncidentService._incident_volume_day_field_breakdowns()'s docstring).
+
+   Caller sets these via {% set %} immediately before each
+   {% include ... with context %}:
+     field_name   - "severity"/"province"/"vendor" (matches the row dict
+                    key AND the drilldown query param IncidentService's
+                    SCOPE_HANDLERS reads for "Incident Volume")
+     field_label  - display column header, e.g. "Severity"
+     items_key    - the list key on `field_day_breakdown`, e.g. "severities"
+     field_day_breakdown - one weekday's entry from
+                    IncidentService.get_incident_volume_day_<field>_breakdowns()
+                    ({"weekday", "week_labels", "<items_key>": [...]}) #}
+<p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Incidents Created on {{ field_day_breakdown.weekday }}, sorted by biggest increase first.</p>
+<div style="overflow-x:auto;">
+<table class="alarm-table" style="width:100%;">
+    <thead>
+        <tr>
+            <th>{{ field_label }}</th>
+            {% for label in field_day_breakdown.week_labels %}
+            <th class="right">{{ label }}</th>
+            {% endfor %}
+            <th class="right">Change</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in field_day_breakdown[items_key] %}
+        <tr>
+            <td>{{ row[field_name] }}</td>
+            {% for w in row.weeks %}
+            <td class="right">
+                {% if w.count > 0 %}
+                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, category=selected_volume_categories, title=row[field_name] + ' — ' + w.label, label=row[field_name] + ' — ' + w.label, value=w.count, **{field_name: row[field_name]}) }}">{{ w.count }}</a>
+                {% else %}
+                {{ w.count }}
+                {% endif %}
+                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+            </td>
+            {% endfor %}
+            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+        </tr>
+        {% else %}
+        <tr class="empty-row"><td colspan="{{ field_day_breakdown.week_labels|length + 2 }}">No incidents on this day</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>

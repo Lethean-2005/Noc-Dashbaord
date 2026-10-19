@@ -1,56 +1,24 @@
 """Centralized application logger configuration.
 
 Every module gets its logger via get_logger(__name__). Each logger writes
-to the console and the following files, all the same timestamp/label/
-job-name/message table shape (console adds a color per label on top):
-  - stdout                      — for `python run.py` / console viewing
-  - LOG_PATH   (logs/app.log)   — every record at LOG_LEVEL or above
-  - LOG_ERROR_PATH (logs/error.log) — ERROR/CRITICAL only, so failures are
-    easy to find without grepping the full app log
-  - ATTEMPTS_LOG_PATH (logs/attempts.log) — only postgres_sync_utils.py's
-    retry_fetch() records (ATTEMPT warnings + the FAILED-after-exhaustion
-    that follows), so a retry storm on any job (e.g. ape_alarm's "conflict
-    with recovery") is readable on its own, without needing to grep it out
-    of every other job's noise in app.log
-  - DASHBOARD_LOG_PATH (logs/dashboard.log) — only app/routes/dashboard.py's
-    own logger, showing the last_synced_at of every table the homepage
-    reads on each view (see dashboard.py's index()), so "how current was
-    the data a user actually saw" is answered directly instead of having
-    to cross-reference sync_meta against request timing by hand
-  - TELEGRAM_LOG_PATH (logs/telegram.log) — only
-    app/services/telegram/telegram_alert.py's own logger, so the Site Down
-    Telegram alert's history (sent/skipped/failed) is readable on its own
-    instead of buried in app.log's general noise
-  - WEBHOOK_LOG_PATH (logs/webhook.log) — only webhook/__init__.py's own
-    logger, same reasoning as TELEGRAM_LOG_PATH but for the Teams webhook
-    alerts (webhook/ package)
+to the console (colored per label) plus its own file: LOG_PATH for
+everything at LOG_LEVEL+, LOG_ERROR_PATH for ERROR/CRITICAL only,
+ATTEMPTS_LOG_PATH for retry_fetch()'s own ATTEMPT/SUCCESS/FAILED records,
+DASHBOARD_LOG_PATH for dashboard.py's per-table last_synced_at, and
+TELEGRAM_LOG_PATH/WEBHOOK_LOG_PATH for their own alert modules — each
+kept separate so one job's history is readable without grepping it out
+of app.log's general noise.
 
-Both live output (console, for whoever's watching `python run.py` run) and
-persisted output (the files, the actual source of truth once the terminal
-closes or nobody was watching) — keeping only one of the two is a real
-tradeoff either way, not a strictly "more correct" choice, so this keeps
-both rather than picking one.
+Reads *_PATH straight from the environment rather than Flask's
+app.config, since loggers are module-level singletons created at import
+time, often before any Flask app exists. Each file rotates at
+LOG_MAX_BYTES (default 10MB), keeping LOG_BACKUP_COUNT (default 5) old
+copies.
 
-Reads LOG_LEVEL/LOG_PATH/LOG_ERROR_PATH/ATTEMPTS_LOG_PATH/DASHBOARD_LOG_PATH
-straight from the environment (matching app/config.py's defaults) rather
-than Flask's app.config, since loggers are created as module-level
-singletons at import time, often before any Flask app exists.
-
-Each file rotates at LOG_MAX_BYTES (default 10MB), keeping LOG_BACKUP_COUNT
-(default 5) old copies (app.log.1, app.log.2, ...) — without this, these
-files grow without bound.
-
-Under pytest, all paths redirect into a temp directory instead of logs/ —
-retry_fetch() is exercised directly by tests using a fake label ("test"),
-and without this redirect every test run permanently wrote that noise into
-the real logs/app.log/attempts.log on this machine. Detected via "pytest"
-in sys.modules rather than the PYTEST_CURRENT_TEST env var:
-PYTEST_CURRENT_TEST is only set while a test is actually executing, but
-this module (like most) gets imported once at collection time, before any
-test has started — by then PYTEST_CURRENT_TEST wouldn't be set yet, and
-this is a one-time check, so it would never fall back to the redirect.
-"pytest" is already imported by the time collection starts, so it's set
-for this whole process's lifetime instead.
+Under pytest, all paths redirect into a temp directory instead of logs/
+— detected via "pytest" in sys.modules rather than PYTEST_CURRENT_TEST,
+since this module is imported once at collection time, before that
+would be set for any specific test.
 """
 
 import logging
@@ -228,17 +196,15 @@ def _console_stream():
     """UTF-8 with errors='replace', regardless of the console's actual
     codepage — without this, any non-ASCII character in a log message
     raises UnicodeEncodeError and crashes the app on a Windows console
-    still using cp1252 (the Windows default outside UTF-8-aware terminals
-    like Windows Terminal/VS Code).
+    still using cp1252.
 
     Reconfigures colorama's already-patched sys.stdout in place (rather
     than wrapping the raw sys.stdout.buffer in a new TextIOWrapper), so
     ANSI color codes still pass through colorama's translation layer for
     legacy Windows consoles (cmd.exe) — wrapping the raw buffer instead
-    would bypass that wrapper entirely and print raw escape codes there.
-    Falls back to the raw buffer only if reconfigure() isn't available
-    (older Python, or a stdout that isn't a real TextIOWrapper, e.g. some
-    IDE consoles)."""
+    would bypass that and print raw escape codes there. Falls back to the
+    raw buffer only if reconfigure() isn't available (older Python, or a
+    non-TextIOWrapper stdout, e.g. some IDE consoles)."""
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
         return sys.stdout
@@ -270,17 +236,13 @@ def _webhook_only_filter(record):
 
 class _SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     """Rotation (rename app.log -> app.log.1) fails with PermissionError on
-    Windows whenever another process still has the file open — which is
-    routine here, since this machine's host-level process duplication
-    (see leader_lock.py's own docstring) means several python.exe
-    processes are often writing to the same logs/app.log at once. Renaming
-    an open file is fine on Unix but Windows refuses it outright, so
-    rollover just isn't reliably possible while that's happening. Skipping
-    a failed rollover (instead of the default behavior of printing a full
-    traceback to stderr on every write once the file's past maxBytes)
-    means the file keeps growing a bit past LOG_MAX_BYTES during that
-    window, but that's a far smaller cost than a traceback spamming the
-    console on every single log call."""
+    Windows whenever another process still has the file open — routine
+    here, since this machine's host-level process duplication (see
+    leader_lock.py) means several python.exe processes often write to the
+    same logs/app.log at once, and Windows refuses to rename an open file.
+    Skipping a failed rollover (instead of the default traceback-on-every-
+    write-past-maxBytes) lets the file grow a bit past LOG_MAX_BYTES
+    during that window, a far smaller cost than spamming the console."""
 
     def doRollover(self):
         try:

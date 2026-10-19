@@ -1,0 +1,16 @@
+{# Shared date+TIME field with a calendar-icon picker — same idea as
+   _date_field.html, but for fields storing "D-Mon-YYYY HH:MM" (Time
+   Issue/Raise Time/Response Time/Restored Time). The visible <input>
+   stays plain text so it can hold that exact format; the calendar icon
+   opens the SAME shared #irCalendar dropdown the date-only fields use
+   (see incident-report.js), just with its time row shown too —
+   data-datetime="1" is what tells that shared picker to show it and
+   append " HH:MM" to whatever day gets clicked. Typing the value
+   directly still works exactly as before. #}
+<div class="ir-field">
+  <label>{{ field_label }}</label>
+  <div class="ir-date-field" data-datetime="1">
+    <input type="text" name="{{ field_name }}" value="{{ field_value }}" placeholder="{{ field_placeholder }}" class="ir-date-text" required>
+    <button type="button" class="ir-date-pick-btn" aria-label="Pick a date and time"><i class="ti ti-calendar"></i></button>
+  </div>
+</div>

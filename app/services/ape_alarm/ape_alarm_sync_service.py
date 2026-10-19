@@ -1,22 +1,22 @@
 """Pulls the broader NE/connectivity alarm feed from PostgreSQL (object_138)
 and writes it into the local cache (instance/localstorage.db). Mirrors
-app/services/incident/incident_sync_service.py — same reasoning applies here.
+incident_sync_service.py — same reasoning applies here.
 
 Site Code used to be computed by Postgres's own get_processed_site()
 PL/pgSQL function, called once per row inside the query itself — see
-app/database/queries/ape_alarm.sql's header for why that per-row procedural
-call was removed. This service now resolves Site Code locally instead, via
-app/utils/get_processed_site.py's get_processed_site() (a direct Python port of that
-same function), using the site_lookup cache (mirrors PostgreSQL's
-site_lookup_mv) for the sran_id/nodeb_id/bts_id lookups the Postgres
-function used to do internally. Site Name is still resolved locally against
+ape_alarm.sql's header for why that per-row procedural call was removed.
+This service now resolves Site Code locally via
+app/utils/get_processed_site.py's get_processed_site() (a direct Python
+port of that same function), using the site_lookup cache (mirrors
+PostgreSQL's site_lookup_mv) for the lookups the Postgres function used
+to do internally. Site Name is still resolved locally against
 site_cache, same as before.
 
 object_138 is a 10M-row foreign table with no supporting index, so this
-query can still lose the race against the replica's WAL replay ("conflict
-with recovery" — see app/database/queries/ape_alarm.sql's header); the
-retry/backoff that mitigates it lives in app/services/postgres_sync_utils.py
-(shared with vip_alarm_sync_service.py and incident_sync_service.py).
+query can still lose the race against the replica's WAL replay
+("conflict with recovery" — see ape_alarm.sql's header); the
+retry/backoff that mitigates it lives in postgres_sync_utils.py (shared
+with vip_alarm_sync_service.py and incident_sync_service.py).
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -51,9 +51,8 @@ class ApeAlarmSyncService:
 
     def sync(self):
         """Refresh ape_alarm from PostgreSQL. Wrapped in try/except-per-step,
-        same reasoning as incident_sync_service.py: this runs inside an
-        infinite background loop, so any uncaught exception here would
-        silently kill that loop forever.
+        same reasoning as incident_sync_service.py: an uncaught exception
+        here would silently kill the infinite background loop this runs in.
 
         object_138's unindexed 10M-row scan loses the replica-conflict race
         more often than the lighter incident/vip_alarm queries, so this uses
@@ -63,9 +62,8 @@ class ApeAlarmSyncService:
         default and slowing down every other caller of retry_fetch() too.
 
         Returns the row count synced, or None on failure — ape_alarm_scheduler.py
-        checks which of the two it got (not the count itself) to decide
-        whether to retry sooner than the normal interval after a failed
-        cycle."""
+        checks which of the two it got (not the count) to decide whether to
+        retry sooner than normal after a failed cycle."""
         alarm_rows = retry_fetch(
             self.ape_alarm_repository.fetch_active,
             "ape_alarm",
@@ -109,6 +107,8 @@ class ApeAlarmSyncService:
         matched_site = site_by_code.get(site_code) if site_code else None
 
         return {
+            "alarm_numeric_id": row.get("ID"),
+            "alarm_id": row.get("Alarm ID") or "",
             "occurred_at": to_local_seconds(row.get("Occurred At")),
             "event_name": row.get("Event Name") or "",
             "additional_info": row.get("Additional Info") or "",

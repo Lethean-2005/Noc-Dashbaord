@@ -1,0 +1,52 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'SLA Compliance' %}
+{% set priority_badge = {'High': 'status-reopened', 'Medium': 'status-in-progress', 'Low': 'status-resolved'} %}
+{% set site_grade_badge = {'Diamond': 'status-new', 'Gold': 'status-in-progress', 'Silver': 'status-assigned', 'Bronze': 'status-on-hold'} %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=request.args.get('category', ''), priority=request.args.get('priority', '')) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Category</th>
+                <th>SLA</th>
+                <th>Priority</th>
+                <th>Support Level</th>
+                <th>Site Grade</th>
+                <th>Week</th>
+                <th>Occurred At</th>
+                <th>Response SLA</th>
+                <th>Resolution SLA</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.sla_target_display or '—' }}</td>
+                <td>{% if row.priority %}<span class="status-badge {{ priority_badge.get(row.priority, '') }}">{{ row.priority }}</span>{% else %}—{% endif %}</td>
+                <td>{{ row.support_level }}</td>
+                <td>{% if row.site_grade %}<span class="status-badge {{ site_grade_badge.get(row.site_grade, '') }}">{{ row.site_grade }}</span>{% else %}—{% endif %}</td>
+                <td>{{ row.iso_week }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td><span class="status-badge {{ 'status-reopened' if row.response_sla_display == 'Missed' else 'status-resolved' if row.response_sla_display == 'Met' else '' }}">{{ row.response_sla_display }}</span></td>
+                <td><span class="status-badge {{ 'status-reopened' if row.resolution_sla_display == 'Missed' else 'status-resolved' if row.resolution_sla_display == 'Met' else '' }}">{{ row.resolution_sla_display }}</span></td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="10">No incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

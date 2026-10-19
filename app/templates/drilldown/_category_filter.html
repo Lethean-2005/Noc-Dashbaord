@@ -1,0 +1,57 @@
+{# Shared category filter for trend drilldowns whose rows carry a
+`category` field (Incidents Closed / Incident Volume / Response Time
+Duration / Resolution Time Duration) — caller must {% set scope = '...' %}
+and pass `available_categories` (only the categories actually present in
+that table's own data, not a fixed list) and `selected_categories`
+(list) before including this. Checkboxes, not radio buttons — more than
+one category can be selected at once; none checked means no filter.
+Combines with the existing day/week `type` filter from the chart, and
+whichever sibling filters that particular drilldown also has —
+Response/Resolution Time Duration's `_duration_filter.html`
+(`duration_bucket`/`week`), Incident Volume's `_field_filter.html`
+(`severity`/`province`/`vendor`) — all read straight from the request
+rather than caller-provided variables, so this stays a safe no-op
+include for pages that don't have those concepts. #}
+<details class="date-filter">
+    <summary class="btn-export">
+        <i class="ti ti-filter"></i>
+        <span>
+            {% if selected_categories %}{{ selected_categories|length }} selected{% else %}All Categories{% endif %}
+        </span>
+        <i class="ti ti-chevron-down"></i>
+    </summary>
+    <form class="date-filter-form" method="get">
+        <input type="hidden" name="title" value="{{ title }}">
+        <input type="hidden" name="label" value="{{ label }}">
+        <input type="hidden" name="scope" value="{{ scope }}">
+        <input type="hidden" name="type" value="{{ request.args.get('type', '') }}">
+        {% for d in request.args.getlist('duration_bucket') %}<input type="hidden" name="duration_bucket" value="{{ d }}">{% endfor %}
+        {% if request.args.get('week') %}<input type="hidden" name="week" value="{{ request.args.get('week') }}">{% endif %}
+        {% for v in request.args.getlist('severity') %}<input type="hidden" name="severity" value="{{ v }}">{% endfor %}
+        {% for v in request.args.getlist('province') %}<input type="hidden" name="province" value="{{ v }}">{% endfor %}
+        {% for v in request.args.getlist('vendor') %}<input type="hidden" name="vendor" value="{{ v }}">{% endfor %}
+        <div class="date-filter-field-label">Filter by Category</div>
+        <div class="category-filter-options">
+            {% if available_categories %}
+            <label class="category-filter-option category-filter-all">
+                <input type="checkbox" class="category-filter-all-checkbox" {% if not selected_categories %}checked{% endif %}>
+                All Categories
+            </label>
+            {% endif %}
+            {% for cat in available_categories %}
+            <label class="category-filter-option">
+                <input type="checkbox" name="category" value="{{ cat }}" {% if not selected_categories or cat in selected_categories %}checked{% endif %}>
+                {{ cat }}
+            </label>
+            {% else %}
+            <span class="category-filter-empty">No categories in this table.</span>
+            {% endfor %}
+        </div>
+        <div class="date-filter-actions">
+            <button type="submit" class="btn-export">Apply</button>
+            {% if selected_categories %}
+            <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=request.args.get('type', ''), duration_bucket=request.args.getlist('duration_bucket'), week=request.args.get('week', ''), severity=request.args.getlist('severity'), province=request.args.getlist('province'), vendor=request.args.getlist('vendor')) }}">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+</details>

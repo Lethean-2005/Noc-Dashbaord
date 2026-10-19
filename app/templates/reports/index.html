@@ -3,10 +3,8 @@
 {% block title %}Custom Dashboard{% endblock %}
 
 {% block content %}
-{# Static visual replica of the reference /custom dashboard — "Incident
-   Site Down", "INC-WO Site Down", and "INC-WO Resolved" are live (see
-   app/services/incident_service.py and app/services/incwo_service.py);
-   the other five cards are still hardcoded placeholders. #}
+{# All 8 cards below read live counts from reports.py's index(), each
+   gated behind its own FEATURE_* flag (app/config.py). #}
 <div class="dashboard-grid">
 
     {% if features.FEATURE_INCIDENT_SITEDOWN %}

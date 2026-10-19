@@ -163,6 +163,35 @@ def test_get_details_translates_nms_code():
     assert row["nms"] == "Nokia"
 
 
+def test_get_details_prefers_ape_alarms_own_nms_over_incidents_stale_code():
+    # The alarm's own nms code comes straight from the live alarm feed
+    # (object_138); the incident's nms is resolved from object_227's NE
+    # inventory, which can be stale for a site whose equipment changed.
+    alarm_rows = [_alarm_row("S1", nms="7")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{"site_code": "S1", "nms": "Huawei"}]
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo(incident_rows)
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["nms"] == "Nokia"
+
+
+def test_get_details_falls_back_to_incidents_nms_when_alarm_has_none():
+    alarm_rows = [_alarm_row("S1", nms="")]
+    site_rows = [{"standard_code": "S1", "hub_site": "Not Hub", "site_grade": "gold"}]
+    incident_rows = [{"site_code": "S1", "nms": "Huawei"}]
+    svc = AlarmSiteDownService(
+        FakeApeAlarmRepo(alarm_rows), FakeSiteRepo(site_rows), FakeIncidentSiteDownRepo(incident_rows)
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["nms"] == "Huawei"
+
+
 def test_get_details_filters_by_hub_badge():
     alarm_rows = [_alarm_row("S1"), _alarm_row("S2")]
     site_rows = [

@@ -41,21 +41,14 @@ def total_duration():
 def seconds_until_next_aligned_time(interval_seconds, tz_name, offset_seconds=0):
     """Seconds from now until the next clock time that's a multiple of
     `interval_seconds` since local midnight in `tz_name` (plus
-    `offset_seconds`, default 0) — e.g. with a 300s (5 min) interval:
-    00:00, 00:05, 00:10, ... Pure modular arithmetic on seconds-since-
-    midnight, so it needs no special-casing for the day boundary.
-    Originally telegram_alert.py's own _seconds_until_next_aligned_time()
-    — moved here once every other scheduler needed the same "stay pinned
-    to the clock, don't drift" behavior, not just the Telegram alert loop.
+    `offset_seconds`) — e.g. a 300s interval lands on 00:00, 00:05, ...
+    Pure modular arithmetic, no special-casing for the day boundary.
 
-    `offset_seconds` staggers a job's own landing point within the shared
-    cycle (e.g. offset=30 lands on 00:00:30, 00:05:30, ... instead of
-    00:00:00, 00:05:00) — every 300s-interval job used to target the exact
-    same instant, which meant they (and every open browser tab's own
-    auto-reload, see dashboard.py's index()) could all start real work at
-    once, real staff traffic hitting the page right as several background
-    jobs' local database writes collided. Distinct offsets per job spread
-    that work across the cycle instead of concentrating it in one moment.
+    `offset_seconds` staggers a job's landing point within the shared
+    cycle — every 300s-interval job used to target the exact same
+    instant, so several jobs' local database writes could collide at
+    once (plus real staff traffic from dashboard.py's own auto-reload).
+    Distinct offsets per job spread that work across the cycle instead.
     """
     now = datetime.now(ZoneInfo(tz_name))
     midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -67,47 +60,22 @@ def start_singleton_loop(
     app, work, interval_seconds, thread_name, log_message, first_run_delay=None, next_delay_fn=None
 ):
     """Run `work()` forever on a daemon thread named `thread_name`, every
-    `interval_seconds`, guarded so a second call with the same `thread_name`
-    in this process is a no-op.
+    `interval_seconds`, guarded so a second call with the same
+    `thread_name` in this process is a no-op.
 
-    `work` is called inside `app.app_context()` and wrapped in a catch-all
-    try/except — each sync service already catches its own per-job errors
-    (so a bad MSSQL/Postgres response doesn't reach here), but this is a last
-    -resort backstop so a future uncaught exception logs and skips a cycle
-    instead of silently killing the loop forever.
+    `work` runs inside `app.app_context()` wrapped in a catch-all
+    try/except backstop so one uncaught exception skips a cycle instead of
+    killing the loop. Logs START/COMPLETED/FAILED, plus a "Total: synced
+    N row(s)" line if `work()` returns an int; every job but
+    all-tasks-summary records its duration into _last_durations so
+    all-tasks-summary can report total_duration() instead of its own
+    near-instant counting time.
 
-    Every cycle logs a bare "START" line right before `work()` runs and a
-    "COMPLETED (X.XXs)" / "FAILED (X.XXs): ..." line right after it returns
-    (each record already carries its own timestamp and job name via the
-    logging formatter — see app/utils/logger.py — so there's no need to
-    repeat `thread_name` inside the message itself).
-
-    If `work()` also returns an int (every sync service's own sync method
-    does — the row count synced this cycle, summed across every table it
-    touches), an additional "Total: synced N row(s) in X.XXs" line is
-    logged right after COMPLETED (styled purple in the console — see
-    app/utils/logger.py's TOTAL handling). `work()` returning None
-    (Telegram's alert loop) just skips that extra line. Every job except
-    all-tasks-summary itself also records its own duration into
-    _last_durations above, so all-tasks-summary's own Total line can report
-    total_duration() — the combined time every other job's last cycle took
-    — instead of its own (trivially fast) row-counting time.
-
-    `first_run_delay`, if given, waits that many seconds before the first run
-    instead of running immediately (used by the Telegram alert loop, both so
-    restarting the dev server can't immediately resend an alert, and so the
-    first run lands on a clean clock-aligned time — see
-    seconds_until_next_aligned_time() above).
-
-    `next_delay_fn`, if given, is called to compute the sleep after every
-    run instead of the plain `interval_seconds`. Without this, that sleep is
-    measured from the moment `work()` returns, so `work()`'s own runtime
-    (network calls, disk I/O, etc.) shifts every following run later — and
-    that shift compounds every cycle since nothing re-aligns to the clock.
-    Every cache-sync scheduler (plus Telegram's alert) passes
-    seconds_until_next_aligned_time() here to stay pinned to clean clock
-    boundaries (00:00, 00:05, 00:10, ... for a 300s interval) instead of
-    drifting later each cycle.
+    `first_run_delay` skips the immediate first run (Telegram alert loop,
+    so a dev-server restart can't resend an alert). `next_delay_fn`, if
+    given, computes each sleep instead of a plain `interval_seconds` — all
+    schedulers pass seconds_until_next_aligned_time() here to stay pinned
+    to clean clock boundaries instead of drifting.
     """
     with _guards_lock:
         guard = _guards.setdefault(thread_name, {"started": False, "lock": threading.Lock()})

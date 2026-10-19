@@ -1,0 +1,14 @@
+{# Shared Owner cell content — same colored Telcotech/Ezecom text
+   everywhere a drilldown row's own `pro_owner` is shown (ISP POP/EZE/
+   TCT/Congestion History), reused via {% include %} the same way
+   _alarm_action_menu.html already is for the Action column, rather than
+   duplicating this 6-line if/elif/else 4 separate times. Colors come
+   from tables.css's .pop-owner-telcotech/.pop-owner-ezecom — same exact
+   hex values as the Map page's own pro_owner-based dot coloring. #}
+{% if row.pro_owner == 'Telcotech' %}
+<span class="pop-owner-telcotech">{{ row.pro_owner }}</span>
+{% elif row.pro_owner == 'Ezecom' %}
+<span class="pop-owner-ezecom">{{ row.pro_owner }}</span>
+{% else %}
+{{ row.pro_owner }}
+{% endif %}

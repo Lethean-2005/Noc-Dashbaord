@@ -2,6 +2,7 @@
 
 from app.database.cache import SITE_CACHE_TABLES
 from app.repositories.base_cache_repository import BaseCacheRepository
+from app.utils.ttl_cache import ttl_cache
 
 
 class SiteCacheRepository(BaseCacheRepository):
@@ -26,5 +27,13 @@ class SiteCacheRepository(BaseCacheRepository):
         "p_lat",
         "p_lon",
         "hub_site",
+        "actual_ran_vendor",
     )
     order_by = "id"
+
+    @ttl_cache(15)
+    def fetch_all(self, table):
+        """Cached for 15s — see ApeAlarmCacheRepository.fetch_all()'s own
+        note; this table has the same "one shared instance, many services"
+        redundant-read pattern on the dashboard."""
+        return super().fetch_all(table)

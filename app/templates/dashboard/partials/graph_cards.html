@@ -1,0 +1,749 @@
+{# ═══════════════════════════════════════════════════════════════
+   Incident Age / Volume / Closed — all 3 are now LIVE. Incident Age
+   (card 1, a "Major Expenses"-style horizontal bar chart) is filtered
+   to category == "Site Down" only (see get_incident_age_buckets()) —
+   open Site Down incidents bucketed by age, nothing else. Incident
+   Volume (card 2, a Mon-Sun line chart driven by when incidents were
+   CREATED), and Incidents Closed (card 3, Mon-Sun bars driven by when
+   incidents were CLOSED) each read their own cache (incident_by_status/
+   incident_created_trend/incident_closed_trend respectively, all kept in
+   sync by incident_scheduler.py) via IncidentService.get_incident_age_chart()/
+   get_incident_volume_trend()/get_incident_closed_trend(). See MEMORY:
+   dashboard stays static except ISP POP/EZE/TCT and these 3 Incident
+   cards. Card visuals use their own local --graph-* tokens (white in
+   light mode, dark in dark mode — see graph_cards.css), not the
+   --bg-card theme token.
+
+   Each card header carries its own checkbox-dropdown filter(s) — same
+   <details class="date-filter"> shell as drilldown/_category_filter.html,
+   just submitting to dashboard.index instead of dashboard.drilldown, and
+   icon-only (no label text) so the header stays compact — hover for a
+   tooltip, and a small dot on the icon (.is-active, see graph_cards.css)
+   shows when a non-default filter is applied. Every one of these
+   <details> — here and in performance_cards.html — shares the same
+   name="perf-filter-group" attribute, which is what makes them
+   mutually exclusive: opening one auto-closes any other already open,
+   a native <details> behavior (no JS) rather than 10 independent
+   popups piling up on screen at once. Card 1 filters by age
+   bucket (age_bucket). Cards 2/3 each get TWO dropdowns: Category
+   (volume_category/closed_category, built from
+   IncidentService.get_volume_trend_categories()/get_closed_trend_categories()
+   — every category actually present in that table, not a fixed list) and
+   Compare Weeks (volume_week/closed_week, built from
+   IncidentService.get_available_weeks() — this week + the 3 before it,
+   all inside the 30-day incident_created_trend/incident_closed_trend
+   cache window so a pickable week always has data) — plain date labels
+   only, no numbers, so the dropdown itself stays clean; the actual
+   count/percent per day lives in the chart's own hover tooltip instead
+   (day.series[].delta_pct, see _with_deltas()). Checking N weeks draws
+   N colored line/bar series at once (see get_incident_volume_trend()/
+   get_incident_closed_trend()'s `series`/`week_totals`).
+
+   Each dropdown's form carries every OTHER active filter on the row as
+   hidden inputs so applying one doesn't clear the others; selections
+   persist across the page's own location.reload() since that keeps the
+   current query string. Category checkboxes default to checked whenever
+   their own query param is absent — an empty selection already means "no
+   filter, show all" on the backend. Week checkboxes default to checked
+   for `default_weeks` (the latest two COMPLETE weeks, skipping the
+   current in-progress one) whenever volume_week/closed_week is absent,
+   matching get_incident_volume_trend()/get_incident_closed_trend()'s
+   own fallback (_resolve_selected_weeks()) when no weeks are selected.
+
+   .graph-row is ONE .dashboard-grid child spanning the full row width,
+   with its own internal 3-equal-column grid — needed because 3 equal
+   columns can't be expressed as 3 independent integer spans in a
+   4-column grid. Trade-off: card-layout.js's hide/reorder ("Card
+   Layout" → Arrange Your Cards) treats this whole row as a single
+   unit rather than 3 individually toggleable cards, since it only
+   walks .dashboard-grid's direct children.
+   ═══════════════════════════════════════════════════════════════ #}
+  <div class="graph-row">
+    <!-- Incident Age – Open -->
+    <div class="card card-graph" id="incidentAgeCard">
+      <div class="card-header expenses-header no-collapse">
+        <h3 class="card-title">Site Down &ndash; Open (by Age)</h3>
+        <details class="date-filter" name="perf-filter-group" style="margin-left:auto;">
+          <summary class="btn-export btn-icon-only{{ ' is-active' if selected_age_buckets else '' }}" title="Filter by Age">
+            <i class="ti ti-filter"></i>
+          </summary>
+          <form class="date-filter-form" method="get" action="{{ url_for('dashboard.index') }}">
+            {% for v in selected_volume_categories %}<input type="hidden" name="volume_category" value="{{ v }}">{% endfor %}
+            {% for v in selected_volume_weeks %}<input type="hidden" name="volume_week" value="{{ v }}">{% endfor %}
+            {% for v in selected_closed_categories %}<input type="hidden" name="closed_category" value="{{ v }}">{% endfor %}
+            {% for v in selected_closed_weeks %}<input type="hidden" name="closed_week" value="{{ v }}">{% endfor %}
+            {% for v in selected_site_down_duration_weeks %}<input type="hidden" name="site_down_duration_week" value="{{ v }}">{% endfor %}
+              {% for v in top_site_down.selected_weeks %}<input type="hidden" name="top_site_down_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_categories %}<input type="hidden" name="response_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_weeks %}<input type="hidden" name="response_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_categories %}<input type="hidden" name="resolution_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_weeks %}<input type="hidden" name="resolution_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_categories %}<input type="hidden" name="sla_compliance_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_weeks %}<input type="hidden" name="sla_compliance_week" value="{{ v }}">{% endfor %}
+            {% for v in selected_duration_buckets %}<input type="hidden" name="duration_bucket" value="{{ v }}">{% endfor %}
+            <div class="date-filter-field-label">Filter by Age</div>
+            <div class="category-filter-options">
+              {% for label in ("<4h", "4-8h", "8-12h", "12-24h", ">24h") %}
+              <label class="category-filter-option">
+                <input type="checkbox" name="age_bucket" value="{{ label }}" {% if not selected_age_buckets or label in selected_age_buckets %}checked{% endif %}>
+                {{ label }}
+              </label>
+              {% endfor %}
+            </div>
+            <div class="date-filter-actions">
+              <button type="submit" class="btn-export">Apply</button>
+              {% if selected_age_buckets %}
+              <a class="btn-export" href="{{ url_for('dashboard.index', volume_category=selected_volume_categories, volume_week=selected_volume_weeks, closed_category=selected_closed_categories, closed_week=selected_closed_weeks, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks) }}">Clear</a>
+              {% endif %}
+            </div>
+          </form>
+        </details>
+      </div>
+      <div class="card-body">
+        {# Live data: incident_age_chart (from IncidentService.get_incident_age_chart()
+           — reads the incident_by_status cache already kept in sync by
+           incident_scheduler.py, filtered to category == "Site Down" only).
+           bar_width_pct is each bar's length
+           against the SHARED axis_max (a "nice round number" a bit above
+           the largest bucket, see _nice_ticks()) — a normal bar chart
+           scale, not a percent-of-total share. The WHOLE row is a
+           .badge-item (same convention as every other dashboard badge,
+           see app.js's badge-click handler) — clicking the label, the
+           bar, or the count all open the drilldown table for that age
+           bucket via IncidentService.get_details(), scope "Incident",
+           type e.g. "age_lt4" (see _AGE_BUCKET_RANGES). #}
+        <div class="expenses-rows">
+          {% for seg in incident_age_chart.segments %}
+          <div class="expenses-row badge-item">
+            <span class="expenses-label badge-label">{{ seg.label }}</span>
+            <div class="expenses-bar-track">
+              {% if seg.count > 0 %}
+              <div class="expenses-bar expenses-bar-{{ loop.index }} app-tooltip"
+                   style="width:{{ seg.bar_width_pct }}%;"
+                   data-tooltip="{{ seg.count }} site down incident{{ 's' if seg.count != 1 else '' }}"></div>
+              {% endif %}
+            </div>
+            <span class="expenses-count-value badge" data-scope="Incident" data-type="{{ seg.badge_type }}">{{ seg.count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="expenses-axis">
+          <span class="expenses-axis-spacer"></span>
+          <div class="expenses-axis-ticks">
+            {% for tick in incident_age_chart.tick_labels %}
+            <span>{{ tick }}</span>
+            {% endfor %}
+          </div>
+          <span class="expenses-axis-spacer expenses-axis-spacer-end"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incident Volume – Week over Week -->
+    <div class="card card-graph" id="incidentVolumeCard">
+      <div class="card-header no-collapse">
+        <h3 class="card-title">Incident Volume &ndash; Week over Week</h3>
+        <div class="graph-filters">
+          <details class="date-filter" name="perf-filter-group">
+            <summary class="btn-export btn-icon-only{{ ' is-active' if selected_volume_categories else '' }}" title="Filter by Category">
+              <i class="ti ti-filter"></i>
+            </summary>
+            <form class="date-filter-form" method="get" action="{{ url_for('dashboard.index') }}">
+              {% for v in selected_age_buckets %}<input type="hidden" name="age_bucket" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_weeks %}<input type="hidden" name="volume_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_categories %}<input type="hidden" name="closed_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_weeks %}<input type="hidden" name="closed_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_site_down_duration_weeks %}<input type="hidden" name="site_down_duration_week" value="{{ v }}">{% endfor %}
+              {% for v in top_site_down.selected_weeks %}<input type="hidden" name="top_site_down_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_categories %}<input type="hidden" name="response_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_weeks %}<input type="hidden" name="response_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_categories %}<input type="hidden" name="resolution_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_weeks %}<input type="hidden" name="resolution_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_categories %}<input type="hidden" name="sla_compliance_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_weeks %}<input type="hidden" name="sla_compliance_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_duration_buckets %}<input type="hidden" name="duration_bucket" value="{{ v }}">{% endfor %}
+              <div class="date-filter-field-label">Filter by Category</div>
+              <div class="category-filter-options">
+                {# Customer Complaint is NOT ticked when nothing's selected yet —
+                   see _filter_rows_by_categories() (incident_service.py): every
+                   Filter by Category control dashboard-wide excludes it by
+                   default, unlike every other category here, which is still
+                   "every box ticked = no filter" the same as before. #}
+                {% for cat in volume_trend_categories %}
+                <label class="category-filter-option">
+                  <input type="checkbox" name="volume_category" value="{{ cat }}" {% if (not selected_volume_categories and cat != "Customer Complaint") or cat in selected_volume_categories %}checked{% endif %}>
+                  {{ cat }}
+                </label>
+                {% else %}
+                <span class="category-filter-empty">No categories in this table.</span>
+                {% endfor %}
+              </div>
+              <div class="date-filter-actions">
+                <button type="submit" class="btn-export">Apply</button>
+                {% if selected_volume_categories %}
+                <a class="btn-export" href="{{ url_for('dashboard.index', age_bucket=selected_age_buckets, volume_week=selected_volume_weeks, closed_category=selected_closed_categories, closed_week=selected_closed_weeks, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks) }}">Clear</a>
+                {% endif %}
+              </div>
+            </form>
+          </details>
+          <details class="date-filter" name="perf-filter-group">
+            <summary class="btn-export btn-icon-only{{ ' is-active' if selected_volume_weeks else '' }}" title="Compare Weeks">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+                                    <path d="M16 3v4" />
+                                    <path d="M8 3v4" />
+                                    <path d="M4 11h16" />
+                                    <path d="M11 15h1" />
+                                    <path d="M12 15v3" />
+                                </svg>
+            </summary>
+            <form class="date-filter-form" method="get" action="{{ url_for('dashboard.index') }}">
+              {% for v in selected_age_buckets %}<input type="hidden" name="age_bucket" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_categories %}<input type="hidden" name="volume_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_categories %}<input type="hidden" name="closed_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_weeks %}<input type="hidden" name="closed_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_site_down_duration_weeks %}<input type="hidden" name="site_down_duration_week" value="{{ v }}">{% endfor %}
+              {% for v in top_site_down.selected_weeks %}<input type="hidden" name="top_site_down_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_categories %}<input type="hidden" name="response_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_weeks %}<input type="hidden" name="response_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_categories %}<input type="hidden" name="resolution_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_weeks %}<input type="hidden" name="resolution_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_categories %}<input type="hidden" name="sla_compliance_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_weeks %}<input type="hidden" name="sla_compliance_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_duration_buckets %}<input type="hidden" name="duration_bucket" value="{{ v }}">{% endfor %}
+              <div class="date-filter-field-label">Compare Weeks</div>
+              <div class="category-filter-options">
+                {% for w in available_weeks %}
+                <label class="category-filter-option">
+                  <input type="checkbox" name="volume_week" value="{{ w.iso }}" {% if (not selected_volume_weeks and w.iso in default_weeks) or w.iso in selected_volume_weeks %}checked{% endif %}>
+                  Week {{ w.week_number }} ({{ w.range_label }})
+                </label>
+                {% endfor %}
+              </div>
+              <div class="date-filter-actions">
+                <button type="submit" class="btn-export">Apply</button>
+                {% if selected_volume_weeks %}
+                <a class="btn-export" href="{{ url_for('dashboard.index', age_bucket=selected_age_buckets, volume_category=selected_volume_categories, closed_category=selected_closed_categories, closed_week=selected_closed_weeks, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks) }}">Clear</a>
+                {% endif %}
+              </div>
+            </form>
+          </details>
+          <button type="button" class="btn-export btn-icon-only" id="volumeCategoryBtn" title="By Category">
+            <i class="ti ti-chart-bar"></i>
+          </button>
+          <button type="button" class="btn-export btn-icon-only" id="volumeSeverityBtn" title="By Severity">
+            <i class="ti ti-alert-triangle"></i>
+          </button>
+          <button type="button" class="btn-export btn-icon-only" id="volumeProvinceBtn" title="By Province">
+            <i class="ti ti-map-pin"></i>
+          </button>
+          <button type="button" class="btn-export btn-icon-only" id="volumeVendorBtn" title="By Vendor">
+            <i class="ti ti-building-factory-2"></i>
+          </button>
+        </div>
+      </div>
+      <div class="card-body">
+        {# Live data: incident_volume_trend (from
+           IncidentService.get_incident_volume_trend() — reads the
+           incident_created_trend cache synced by
+           IncidentSyncService.sync_incident_created_trend()). One colored
+           line series per checked week in the "Compare Weeks" dropdown
+           (see week_totals for the legend, days[].series for each
+           weekday's per-week dots). Smooth curve paths are precomputed
+           server-side; each day gets a real dot per series (not just
+           today) and its own hover card (CSS-only, :hover-triggered — no
+           JS) instead of one fixed always-visible tooltip. #}
+        <div class="campaign-top-row">
+          <p class="campaign-subtitle">Incidents Created</p>
+          <div class="series-legend">
+            {% for wt in incident_volume_trend.week_totals %}
+            <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ wt.color }};"></span>{{ wt.label }} <b>{{ wt.total }}</b></span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="campaign-chart-row">
+          <div class="campaign-y-axis">
+            {% for tick in incident_volume_trend.tick_labels %}
+            <span>{{ tick }}</span>
+            {% endfor %}
+          </div>
+          <div class="campaign-chart-inner">
+            <svg viewBox="0 0 700 180" preserveAspectRatio="none" class="campaign-svg">
+              <g class="campaign-gridlines">
+                {% for x in incident_volume_trend.grid_x %}
+                <line x1="{{ x }}" y1="0" x2="{{ x }}" y2="180" />
+                {% endfor %}
+              </g>
+              {% for s in incident_volume_trend.series %}
+              <path class="campaign-line-series" style="stroke:{{ s.color }};" d="{{ s.path }}" />
+              {% endfor %}
+            </svg>
+            <div class="volume-points">
+              {% for d in incident_volume_trend.days %}
+              <div class="volume-point{{ ' volume-point-today' if d.is_today else '' }}" style="left:{{ d.left_pct }}%;">
+                {% for s in d.series %}
+                <span class="volume-dot-wrap badge-item" style="top:{{ s.top_pct }}%;">
+                  <span class="badge-label" hidden>{{ s.label }} {{ d.day }}</span>
+                  <span class="volume-dot badge" style="background:{{ s.color }};" data-scope="Incident Volume" data-type="{{ s.badge_type }}"></span>
+                </span>
+                {% endfor %}
+                <div class="volume-tooltip {{ 'volume-tooltip-below' if d.tooltip_anchor_pct <= 50 else 'volume-tooltip-above' }}{{ ' volume-tooltip-edge-left' if loop.first else ' volume-tooltip-edge-right' if loop.last else '' }}" style="{% if d.tooltip_anchor_pct <= 50 %}top:{{ d.tooltip_anchor_pct }}%;{% else %}bottom:{{ 100 - d.tooltip_anchor_pct }}%;{% endif %}">
+                  <div class="volume-tooltip-title">{{ d.day }}</div>
+                  {% for s in d.series %}
+                  <div class="volume-tooltip-row">
+                    <span class="volume-tooltip-dot" style="background:{{ s.color }};"></span>
+                    <span class="volume-tooltip-label">{{ s.label }} &middot; {{ s.date_label }}</span>
+                    <b>{{ s.value }}</b>
+                    {% if s.delta_pct is not none %}<span class="volume-tooltip-delta {{ 'up' if s.delta_pct >= 0 else 'down' }}">{{ '+' if s.delta_pct >= 0 }}{{ s.delta_pct }}%</span>{% else %}<span class="volume-tooltip-delta-spacer"></span>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="campaign-x-axis">
+          {% for d in incident_volume_trend.days %}
+          <button type="button" class="campaign-x-axis-btn" data-day-modal="volumeDayCategoryModal_{{ loop.index0 }}" title="By Category — {{ d.day }}">{{ d.day }}</button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# One Incident Volume popup SHELL per weekday (Mon..Sun), opened by
+       clicking that weekday's x-axis label above — answers "Monday
+       this week vs Monday last week, which category/severity/
+       province/vendor" instead of the whole-week comparison the header
+       popups show. A tab bar switches which field this SAME modal is
+       grouped by (Category/Severity/Province/Vendor).
+
+       Only the shell renders here — graph_cards.js fetches the tab
+       content (all 4 fields for that one weekday) from
+       /volume-day-popup/<day_index> the FIRST time that weekday is
+       opened, instead of it being embedded upfront for all 7 weekdays.
+       All 7 fully expanded used to account for ~64% of this page's
+       ~950KB HTML even though a visitor opens at most one at a time —
+       the main driver of a measured 5.05s LCP. graph_cards.js's own
+       AJAX filter swap replaces this whole .graph-row (shells
+       included), so a filter change always comes back unloaded and
+       the next open re-fetches fresh data — no stale-popup risk. #}
+    {% for d in incident_volume_trend.days %}
+    <div class="modal" id="volumeDayCategoryModal_{{ loop.index0 }}" data-day-index="{{ loop.index0 }}">
+        <div class="modal-content volume-day-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>Incident Volume — {{ d.day }}</h2>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <button type="button" class="btn-export btn-icon-only" id="volumeHelpBtn" title="Why don't these numbers add up?">
+                        <i class="ti ti-help"></i>
+                    </button>
+                    <span class="close-modal volume-day-category-close">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body volume-day-popup-body">
+                <p style="color:var(--text-muted);font-size:12px;">Loading…</p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Incidents Closed – Week over Week -->
+    <div class="card card-graph" id="incidentClosedCard">
+      <div class="card-header no-collapse">
+        <h3 class="card-title">Incidents Closed &ndash; Week over Week</h3>
+        <div class="graph-filters">
+          <details class="date-filter" name="perf-filter-group">
+            <summary class="btn-export btn-icon-only{{ ' is-active' if selected_closed_categories else '' }}" title="Filter by Category">
+              <i class="ti ti-filter"></i>
+            </summary>
+            <form class="date-filter-form" method="get" action="{{ url_for('dashboard.index') }}">
+              {% for v in selected_age_buckets %}<input type="hidden" name="age_bucket" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_categories %}<input type="hidden" name="volume_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_weeks %}<input type="hidden" name="volume_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_weeks %}<input type="hidden" name="closed_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_site_down_duration_weeks %}<input type="hidden" name="site_down_duration_week" value="{{ v }}">{% endfor %}
+              {% for v in top_site_down.selected_weeks %}<input type="hidden" name="top_site_down_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_categories %}<input type="hidden" name="response_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_weeks %}<input type="hidden" name="response_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_categories %}<input type="hidden" name="resolution_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_weeks %}<input type="hidden" name="resolution_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_categories %}<input type="hidden" name="sla_compliance_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_weeks %}<input type="hidden" name="sla_compliance_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_duration_buckets %}<input type="hidden" name="duration_bucket" value="{{ v }}">{% endfor %}
+              <div class="date-filter-field-label">Filter by Category</div>
+              <div class="category-filter-options">
+                {# Customer Complaint not ticked by default — see the Incident
+                   Volume card's own comment on this same pattern above. #}
+                {% for cat in closed_trend_categories %}
+                <label class="category-filter-option">
+                  <input type="checkbox" name="closed_category" value="{{ cat }}" {% if (not selected_closed_categories and cat != "Customer Complaint") or cat in selected_closed_categories %}checked{% endif %}>
+                  {{ cat }}
+                </label>
+                {% else %}
+                <span class="category-filter-empty">No categories in this table.</span>
+                {% endfor %}
+              </div>
+              <div class="date-filter-actions">
+                <button type="submit" class="btn-export">Apply</button>
+                {% if selected_closed_categories %}
+                <a class="btn-export" href="{{ url_for('dashboard.index', age_bucket=selected_age_buckets, volume_category=selected_volume_categories, volume_week=selected_volume_weeks, closed_week=selected_closed_weeks, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks) }}">Clear</a>
+                {% endif %}
+              </div>
+            </form>
+          </details>
+          <details class="date-filter" name="perf-filter-group">
+            <summary class="btn-export btn-icon-only{{ ' is-active' if selected_closed_weeks else '' }}" title="Compare Weeks">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12" />
+                                    <path d="M16 3v4" />
+                                    <path d="M8 3v4" />
+                                    <path d="M4 11h16" />
+                                    <path d="M11 15h1" />
+                                    <path d="M12 15v3" />
+                                </svg>
+            </summary>
+            <form class="date-filter-form" method="get" action="{{ url_for('dashboard.index') }}">
+              {% for v in selected_age_buckets %}<input type="hidden" name="age_bucket" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_categories %}<input type="hidden" name="volume_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_volume_weeks %}<input type="hidden" name="volume_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_closed_categories %}<input type="hidden" name="closed_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_site_down_duration_weeks %}<input type="hidden" name="site_down_duration_week" value="{{ v }}">{% endfor %}
+              {% for v in top_site_down.selected_weeks %}<input type="hidden" name="top_site_down_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_categories %}<input type="hidden" name="response_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_response_time_weeks %}<input type="hidden" name="response_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_categories %}<input type="hidden" name="resolution_time_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_resolution_time_weeks %}<input type="hidden" name="resolution_time_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_categories %}<input type="hidden" name="sla_compliance_category" value="{{ v }}">{% endfor %}
+              {% for v in selected_sla_compliance_weeks %}<input type="hidden" name="sla_compliance_week" value="{{ v }}">{% endfor %}
+              {% for v in selected_duration_buckets %}<input type="hidden" name="duration_bucket" value="{{ v }}">{% endfor %}
+              <div class="date-filter-field-label">Compare Weeks</div>
+              <div class="category-filter-options">
+                {% for w in available_weeks %}
+                <label class="category-filter-option">
+                  <input type="checkbox" name="closed_week" value="{{ w.iso }}" {% if (not selected_closed_weeks and w.iso in default_weeks) or w.iso in selected_closed_weeks %}checked{% endif %}>
+                  Week {{ w.week_number }} ({{ w.range_label }})
+                </label>
+                {% endfor %}
+              </div>
+              <div class="date-filter-actions">
+                <button type="submit" class="btn-export">Apply</button>
+                {% if selected_closed_weeks %}
+                <a class="btn-export" href="{{ url_for('dashboard.index', age_bucket=selected_age_buckets, volume_category=selected_volume_categories, volume_week=selected_volume_weeks, closed_category=selected_closed_categories, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks) }}">Clear</a>
+                {% endif %}
+              </div>
+            </form>
+          </details>
+        </div>
+      </div>
+      <div class="card-body">
+        {# Live data: incident_closed_trend (from
+           IncidentService.get_incident_closed_trend() — reads the
+           incident_closed_trend cache synced by
+           IncidentSyncService.sync_incident_closed_trend()). One colored
+           bar series per checked week in the "Compare Weeks" dropdown —
+           see week_totals for the legend, days[].series for each
+           weekday's per-week bar. #}
+        <div class="sales-top-row">
+          <p class="sales-subtitle">Incidents Closed</p>
+          <div class="series-legend">
+            {% for wt in incident_closed_trend.week_totals %}
+            <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ wt.color }};"></span>{{ wt.label }} <b>{{ wt.total }}</b></span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="sales-chart-row">
+          <div class="sales-y-axis2">
+            {% for tick in incident_closed_trend.tick_labels %}
+            <span>{{ tick }}</span>
+            {% endfor %}
+          </div>
+          <div class="bar-chart">
+            {% for d in incident_closed_trend.days %}
+            <div class="bar-day">
+              <div class="bar-pair">
+                {% for s in d.series %}
+                <div class="bar-item badge-item">
+                  <span class="badge-label" hidden>{{ s.label }} {{ d.day }}</span>
+                  <div class="bar badge" style="height:{{ s.pct }}%; background:{{ s.color }};" data-scope="Incidents Closed" data-type="{{ s.badge_type }}"></div>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="bar-tooltip {{ 'bar-tooltip-below' if d.tooltip_anchor_pct <= 50 else 'bar-tooltip-above' }}{{ ' bar-tooltip-edge-left' if loop.first else ' bar-tooltip-edge-right' if loop.last else '' }}" style="{% if d.tooltip_anchor_pct <= 50 %}top:{{ d.tooltip_anchor_pct }}%;{% else %}bottom:{{ 100 - d.tooltip_anchor_pct }}%;{% endif %}">
+                <div class="bar-tooltip-title">{{ d.day }}</div>
+                {% for s in d.series %}
+                <div class="bar-tooltip-row">
+                  <span class="bar-tooltip-dot" style="background:{{ s.color }};"></span>
+                  <span class="bar-tooltip-label">{{ s.label }} &middot; {{ s.date_label }}</span>
+                  <b>{{ s.value }}</b>
+                  {% if s.delta_pct is not none %}<span class="bar-tooltip-delta {{ 'up' if s.delta_pct >= 0 else 'down' }}">{{ '+' if s.delta_pct >= 0 }}{{ s.delta_pct }}%</span>{% else %}<span class="bar-tooltip-delta-spacer"></span>{% endif %}
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="sales-x-axis">
+          <span class="sales-y-axis2-spacer"></span>
+          {% for d in incident_closed_trend.days %}
+          <span>{{ d.day }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {# "By Category" popup for Incident Volume's week totals — answers
+       "this week is up X%, which category is driving it" (see
+       IncidentService.get_incident_volume_category_breakdown()). Lives
+       inside .graph-row (not outside it) on purpose: graph_cards.js's
+       AJAX filter swap replaces this whole row, so keeping the modal in
+       here means it re-renders with fresh data reflecting whatever
+       Category/Compare-Weeks filter was just applied — a copy sitting
+       outside .graph-row would go stale after the first filter click.
+       Its open/close buttons are wired via document-level delegated
+       listeners in graph_cards.js (not a direct getElementById().on...)
+       for the same reason: a listener bound to today's button element
+       wouldn't survive tomorrow's swap replacing that element outright. #}
+    <div class="modal" id="volumeCategoryModal">
+        <div class="modal-content volume-breakdown-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>By Category</h2>
+                </div>
+                <span class="close-modal" id="volumeCategoryClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Incidents Created, sorted by biggest increase first.</p>
+                {# Compare Weeks allows up to 4 at once — Category + 4 week
+                   columns + Change is wider than fits comfortably even in
+                   this modal's widened 600px, so this wrapper scrolls the
+                   table horizontally instead of letting the extra columns
+                   spill out past the modal's edge (confirmed live: with 4
+                   weeks checked, "Week 34"/"Change" rendered outside the
+                   modal box entirely, overlapping the dashboard behind it). #}
+                <div style="overflow-x:auto;">
+                <table class="alarm-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            {% for label in volume_category_breakdown.week_labels %}
+                            <th class="right">{{ label }}</th>
+                            {% endfor %}
+                            <th class="right">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in volume_category_breakdown.categories %}
+                        <tr>
+                            <td>{{ row.category }}</td>
+                            {% for w in row.weeks %}
+                            <td class="right">
+                                {% if w.count > 0 %}
+                                {# Plain link with scope/type/category baked into the URL
+                                   directly, rather than the .badge-item/data-scope
+                                   convention used elsewhere — that click handler
+                                   (app.js) only ever sends "type" through to
+                                   /drilldown, with no way to also carry this cell's
+                                   category alongside it. A week total needs both:
+                                   which week (badge_type "week_YYYY-MM-DD", see
+                                   get_incident_volume_category_breakdown()) AND
+                                   which one category out of the whole row. #}
+                                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, category=row.category, title=row.category + ' — ' + w.label, label=row.category + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                                {% else %}
+                                {{ w.count }}
+                                {% endif %}
+                                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+                        </tr>
+                        {% else %}
+                        <tr class="empty-row"><td colspan="{{ volume_category_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# "By Severity"/"By Province"/"By Vendor" popups — same shape/
+       reasoning as "By Category" above (see that block's own comment),
+       just grouped by a different field
+       (IncidentService._incident_volume_field_breakdown()). Province
+       is sorted by total incidents instead of biggest-mover ("sort by
+       top incident" — see get_incident_volume_province_breakdown()'s
+       own docstring), so its "Change" column is still shown but isn't
+       what determines row order there. #}
+    <div class="modal" id="volumeSeverityModal">
+        <div class="modal-content volume-breakdown-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>By Severity</h2>
+                </div>
+                <span class="close-modal" id="volumeSeverityClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Incidents Created, sorted by biggest increase first.</p>
+                <div style="overflow-x:auto;">
+                <table class="alarm-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            {% for label in volume_severity_breakdown.week_labels %}
+                            <th class="right">{{ label }}</th>
+                            {% endfor %}
+                            <th class="right">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in volume_severity_breakdown.severities %}
+                        <tr>
+                            <td>{{ row.severity }}</td>
+                            {% for w in row.weeks %}
+                            <td class="right">
+                                {% if w.count > 0 %}
+                                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, severity=row.severity, category=selected_volume_categories, title=row.severity + ' — ' + w.label, label=row.severity + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                                {% else %}
+                                {{ w.count }}
+                                {% endif %}
+                                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+                        </tr>
+                        {% else %}
+                        <tr class="empty-row"><td colspan="{{ volume_severity_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="volumeProvinceModal">
+        <div class="modal-content volume-breakdown-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>By Province</h2>
+                </div>
+                <span class="close-modal" id="volumeProvinceClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Incidents Created, sorted by top incident count first.</p>
+                <div style="overflow-x:auto;">
+                <table class="alarm-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Province</th>
+                            {% for label in volume_province_breakdown.week_labels %}
+                            <th class="right">{{ label }}</th>
+                            {% endfor %}
+                            <th class="right">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in volume_province_breakdown.provinces %}
+                        <tr>
+                            <td>{{ row.province }}</td>
+                            {% for w in row.weeks %}
+                            <td class="right">
+                                {% if w.count > 0 %}
+                                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, province=row.province, category=selected_volume_categories, title=row.province + ' — ' + w.label, label=row.province + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                                {% else %}
+                                {{ w.count }}
+                                {% endif %}
+                                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+                        </tr>
+                        {% else %}
+                        <tr class="empty-row"><td colspan="{{ volume_province_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="volumeVendorModal">
+        <div class="modal-content volume-breakdown-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>By Vendor</h2>
+                </div>
+                <span class="close-modal" id="volumeVendorClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Incidents Created, sorted by biggest increase first. Vendor comes from real site inventory data where available — sites without a matching record show "Unknown".</p>
+                <div style="overflow-x:auto;">
+                <table class="alarm-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Vendor</th>
+                            {% for label in volume_vendor_breakdown.week_labels %}
+                            <th class="right">{{ label }}</th>
+                            {% endfor %}
+                            <th class="right">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in volume_vendor_breakdown.vendors %}
+                        <tr>
+                            <td>{{ row.vendor }}</td>
+                            {% for w in row.weeks %}
+                            <td class="right">
+                                {% if w.count > 0 %}
+                                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, vendor=row.vendor, category=selected_volume_categories, title=row.vendor + ' — ' + w.label, label=row.vendor + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                                {% else %}
+                                {{ w.count }}
+                                {% endif %}
+                                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+                            </td>
+                            {% endfor %}
+                            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+                        </tr>
+                        {% else %}
+                        <tr class="empty-row"><td colspan="{{ volume_vendor_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="volumeHelpModal">
+        <div class="modal-content perf-help-modal-content">
+            <div class="modal-header">
+                <div class="modal-header-left"><h2>Why don't these numbers add up?</h2></div>
+                <span class="close-modal" id="volumeHelpClose">&times;</span>
+            </div>
+            <div class="modal-body perf-help-modal-body">
+                <p>Example: Site Down showed <b>+128</b> at the top of a weekday's popup, but its duration rows underneath added up to <b>+189</b>. Here's why.</p>
+
+                <h4>Top green (+128)</h4>
+                <p>= 559 &minus; 431 &rarr; (all tickets last week) &minus; (all tickets Week 37).</p>
+
+                <h4>Bottom green numbers add up to +189</h4>
+                <p>= 481 &minus; 292 &rarr; (fixed-only tickets last week) &minus; (fixed-only tickets Week 37).</p>
+
+                <p>So the top +128 and the bottom +189 aren't even built from the same two numbers:</p>
+                <ul style="margin:6px 0 10px 18px;padding:0;">
+                    <li>Top uses "all tickets" both weeks.</li>
+                    <li>Bottom uses "only the fixed ones" both weeks.</li>
+                </ul>
+
+                <h4>In short</h4>
+                <p>The category's own row counts every incident that started that day. The duration rows only count the ones that have since been <b>fixed</b> — an incident still open has no duration to show yet. That's expected, not a mistake.</p>
+            </div>
+        </div>
+    </div>
+  </div>

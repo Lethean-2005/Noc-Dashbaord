@@ -1,25 +1,18 @@
 """Sends a Telegram alert listing every open INC-WO Category Power row,
-rendered as a table image — a near-exact copy of telegram_inc_wo_alert.py
-(the INC-WO Site Down alert), just filtered to category='power'. See that
-module and telegram_alert.py for the full image/sendDocument reasoning.
+rendered as a table image — a near-exact copy of
+telegram_inc_wo_alert.py (INC-WO Site Down), filtered to category='power'.
 Telegram-only — no dashboard card reads inc_wo_category_power.
 
-Reads the already-synced inc_wo_category_power cache rather than querying
-Postgres directly. Every row read is mirrored into
-telegram_inc_wo_power_alert_cache (its own table, so it can't overwrite
-another alert's last-run snapshot) before the threshold filter runs.
-
-Every send also attaches a second document: every over-threshold row (not
-chunked, unlike the images) as a styled .xlsx — see telegram_alert.py's
-_build_excel_bytes().
+Reads the already-synced inc_wo_category_power cache. Every row read is
+mirrored into its own telegram_inc_wo_power_alert_cache table before
+the threshold filter runs. Also attaches every over-threshold row as a
+styled .xlsx.
 
 Sent via its own bot/chat (TELEGRAM_BOT_INC_WO_POWER_TOKEN /
-TELEGRAM_CHAT_IDS_INC_WO_POWER) — never runs unless both are set, and the
-bot must already be a member of that chat.
+TELEGRAM_CHAT_IDS_INC_WO_POWER) — never runs unless both are set.
 
-start() runs this on its own background loop, clock-aligned, deliberately
-landing at the exact same instant as every other Telegram alert
-(_OFFSET_SECONDS=0 on all of them, per explicit request).
+start() runs clock-aligned, landing at the same instant as every other
+Telegram alert (all offsets 0), per explicit request.
 """
 
 import requests
@@ -57,23 +50,18 @@ logger = get_logger(__name__)
 _CATEGORY_POWER_TABLE = "inc_wo_category_power"
 _CACHE_TABLE = "telegram_inc_wo_power_alert_cache"
 
-# One image per this many rows — past ~25 rows a single image gets tall
-# enough that Telegram's document preview becomes unwieldy to scroll, so a
-# big batch is split into multiple "Part X/Y" images instead of one giant one.
+# One image per this many rows — past ~25 a single image gets unwieldy
+# to scroll, so a big batch splits into multiple "Part X/Y" images.
 _MAX_ROWS_PER_IMAGE = 25
 
-# 0 — lands exactly on the interval boundary (:00/:15/:30/:45), same as
-# every other Telegram alert. Deliberately NOT staggered — see
-# telegram_inc_wo_alert.py's own _OFFSET_SECONDS comment for why that's
-# safe for these lightweight cache-read-then-POST alerts.
+# 0 — lands on the interval boundary, same as every other Telegram
+# alert. Deliberately not staggered.
 _OFFSET_SECONDS = 0
 
 
 def _cache_telegram_rows(rows, cache_repository=None):
-    """Mirror every fetched row into telegram_inc_wo_power_alert_cache —
-    same replace-everything pattern telegram_inc_wo_alert.py's own
-    _cache_telegram_rows() uses. Best-effort — a cache write failure
-    shouldn't stop the alert itself from being evaluated/sent."""
+    """Mirror every fetched row into telegram_inc_wo_power_alert_cache.
+    Best-effort — a cache write failure shouldn't stop the alert."""
     cache_repository = cache_repository or TelegramIncWoPowerAlertCacheRepository()
     try:
         cache_repository.replace_all(_CACHE_TABLE, rows)
@@ -85,9 +73,7 @@ def _inc_wo_category_power_over_threshold(
     threshold_min, status_cache_repository=None, cache_repository=None
 ):
     """Rows whose outage_min has passed `threshold_min`, longest-open
-    first — same shape as telegram_inc_wo_alert.py's own
-    _inc_wo_site_down_over_threshold(), including the no-wo_id exclusion
-    and the L2-Support-Level-only filter."""
+    first, excluding rows with no wo_id or non-L2 support level."""
     status_cache_repository = status_cache_repository or IncWoStatusCacheRepository()
     rows = status_cache_repository.fetch_all(_CATEGORY_POWER_TABLE)
     for row in rows:
@@ -120,10 +106,8 @@ def _format_message(rows, threshold_min):
 
 
 def _send_telegram_document(token, chat_ids, photo_bytes):
-    """Same "send as a document, not sendPhoto" reasoning as
-    telegram_alert.py's own _send_telegram_photo() — its own filename,
-    "Inc-wo-power.png", keeps it distinct from the other two Telegram
-    alerts in Telegram Desktop."""
+    """Sends as a document, not sendPhoto — its own filename keeps it
+    distinct from the other Telegram alerts."""
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -140,15 +124,12 @@ def _send_telegram_document(token, chat_ids, photo_bytes):
 def send_inc_wo_category_power_alert(
     threshold_min=None, status_cache_repository=None, cache_repository=None
 ):
-    """Send a Telegram alert listing every INC-WO Category Power whose WO
-    has been open past `threshold_min` (defaults to
-    app.config['INC_WO_POWER_ALERT_THRESHOLD_MIN']) — as one or more table
-    images (split into _MAX_ROWS_PER_IMAGE-row chunks, each its own "Part
-    X/Y" image/send), or plain text per chunk if Pillow/the font isn't
-    available. Returns {'sent': bool, 'count': int} — count is the total
-    row count across every chunk. Raises EnvironmentError if
-    TELEGRAM_BOT_INC_WO_POWER_TOKEN/TELEGRAM_CHAT_IDS_INC_WO_POWER aren't
-    configured — callers decide whether that's fatal or just a skip."""
+    """Send a Telegram alert listing every INC-WO Category Power whose
+    WO has been open past `threshold_min` — as one or more table images
+    (split into _MAX_ROWS_PER_IMAGE-row chunks), or plain text per
+    chunk if Pillow/the font isn't available. Returns {'sent': bool,
+    'count': int}. Raises EnvironmentError if the bot token/chat ids
+    aren't set."""
     token = current_app.config["TELEGRAM_BOT_INC_WO_POWER_TOKEN"]
     chat_ids = _chat_ids(current_app.config["TELEGRAM_CHAT_IDS_INC_WO_POWER"])
     if not token or not chat_ids:

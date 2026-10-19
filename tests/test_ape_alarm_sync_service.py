@@ -42,6 +42,8 @@ class FakeCacheRepo:
 
 def _source_row(**overrides):
     row = {
+        "ID": 65034996,
+        "Alarm ID": "7502384",
         "Raw Site": "SITEAB1234XY",
         "Additional Info": "",
         "Occurred At": None,
@@ -110,6 +112,24 @@ def test_sync_carries_through_alarm_fields(app):
         row = cache_repo.written[0]
         assert row["event_name"] == "Door Alarm"
         assert row["occurrence_count"] == 5
+
+
+def test_sync_carries_through_alarm_id_and_numeric_id(app):
+    with app.app_context():
+        source_rows = [_source_row(**{"ID": 65034996, "Alarm ID": "7502384"})]
+        cache_repo = FakeCacheRepo()
+        svc = ApeAlarmSyncService(
+            FakeApeAlarmRepo(source_rows),
+            cache_repo,
+            FakeSiteCacheRepo([]),
+            FakeSiteLookupCacheRepo([]),
+        )
+
+        svc.sync()
+
+        row = cache_repo.written[0]
+        assert row["alarm_numeric_id"] == 65034996
+        assert row["alarm_id"] == "7502384"
 
 
 def test_sync_writes_empty_list_when_no_rows(app):

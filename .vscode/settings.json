@@ -6,31 +6,29 @@
     "python.useEnvsExtension": true,
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-
     // ==========================================
     // 1. MATERIAL ICON THEME ASSOCIATIONS
     // ==========================================
     "material-icon-theme.folders.associations": {
         "scheduler": "update", // refreshes external data into the cache
-        "queries": "database", 
+        "queries": "database",
         "dashboard": "views",
         "drilldown": "custom", // drill-down table templates
-        "instance": "server", 
+        "instance": "server",
         "mentor": "review", // user-managed watch list pages
         "vvip": "admin", // VVIP site pages
         "notifications": "messages", // Changed from hook to messages icon
         "sync": "update", // refreshes external data into the cache
         "services": "api", // business-logic / API layer
         "webhook": "hook", // Teams / Power Automate webhooks
-        "alarm"  : "event", // alarm / event pages
-        "ape_alarm"  : "event", // alarm / event pages
+        "alarm": "event", // alarm / event pages
+        "ape_alarm": "event", // alarm / event pages
         "incident": "error", // Incident tracking pages
         "incwo": "job", // INC-WO (work order) pages
         "telegram": "mail", // Telegram alert notifications
         "vip": "admin", // VIP/VVIP site pages, same icon as vvip above
-        "postgres" : "database", // Postgres database pages
+        "postgres": "database", // Postgres database pages
     },
-
     // ==========================================
     // 2. MODERN TYPOGRAPHY & SPACING
     // ==========================================
@@ -46,14 +44,12 @@
     "editor.cursorSmoothCaretAnimation": "on", // Cursor glides elegantly as you type
     "editor.smoothScrolling": true, // Fluid code scrolling
     "workbench.list.smoothScrolling": true, // Fluid file tree sidebar scrolling
-
     // ==========================================
     // 4. CLEAN FILE TREE (SIDEBAR)
     // ==========================================
     "workbench.tree.indent": 20, // Distinct spacing for nested files
     "workbench.tree.renderIndentGuides": "none", // Strips distracting vertical grid lines
     "explorer.compactFolders": false, // Prevents ugly folder bundling
-
     // ==========================================
     // 5. MINIMALIST EDITOR & NOISE REDUCTION
     // ==========================================
@@ -65,7 +61,6 @@
     "editor.renderLineHighlight": "gutter", // Highlights only the line number (clean)
     "editor.guides.indentation": false, // Disables faint indent lines under your code
     "editor.folding": false, // Hides code folding arrows unless hovered
-
     // ==========================================
     // 6. SILENCING POPUP CLUTTER & APP SETTINGS
     // ==========================================
@@ -76,6 +71,5 @@
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter"
     },
+    "liveServer.settings.port": 5501,
 }
-
-

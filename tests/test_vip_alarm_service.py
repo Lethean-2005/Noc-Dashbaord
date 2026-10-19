@@ -92,6 +92,36 @@ def test_get_details_leaves_clean_event_names_unchanged():
     assert row["badge_type"] == "Door Alarm"
 
 
+def test_get_details_prefers_vip_alarms_own_nms_over_incidents_stale_code():
+    # vip_alarm.nms (code "7" here) comes straight from the live alarm
+    # feed (object_138); the incident's nms is resolved from object_227's
+    # NE inventory, which can be stale for a site whose equipment changed
+    # (confirmed live: an old NE kept a superseded vendor code while a
+    # newer NE had none recorded at all, even though the live alarm feed
+    # already had the correct vendor).
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row(nms="7")]),
+        FakeIncidentStatusRepo([{"site_code": "S1", "nms": "Huawei"}]),
+        FakeSiteRepo([_site_row("S1")]),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["nms"] == "Nokia"
+
+
+def test_get_details_falls_back_to_incidents_nms_when_alarm_has_none():
+    svc = VipAlarmService(
+        FakeCacheRepo([_vip_alarm_row(nms="")]),
+        FakeIncidentStatusRepo([{"site_code": "S1", "nms": "Huawei"}]),
+        FakeSiteRepo([_site_row("S1")]),
+    )
+
+    row = svc.get_details()[0]
+
+    assert row["nms"] == "Huawei"
+
+
 def test_get_counts_counts_distinct_sites_not_alarm_rows():
     rows = [
         _vip_alarm_row(site_code="S1", event_name="Main Failure Alarm"),

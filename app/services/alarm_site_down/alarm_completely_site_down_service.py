@@ -1,25 +1,21 @@
-"""Business logic for the "Alarm Completely Site Down" card on the Custom
-Dashboard (reports/index.html). Same base data as
-app/services/alarm_site_down/alarm_site_down_service.py (open ape_alarm
-rows matching app/utils/alarm_category.py's SITE_DOWN_EVENTS), but narrowed
-further to sites where EVERY radio technology the site actually has
-(2g/3g/4g/5g, from the site_technology_cache — see
-app/database/queries/site_technology_cache.sql) is currently down, not just one.
+"""Business logic for the "Alarm Completely Site Down" card. Same base
+data as alarm_site_down_service.py (open ape_alarm rows matching
+alarm_category.py's SITE_DOWN_EVENTS), narrowed further to sites where
+EVERY radio technology the site actually has (2g/3g/4g/5g, from
+site_technology_cache) is currently down, not just one.
 
-The completely-down/partially-down split itself lives in
-app/utils/alarm_category.py's classify_site_technology_coverage() — shared
-with app/services/ran/ran_site_down_service.py and ran_tech_down_service.py,
-the RAN Status card's equivalent "all techs down" / "one tech down"
-columns, so all three read one definition instead of re-deriving it. See
-that function's docstring for the full SRAN/generation mapping reasoning.
+The completely-down/partially-down split lives in alarm_category.py's
+classify_site_technology_coverage() — shared with
+ran_site_down_service.py/ran_tech_down_service.py's equivalent columns,
+so all three read one definition. See that function's docstring for the
+full SRAN/generation mapping.
 
-A site with no known technology inventory (not in site_technology_cache)
-never counts as "completely" down — there's nothing to have fully covered.
+A site with no known technology inventory never counts as "completely"
+down — there's nothing to have fully covered.
 
-Hub/Diamond/Gold/Silver/Bronze (Hub takes priority over grade — a hub site
-never also double-counts under its grade badge) and the Incident/INC-WO
-enrichment follow the same conventions as alarm_site_down_service.py — see
-that file for the fuller reasoning.
+Hub/grade priority and Incident/INC-WO enrichment follow the same
+conventions as alarm_site_down_service.py — see that file for the
+fuller reasoning.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository

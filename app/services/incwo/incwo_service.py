@@ -1,40 +1,21 @@
-"""Business logic for the INC-WO / third column of the Incident/INC-WO card,
-plus the "INC-WO Site Down" and "INC-WO Resolved" cards on the Custom
-Dashboard (reports/index.html).
-
-All of it reads from local caches (instance/localstorage.db, see
-app/database/cache.py) that app/services/incident/incident_scheduler.py keeps in
-sync with PostgreSQL in the background — the dashboard never waits on a
-live Postgres query.
-"""
+"""Business logic for the INC-WO card, plus the "INC-WO Site Down" and
+"INC-WO Resolved" cards. Reads from local caches kept in sync by
+app/services/incident/incident_scheduler.py — never queries Postgres live."""
 
 from app.repositories.incwo.incwo_resolved_cache_repository import IncWoResolvedCacheRepository
 from app.repositories.incwo.incwo_status_cache_repository import IncWoStatusCacheRepository
+from app.utils.ttl_cache import ttl_cache
 
 _TABLE = "inc_wo_by_status"
 _SITE_DOWN_TABLE = "inc_wo_site_down"
 _RESOLVED_TABLE = "inc_wo_resolved"
 
 
-# badge `type` (from the drilldown URL / badge count key) -> the exact
-# field/value pairs to match in inc_wo_by_status (already formatted by
-# inc_wo_by_status.sql, e.g. 'l2_on_site' -> 'L2 On-Site', overdue -> 'Yes').
-# Add the next badge here the same way.
-#
-# "resolved" also requires incident_status == "In Progress" — same
-# definition as the separate "INC-WO Resolved" card (inc_wo_resolved.sql):
-# an INC-WO that's Resolved while its parent Incident is still open overall,
-# not just any Resolved INC-WO regardless of the parent Incident's status.
-#
-# "overdue"/"overdue_l2"/"overdue_l3" cache every incident category — the
-# only thing excluded is the specific combination of Customer Complaint +
-# parent Incident already Resolved (not "Customer Complaint only", and not
-# "every Resolved incident"). A row with any other category is kept
-# regardless of resolved status; a Customer Complaint row is kept as long
-# as it isn't yet Resolved. "_exclude" is a special filter key (see
-# _matches() below): a callable given the whole row, returning True if the
-# row should be dropped — the opposite of every other filter key, which is
-# a positive match requirement.
+# badge type -> field/value pairs to match in inc_wo_by_status.
+# "resolved" also requires incident_status == "In Progress" (Resolved WO,
+# parent Incident still open) — same rule as inc_wo_resolved.sql.
+# "overdue*" drop only Customer Complaint rows whose parent Incident is
+# already Resolved — see "_exclude" in _matches() below.
 def _is_resolved_customer_complaint(row):
     return (
         row.get("incident_category") == "Customer Complaint"
@@ -64,9 +45,8 @@ BADGE_FILTERS = {
     },
 }
 
-# "INC-WO Site Down" card badge `type` -> field/value pair to match in
-# inc_wo_site_down. hub_site checks for "any kind of hub" (Hub-Router or
-# Hub-MW), not an exact match — see get_site_down_counts().
+# "INC-WO Site Down" badge type -> site_grade value. hub_site (below) checks
+# for any hub type, not an exact match.
 _SITE_GRADE_BADGES = {
     "diamond": "Diamond",
     "gold": "Gold",
@@ -76,14 +56,9 @@ _SITE_GRADE_BADGES = {
 
 
 def _matches(row, filters):
-    """Each filter value is either an exact value to match, or a callable
-    predicate on that one field's value (e.g. `lambda status: status !=
-    "Resolved"`) for conditions a plain equality check can't express. The
-    special key "_exclude" is a callable given the whole row instead of one
-    field's value, returning True if the row should be DROPPED rather than
-    kept — for conditions on a combination of fields, like BADGE_FILTERS["overdue"]'s
-    "drop only if Customer Complaint AND Resolved" rule, which isn't
-    expressible as a per-field requirement."""
+    """Each filter value is an exact match or a predicate callable on that
+    field. "_exclude" is a callable on the whole row — True means drop it,
+    for conditions spanning multiple fields (e.g. "overdue")."""
     for key, value in filters.items():
         if key == "_exclude":
             if value(row):
@@ -99,12 +74,32 @@ def _matches(row, filters):
 
 
 def _matches_site_down_badge(row, badge_type):
-    """True if `row` belongs under the clicked "INC-WO Site Down" badge
-    (hub_site/diamond/gold/silver/bronze) — same rule used to compute the
-    badge counts in get_site_down_counts()."""
+    """True if `row` belongs under the clicked "INC-WO Site Down" badge."""
     if badge_type == "hub_site":
         return (row.get("hub_site") or "").strip() not in ("", "Not Hub")
     return row.get("site_grade") == _SITE_GRADE_BADGES.get(badge_type)
+
+
+def _fully_resolved_incident_ids(status_rows):
+    """incident_numeric_ids from inc_wo_by_status where every WO on that
+    incident has wo_status == "Resolved" — used by
+    IncWoService._resolved_rows() to drop an incident's resolved WO(s)
+    from the "INC-WO Resolved" card while a sibling WO is still open."""
+    incident_ids = set()
+    unresolved_incident_ids = set()
+    for row in status_rows:
+        incident_id = row.get("incident_numeric_id")
+        incident_ids.add(incident_id)
+        if row.get("wo_status") != "Resolved":
+            unresolved_incident_ids.add(incident_id)
+    return incident_ids - unresolved_incident_ids
+
+
+def _resolved_sort_key(row):
+    """Newest-first key for the "INC-WO Resolved" card — Resolved At,
+    falling back to INC-WO Created At so a row with no resolved_at yet
+    still sorts deterministically instead of erroring on comparison."""
+    return (row.get("resolved_at") or "", row.get("wo_created_at") or "")
 
 
 class IncWoService:
@@ -112,10 +107,9 @@ class IncWoService:
         self.status_cache_repository = status_cache_repository or IncWoStatusCacheRepository()
         self.resolved_cache_repository = resolved_cache_repository or IncWoResolvedCacheRepository()
 
+    @ttl_cache(15)
     def get_incwo_counts(self):
-        """Badge counts for every INC-WO-column badge (New, Assigned,
-        Acknowledged, In-Progress, Resolved, Reopened, Returned, On-Hold,
-        Overdue, Overdue L2, Overdue L3)."""
+        """Badge counts for every INC-WO-column badge (see BADGE_FILTERS)."""
         rows = self.status_cache_repository.fetch_all(_TABLE)
         return {
             badge_type: sum(1 for r in rows if _matches(r, filters))
@@ -123,11 +117,8 @@ class IncWoService:
         }
 
     def get_details(self, badge_type=None):
-        """Full drilldown rows for one INC-WO badge (see BADGE_FILTERS) — or
-        every row if `badge_type` is empty (the plain "View INC-WO" link,
-        with no badge clicked). Returns None only when `badge_type` is
-        given but isn't a known badge, distinguishing "no filter" from
-        "invalid filter" for drilldown_download()'s 404 handling."""
+        """Drilldown rows for one badge, or every row if `badge_type` is
+        empty. None only for an unknown badge_type (vs. "no filter")."""
         if not badge_type:
             filters = {}
         else:
@@ -140,10 +131,9 @@ class IncWoService:
             r["wo_id"] = r.get("wo_id") or ""
         return filtered
 
+    @ttl_cache(15)
     def get_site_down_counts(self):
-        """Badge counts for the "INC-WO Site Down" card (Hub-Site, Diamond,
-        Gold, Silver, Bronze) — hub_site counts any hub type, the rest match
-        site_grade exactly."""
+        """Badge counts for the "INC-WO Site Down" card."""
         rows = self.status_cache_repository.fetch_all(_SITE_DOWN_TABLE)
         counts = {
             grade: sum(1 for r in rows if r.get("site_grade") == label)
@@ -155,27 +145,50 @@ class IncWoService:
         return counts
 
     def get_site_down_details(self, badge_type=None):
-        """Rows behind the "INC-WO Site Down" card. `badge_type`
-        (hub_site/diamond/gold/silver/bronze) narrows to just that badge's
-        rows, matching get_site_down_counts(); omit it (or pass "") for
-        every row.
-
-        Rows with no wo_id yet (a brand-new WO the source hasn't assigned
-        one to) are dropped — nothing meaningful to show until then."""
+        """Rows behind the "INC-WO Site Down" card, optionally narrowed to
+        one badge. Rows with no wo_id yet are dropped."""
         rows = self.status_cache_repository.fetch_all(_SITE_DOWN_TABLE)
         rows = [r for r in rows if r.get("wo_id")]
         if badge_type:
             rows = [r for r in rows if _matches_site_down_badge(r, badge_type)]
         return rows
 
+    @ttl_cache(15)
     def get_resolved_count(self):
-        """Single badge count for the "INC-WO Resolved" card."""
-        return len(self.resolved_cache_repository.fetch_all(_RESOLVED_TABLE))
+        """Single badge count for the "INC-WO Resolved" card — same
+        rows as get_resolved_details(), just the count."""
+        return len(self._resolved_rows())
 
     def get_resolved_details(self):
-        """Every row behind the "INC-WO Resolved" card — already fully
-        scoped by inc_wo_resolved.sql, no further filtering needed."""
+        """Every row behind the "INC-WO Resolved" card.
+
+        An incident can have several WOs. inc_wo_resolved.sql already
+        gives us every Resolved WO whose parent Incident is still
+        In-Progress overall, but that's per-WO, not per-incident — if one
+        sibling WO on the same incident isn't resolved yet, the incident's
+        work isn't actually done, so none of its WOs belong on this card
+        (checked against inc_wo_by_status, which has every WO regardless
+        of status). Once every WO on an incident is resolved, only the
+        latest one is kept — one row per incident, not one per historical
+        WO."""
+        return self._resolved_rows()
+
+    def _resolved_rows(self):
         rows = self.resolved_cache_repository.fetch_all(_RESOLVED_TABLE)
+        status_rows = self.status_cache_repository.fetch_all(_TABLE)
+        fully_resolved = _fully_resolved_incident_ids(status_rows)
+
+        latest_by_incident = {}
         for r in rows:
+            incident_id = r.get("incident_numeric_id")
+            if incident_id not in fully_resolved:
+                continue
+            current = latest_by_incident.get(incident_id)
+            if current is None or _resolved_sort_key(r) > _resolved_sort_key(current):
+                latest_by_incident[incident_id] = r
+
+        result = list(latest_by_incident.values())
+        result.sort(key=_resolved_sort_key, reverse=True)
+        for r in result:
             r["wo_id"] = r.get("wo_id") or ""
-        return rows
+        return result

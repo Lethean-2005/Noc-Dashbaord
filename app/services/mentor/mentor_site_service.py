@@ -1,35 +1,24 @@
 """Business logic for the Mentor Site page (app/routes/mentor.py) — lets
 the user configure a specific list of sites to monitor (typed in or
-uploaded via CSV), then checks each against the same alarm feed used
-elsewhere (ape_alarm) and Incident tracking (incident_by_status), same
-flow as app/services/vip/vip_alarm_service.py but for a user-picked site
-list instead of every VIP/VVIP site.
+uploaded via CSV), then checks each against ape_alarm and
+incident_by_status, same flow as vip_alarm_service.py but for a
+user-picked site list instead of every VIP/VVIP site.
 
-mentor_sites (the table backing this) is NOT a Postgres/MSSQL sync cache —
-see app/repositories/mentor/mentor_site_repository.py and
-app/database/cache.py's init_cache_db() for why it's never auto-dropped.
-Site Name/Province are resolved live from site_cache, not stored, so they
-always reflect the latest Site master data.
+mentor_sites (the table backing this) is NOT a Postgres/MSSQL sync
+cache — never auto-dropped (see cache.py's init_cache_db()). Site
+Name/Province are resolved live from site_cache, not stored, so they
+always reflect the latest master data.
 
-One category system, _categorize() below, is shared by both UI surfaces on
-this page:
-  - get_configured_sites()'s "Status" column — a site with none of
-    _categorize()'s types currently active shows "OK", Site Down takes
-    priority if more than one matches, and anything that doesn't match one
-    of the named categories shows "Other" rather than falling through
-    unnoticed. (This used to run its own narrower 4-category check — Site
-    Down/Main Failure/Low DC Voltage/DG On only — so a site whose only
-    active alarm was, say, a Door Alarm or Rectifier Failure still showed
-    "OK", reading as "nothing wrong" when something was.)
-  - get_counts()/get_alarm_details()'s badge_type — the FULL 8-category
-    breakdown (Site Down, Main AC Failure, Low DC Voltage, High DC
-    Voltage, DG-On, RECT Failure, Door Alarm, Other), matching the Overall
-    Dashboard's "Mentor Site" card (app/templates/dashboard/partials/cards.html)
-    exactly. It's intentionally the same category logic as
-    app/services/vip/vip_alarm_service.py's _categorize() (not imported
-    from there, to avoid coupling two independently-evolving features to
-    one shared private function) — both read the same ape_alarm-derived
-    row shape, so the same keyword rules apply.
+One category system, _categorize() below, is shared by both UI
+surfaces: get_configured_sites()'s "Status" column ("OK" if nothing
+matches, Site Down takes priority, "Other" for an unnamed-category
+match — replacing an earlier narrower 4-category check that showed "OK"
+for e.g. a Door Alarm), and get_counts()/get_alarm_details()'s
+badge_type, the full 8-category breakdown matching the Overall
+Dashboard's "Mentor Site" card exactly. Intentionally the same category
+logic as vip_alarm_service.py's _categorize(), not imported from there,
+to avoid coupling two independently-evolving features to one shared
+private function.
 """
 
 import csv
@@ -44,6 +33,7 @@ from app.utils.alarm_category import SITE_DOWN_EVENTS
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
 from app.utils.nms import NMS_NAMES
+from app.utils.ttl_cache import ttl_cache
 
 _APE_ALARM_TABLE = "ape_alarm"
 _SITE_TABLE = "site_cache"
@@ -245,6 +235,7 @@ class MentorSiteService:
             if row.get("site_code") in configured_codes
         ]
 
+    @ttl_cache(15)
     def get_counts(self):
         """{'Site Down': n, 'Main AC Failure': n, ...} for the Overall
         Dashboard's Mentor Site card — the full 8-category breakdown (see

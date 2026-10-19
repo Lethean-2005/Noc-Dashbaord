@@ -1,0 +1,44 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'Resolution Time Duration' %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        {% include "drilldown/_category_filter.html" %}
+        {% include "drilldown/_duration_filter.html" %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=selected_categories, duration_bucket=request.args.getlist('duration_bucket'), week=request.args.get('week', '')) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Category</th>
+                <th>Week</th>
+                <th>Resolution Time</th>
+                <th>Occurred At</th>
+                <th>Resolved At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.iso_week }}</td>
+                <td>{{ row.resolution_display }}</td>
+                <td>{{ row.occurred_at }}</td>
+                <td>{{ row.resolved_at }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="6">No incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

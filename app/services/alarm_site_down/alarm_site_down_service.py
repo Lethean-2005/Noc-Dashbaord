@@ -1,39 +1,30 @@
-"""Business logic for the "Alarm Site Down" card on the Custom Dashboard
-(reports/index.html). Same architecture as
-app/services/dg_on/dg_on_alarm_service.py — see that file for the full
-reasoning, summarized here:
+"""Business logic for the "Alarm Site Down" card on the Custom
+Dashboard. Same architecture as dg_on_alarm_service.py — see that file
+for the full reasoning, summarized here:
 
-Reads from the local ape_alarm cache (instance/localstorage.db) that
-app/services/ape_alarm/ape_alarm_scheduler.py keeps in sync in the
-background — no query of its own, purely local. Narrows to alarms whose
-event_name exactly matches one of app/utils/alarm_category.py's
-SITE_DOWN_EVENTS (the same NE/connectivity event types ape_alarm.sql
-originally filtered on, and the same set VipAlarmService/MentorSiteService
-use for their own "Site Down" category) — confirmed against real Postgres
-data before adding the newer variants (gNodeB Out of Service, gNodeB DU
-out-of-service, etc.) to that set.
+Reads the local ape_alarm cache (synced by ape_alarm_scheduler.py), no
+query of its own. Narrows to alarms whose event_name exactly matches
+one of alarm_category.py's SITE_DOWN_EVENTS, the same set
+VipAlarmService/MentorSiteService use for their own "Site Down"
+category.
 
-Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) both come from
-site_cache (hub_site / site_grade), and a site can technically be both a
-hub site and graded — but Hub takes priority: a hub site's Site Down
-alarm counts only toward "Hub", never also toward its grade badge, so the
-same site never double-counts across two badges (same convention as
-dg_on_alarm_service.py).
+Hub and the 4 grade tiers (Diamond/Gold/Silver/Bronze) come from
+site_cache — Hub takes priority, so a hub site's alarm never also counts
+toward its grade badge (same convention as dg_on_alarm_service.py).
 
 get_details() enriches each row with its site's current Incident/INC-WO
-from the incident_site_down cache (app/database/queries/incident_site_down.sql) —
-not incident_by_status, which the sync deliberately narrows to
-'new'/'in_progress' only (see incident_sync_service.py). incident_site_down
-is already scoped to exactly the right definition for this card's own
-cross-reference: Incident Category = Site Down, Status != Closed (so a
-Resolved-but-not-Closed incident still counts if its alarm hasn't cleared),
-Cleared Alarm Received = FALSE. That's a broader/correct match than
-incident_by_status would give, and needs no extra category filtering here
-since every row already IS a Site Down incident.
+from incident_site_down, not incident_by_status (deliberately narrowed
+to new/in_progress only) — incident_site_down is already scoped to the
+right definition for this card (Category = Site Down, Status != Closed,
+Cleared Alarm Received = FALSE), so no extra filtering is needed here.
 
-ape_alarm.nms is the alarm's own raw numeric vendor code straight from
-object_138 — translated here via app/utils/nms.py's NMS_NAMES, same as
-every other drilldown in this project.
+ape_alarm.nms is the raw numeric vendor code, translated via
+app/utils/nms.py's NMS_NAMES — this wins over the matched incident's own
+nms (only used as a fallback when the alarm has none), since ape_alarm.nms
+comes straight from the live alarm feed (object_138) while the incident's
+nms is resolved from object_227's NE inventory, which can be stale for a
+site whose equipment changed. Same order as vip_alarm_service.py/
+ran_main_ac_alarm_service.py.
 """
 
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -142,8 +133,8 @@ class AlarmSiteDownService:
             row["hub_site"] = inc.get("hub_site") or site.get("hub_site") or ""
             row["site_grade"] = inc.get("site_grade") or (site.get("site_grade") or "").capitalize()
             row["province"] = inc.get("province") or site.get("province") or ""
-            row["nms"] = inc.get("nms") or NMS_NAMES.get(
-                str(row.get("nms") or "").strip(), row.get("nms")
+            row["nms"] = NMS_NAMES.get(str(row.get("nms") or "").strip(), row.get("nms")) or inc.get(
+                "nms"
             )
             rows.append(row)
 

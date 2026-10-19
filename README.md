@@ -16,6 +16,10 @@ Reports/Custom Dashboard pages read the same live services as the main
 dashboard. Toggle any card off without touching code via the `FEATURE_*`
 flags in `.env` (re-read on every request, no restart needed).
 
+`/congestion` is a standalone, bookmarkable page showing just the Top
+Congestion Devices card (e.g. for a dedicated wallboard) — the card itself
+isn't shown on the main dashboard at all.
+
 ## Architecture
 
 Routes (blueprints) call services (business logic, no SQL), which call

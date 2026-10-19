@@ -1,0 +1,91 @@
+{# One weekday's Incident Volume popup body (Category/Severity/Province/
+   Vendor tabs) — rendered standalone by dashboard.volume_day_popup()
+   and injected into that weekday's modal shell (see graph_cards.html)
+   the first time it's opened, instead of being embedded in the initial
+   page for all 7 weekdays at once. Needs: day_breakdown,
+   day_severity_breakdown, day_province_breakdown, day_vendor_breakdown
+   (one weekday's entry each, from IncidentService's
+   get_incident_volume_day_<field>_breakdowns()/
+   _incident_volume_multi_field_day_breakdowns()) and
+   selected_volume_categories (used by _volume_day_field_panel.html's
+   drilldown links). #}
+<div class="volume-day-tabs">
+    <button type="button" class="volume-day-tab-btn is-active" data-tab="category">Category</button>
+    <button type="button" class="volume-day-tab-btn" data-tab="severity">Severity</button>
+    <button type="button" class="volume-day-tab-btn" data-tab="province">Province</button>
+    <button type="button" class="volume-day-tab-btn" data-tab="vendor">Vendor</button>
+</div>
+
+<div class="volume-day-tab-panel is-active" data-tab="category">
+<div class="volume-category-table-wrap" style="overflow-x:auto;">
+<table class="alarm-table volume-category-table" style="width:100%;">
+    <thead>
+        <tr>
+            <th>Category</th>
+            {% for label in day_breakdown.week_labels %}
+            <th class="right">{{ label }}</th>
+            {% endfor %}
+            <th class="right">Change</th>
+        </tr>
+    </thead>
+    {% for row in day_breakdown.categories %}
+    <tbody>
+        <tr class="volume-category-row">
+            <td>
+                <span class="volume-category-caret"><i class="ti ti-chevron-right"></i></span>
+                {{ row.category }}
+            </td>
+            {% for w in row.weeks %}
+            <td class="right">
+                {% if w.count > 0 %}
+                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume', type=w.badge_type, category=row.category, title=row.category + ' — ' + w.label, label=row.category + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                {% else %}
+                {{ w.count }}
+                {% endif %}
+                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+            </td>
+            {% endfor %}
+            <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
+        </tr>
+    </tbody>
+    <tbody class="volume-duration-panel">
+        {% for d in row.durations %}
+        <tr class="volume-duration-row">
+            <td>{{ d.label }}</td>
+            {% for w in d.weeks %}
+            <td class="right">
+                {% if w.count > 0 %}
+                <a href="{{ url_for('dashboard.drilldown', scope='Incident Volume Duration', type=w.badge_type, category=row.category, title=row.category + ' — ' + d.label + ' — ' + w.label, label=row.category + ' — ' + d.label + ' — ' + w.label, value=w.count) }}">{{ w.count }}</a>
+                {% else %}
+                {{ w.count }}
+                {% endif %}
+                {% if w.step_delta is not none %}<span class="volume-tooltip-delta step-delta {{ 'up' if w.step_delta >= 0 else 'down' }}">{{ '+' if w.step_delta >= 0 }}{{ w.step_delta }}</span>{% endif %}
+            </td>
+            {% endfor %}
+            <td class="right volume-tooltip-delta {{ 'up' if d.delta >= 0 else 'down' }}">{{ '+' if d.delta >= 0 }}{{ d.delta }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    {% else %}
+    <tbody>
+        <tr class="empty-row"><td colspan="{{ day_breakdown.week_labels|length + 2 }}">No incidents on this day</td></tr>
+    </tbody>
+    {% endfor %}
+</table>
+</div>
+</div>
+
+<div class="volume-day-tab-panel" data-tab="severity">
+    {% set field_name, field_label, items_key, field_day_breakdown = "severity", "Severity", "severities", day_severity_breakdown %}
+    {% include "dashboard/partials/_volume_day_field_panel.html" with context %}
+</div>
+
+<div class="volume-day-tab-panel" data-tab="province">
+    {% set field_name, field_label, items_key, field_day_breakdown = "province", "Province", "provinces", day_province_breakdown %}
+    {% include "dashboard/partials/_volume_day_field_panel.html" with context %}
+</div>
+
+<div class="volume-day-tab-panel" data-tab="vendor">
+    {% set field_name, field_label, items_key, field_day_breakdown = "vendor", "Vendor", "vendors", day_vendor_breakdown %}
+    {% include "dashboard/partials/_volume_day_field_panel.html" with context %}
+</div>

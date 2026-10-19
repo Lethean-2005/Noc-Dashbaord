@@ -1,27 +1,26 @@
 -- ==============================================================
--- Same join/shape as incident_by_status.sql, but scoped down to only
--- VIP/VVIP sites (sites.site_strategic_type) instead of every site
--- company-wide, and to status != 'closed' instead of just
--- ('new', 'in_progress') — so a Resolved incident still shows here.
+-- Same join/shape as incident_by_status.sql, scoped to VIP/VVIP sites
+-- and status != 'closed' (so Resolved still shows here). NMS Code is
+-- resolved locally against ne_nms_lookup_cache, same as that file.
 --
--- NMS Code is resolved locally in Python against ne_nms_lookup_cache, not
--- joined here — see app/database/queries/ne_nms_lookup.sql. The "latest
--- INC-WO per (incident, site)" is resolved the same batched way
--- incident_by_status.sql now uses — see that file's header for why (a
--- per-row LATERAL against the foreign object_324 table was ~100x slower).
+-- Kept as its own cache rather than merged into incident_by_status —
+-- that one excludes Resolved on purpose (widening it once caused a real
+-- outage: Incident's drilldown has no pagination, and Resolved company-
+-- wide pushed it to 3,800+ rows). Scoped to just VIP/VVIP sites, this
+-- stays small even with Resolved included, so it's safe here.
 --
--- This is a SEPARATE cache from incident_by_status on purpose, same
--- reasoning as incident_site_down already being separate from it:
--- incident_by_status is shared by IncidentService (the Incident card's own
--- New/In-Progress/Overdue badges) and MentorSiteService (its "Site Down"
--- status check), both of which need Resolved EXCLUDED — widening that
--- query directly once already caused a real outage (Incident's drilldown
--- has no pagination; Resolved incidents company-wide pushed it from ~380
--- rows to 3,800+, freezing the page). This table only ever covers VIP/VVIP
--- sites (33 of 4,360 sites, confirmed against real data) — even with every
--- Resolved incident included, the row count stays small, so VipAlarmService
--- can safely keep showing a site's Incident/INC-WO reference through
--- Resolved without repeating that outage.
+-- "VIP/VVIP site" is Postgres's own site_strategic_type OR a site in
+-- :mssql_vip_site_codes (MSSQL's TBL_SITE.SITE_STRATEGIC, passed in by
+-- IncidentSyncService.sync_vip_incident_status() from vip_site_cache) —
+-- the two systems' site data can disagree (confirmed live for site
+-- 1517/CHI_PECH on 2026-09-22: MSSQL says VIP, Postgres says
+-- none_strategic), and per the user, MSSQL's site data specifically is
+-- kept more current than Postgres's own. OR, not AND: this only ever
+-- widens which sites' incidents show up, never narrows the existing
+-- Postgres-flagged set. An empty :mssql_vip_site_codes list is safe —
+-- = ANY() over an empty array matches nothing, verified directly
+-- against Postgres — so this never needs special-casing "no MSSQL
+-- codes yet".
 -- ==============================================================
 
 -- name: vip_incident_status
@@ -32,7 +31,7 @@ SELECT
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   sites.id AS "Site Numeric ID",
   sites.standard_code AS "Site Code",
   inc.issue_occurred_at AS "Occurred At",
@@ -65,7 +64,10 @@ LEFT JOIN LATERAL (
   FROM UNNEST(STRING_TO_ARRAY(inc.site_text, ',')) AS site_part
 ) site ON TRUE
 JOIN object_160 sites ON site.site_code = sites.standard_code
-  AND LOWER(sites.site_strategic_type) IN ('vip', 'vvip')
+  AND (
+    LOWER(sites.site_strategic_type) IN ('vip', 'vvip')
+    OR sites.standard_code = ANY(:mssql_vip_site_codes)
+  )
 LEFT JOIN object_162 province ON sites.province = province.id
 LEFT JOIN object_164 district ON sites.district = district.id
 LEFT JOIN object_166 commune ON sites.commune = commune.id

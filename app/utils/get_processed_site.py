@@ -1,15 +1,12 @@
 """Python port of PostgreSQL's get_processed_site(site, additional_info)
 PL/pgSQL function.
 
-That function used to run once per row inside ape_alarm.sql's SELECT — a
-procedural (RBAR) call per row is expensive on Postgres, and made the query
-run measurably longer than a plain column read, which increases exposure to
-"conflict with recovery" (the longer a query runs against the replica, the
-more likely it collides with WAL replay). ape_alarm.sql now selects the raw
-`site`/`additional_info` columns only; get_processed_site() below reproduces
-the exact same 5-step priority chain locally, using the site_lookup cache
-(mirrors site_lookup_mv, see app/services/site/site_lookup_sync_service.py)
-for the sran_id/nodeb_id/bts_id lookups the Postgres function did internally.
+That function used to run once per row inside ape_alarm.sql's SELECT —
+expensive, and longer query runtime against the replica increased
+exposure to "conflict with recovery". ape_alarm.sql now selects raw
+site/additional_info only; this reproduces the same priority chain
+locally, using site_lookup_cache (mirrors site_lookup_mv) for the
+sran_id/nodeb_id/bts_id lookups the Postgres function did internally.
 
 Step order (must match the original function exactly):
   1. If `site` starts with 'PLMN-PLMN/MRBTS-', extract a 4-digit sran_id and

@@ -1,0 +1,55 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'Incidents Closed' %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        {% include "drilldown/_category_filter.html" %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=selected_categories) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Incident Status</th>
+                {# Customer Complaint's own row is always resolved_at-based
+                   now (see incident_closed_trend.sql), so this column
+                   heading only says "Resolved At" when the filter is
+                   narrowed to just that one category — every other
+                   selection (including "All Categories") mixes in
+                   real closed_at rows too, so it stays "Closed At". #}
+                <th>{{ 'Resolved At' if selected_categories == ['Customer Complaint'] else 'Closed At' }}</th>
+                <th>Category</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Province</th>
+                <th>District</th>
+                <th>Commune</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.incident_status %}<span class="status-badge {{ row.incident_status|status_badge_class }}">{{ row.incident_status }}</span>{% endif %}</td>
+                <td>{{ row.closed_at }}</td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.site_name }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.province }}</td>
+                <td>{{ row.district }}</td>
+                <td>{{ row.commune }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="9">No closed incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

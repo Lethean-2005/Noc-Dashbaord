@@ -1,32 +1,25 @@
 -- ==============================================================
--- Site Down incidents — for app/services/incident/incident_sync_service.py, cached
--- as incident_site_down behind the "Incident Site Down" card on the
--- Custom Dashboard. The Telegram Site Down alert
--- (app/services/telegram/telegram_alert.py) reads this same cache table
--- directly instead of querying Postgres a second time — Last Comments is
--- included here (rather than only on a separate copy) specifically so the
--- alert can read it from here.
+-- Site Down incidents for incident_sync_service.py, cached as
+-- incident_site_down behind the "Incident Site Down" card. The Telegram
+-- Site Down alert reads this same cache directly — Last Comments is
+-- included here specifically for that.
 --
--- Not the incident_by_status cache, because that cache is deliberately
--- scoped to status IN ('new', 'in_progress') for the dashboard's Incident
--- badges, but the correct definition here (per the source system's own
--- "Incident" filter) is broader:
---   Incident Category = Site Down
---   AND Status is not Closed          (so a Resolved-but-not-Closed incident
---                                      still counts if its alarm hasn't cleared)
---   AND Cleared Alarm Received = FALSE (an incident whose alarm already
---                                      cleared shouldn't count even if the
---                                      ticket itself is still open)
+-- Not incident_by_status (that's scoped to new/in_progress for the
+-- dashboard badges) — this follows the source system's own "Incident"
+-- filter instead: Category = Site Down, Status != Closed, and Cleared
+-- Alarm Received = FALSE (so an incident whose alarm already cleared
+-- doesn't count even if the ticket's still open).
 --
--- Same Site/NMS/Province/District/Commune join as incident_by_status.sql —
--- see that file for the join reasoning, including why site_text is split
--- into one row per site instead of taking only the first one, and the
--- "Other Site" fallback (falls back to inc.site_code/province_ref/
--- district/commune, keyed on sites.id IS NULL rather than a blank field,
--- when the site isn't in the registered Site list at all). The "latest
--- INC-WO per (incident, site)" is resolved the same batched way
--- incident_by_status.sql now uses — see that file's header for why (a
--- per-row LATERAL against the foreign object_324 table was ~100x slower).
+-- "Occurred At" splits by Source, confirmed by the user: an
+-- Alarms-sourced incident's real down-start is issue_occurred_at (the
+-- alarm's own detection time); a non-Alarms incident (NOC/Field/
+-- Customer Complaint) has no alarm feed behind it, so its own created_at
+-- (when the ticket was raised) is the only real "down since" signal.
+-- Same source-based split as incident_site_down_restored_by_ids.sql's
+-- own "Restored At" column, for the matching restore-side timestamp.
+--
+-- Same Site/NMS/Province/District/Commune join as incident_by_status.sql
+-- — see that file for the join/fallback/batching reasoning.
 -- ==============================================================
 
 -- name: incident_site_down
@@ -37,12 +30,16 @@ SELECT
     WHEN 'in_progress' THEN 'In Progress'
     ELSE INITCAP(REPLACE(inc.status, '_', ' '))
   END AS "Incident Status",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   sites.id AS "Site Numeric ID",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
-  inc.issue_occurred_at AS "Occurred At",
+  CASE
+    WHEN LOWER(inc.source) = 'alarms' THEN inc.issue_occurred_at
+    ELSE inc.created_at
+  END AS "Occurred At",
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
   inc.last_comments AS "Last Comments",
+  INITCAP(inc.source) AS "Source",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -71,4 +68,4 @@ LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE inc.incident_category = 'site_down'
   AND inc.status != 'closed'
   AND inc.cleared_alarm_received = FALSE
-ORDER BY inc.issue_occurred_at DESC NULLS FIRST;
+ORDER BY "Occurred At" DESC NULLS FIRST;

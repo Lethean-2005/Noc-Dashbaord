@@ -65,7 +65,7 @@ def start(app, interval_seconds):
         _work,
         interval_seconds,
         thread_name="all-tasks-summary",
-        log_message=str(interval_seconds),
+        log_message=f"All-tasks summary scheduler started (every {interval_seconds}s)",
         first_run_delay=seconds_until_next_aligned_time(
             interval_seconds, tz_name, offset_seconds=90
         ),

@@ -1,11 +1,12 @@
-"""Read/write access to the local mentor_sites table (instance/localstorage.db)
-— NOT a Postgres/MSSQL sync cache like every other repository in this
-project. This table holds site codes the user has explicitly typed in or
-uploaded via the Mentor Site page (app/routes/mentor.py); see
-app/database/cache.py's init_cache_db() for why it's never auto-dropped.
+"""Read/write access to the local mentor_sites table — not a
+Postgres/MSSQL sync cache. Holds site codes the user typed in or
+uploaded via the Mentor Site page; never auto-dropped by init_cache_db().
 """
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from flask import current_app
 
 from app.database.cache import get_cache_conn
 
@@ -19,7 +20,7 @@ class MentorSiteRepository:
             conn.execute(
                 "INSERT INTO mentor_sites (site_code, added_at, source) VALUES (?, ?, ?) "
                 "ON CONFLICT(site_code) DO NOTHING",
-                (site_code, datetime.now().isoformat(timespec="seconds"), source),
+                (site_code, datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).isoformat(timespec="seconds"), source),
             )
             conn.commit()
         finally:

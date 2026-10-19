@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Add Partner Flow — Partner Contact</title>
+<style>
+  :root {
+    --ink: #17211f;
+    --paper: #f3f2ee;
+    --paper-raised: #ffffff;
+    --line: #d8d5cc;
+    --muted: #6b7570;
+    --accent: #0f7d72;      /* create / atomic write */
+    --accent-soft: #e2efec;
+    --loop: #a8701f;        /* add-contact repeat */
+    --loop-soft: #f4e9d8;
+    --danger: #a4463a;      /* no delete-partner route */
+    --danger-soft: #f4e5e1;
+    --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: ui-sans-serif, "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e9ece9;
+      --paper: #14181a;
+      --paper-raised: #1b2124;
+      --line: #313a3a;
+      --muted: #93a19b;
+      --accent: #4fc3b3;
+      --accent-soft: #163632;
+      --loop: #dba552;
+      --loop-soft: #3a2f19;
+      --danger: #e08a7c;
+      --danger-soft: #3a2320;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 24px 72px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .lede {
+    max-width: 64ch;
+    font-size: 15.5px;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .lede + .lede { margin-top: 10px; }
+  .lede b { font-weight: 650; }
+
+  figure {
+    margin: 40px 0 8px;
+    padding: 20px 16px 8px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow-x: auto;
+  }
+  figure svg { display: block; width: 100%; height: auto; min-width: 640px; }
+  figcaption {
+    font-size: 12.5px;
+    color: var(--muted);
+    padding: 10px 6px 4px;
+    border-top: 1px solid var(--line);
+    margin-top: 14px;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 18px 2px 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 2px; display: inline-block; border-radius: 1px; }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 48px 0 14px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  td.route { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  td.note { color: var(--muted); }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .tag.create { background: var(--accent-soft); color: var(--accent); }
+  .tag.loop { background: var(--loop-soft); color: var(--loop); }
+  .tag.gap { background: var(--danger-soft); color: var(--danger); }
+
+  footer {
+    margin-top: 44px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">NOC Dashboard · Partner Contact page</p>
+  <h1>How a partner and its contacts actually get created</h1>
+  <p class="lede">
+    <b>Add Partner</b> writes one <b>Partner</b> row and its first <b>Contact</b> row
+    together, in a single atomic call — there is no such thing as a partner with
+    zero contacts. Every contact after that goes through <b>Add Contact</b>, which
+    reuses the same <code style="font-family:var(--mono)">partner_id</code> and
+    never touches the partner record itself. That loop has no cap: one partner can
+    end up with as many contact rows as you add.
+  </p>
+  <p class="lede">
+    Edit updates one contact's fields plus the partner's name/type in the same
+    call. Delete removes exactly one contact row. Nothing in the app removes a
+    <b>Partner</b> row — that gap is marked below and is intentionally on hold.
+  </p>
+
+  <figure>
+    <svg viewBox="0 0 1040 560" role="img" aria-label="Add Partner writes a Partner row and its first Contact row atomically; the Add Contact button repeats to attach more Contact rows to the same partner; Edit touches one contact plus the partner's name and type; Delete removes one contact row; no route exists to delete the Partner row itself.">
+      <defs>
+        <marker id="arrowAccent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+        </marker>
+        <marker id="arrowLoop" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--loop)"></path>
+        </marker>
+        <marker id="arrowMuted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"></path>
+        </marker>
+        <marker id="arrowDanger" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--danger)"></path>
+        </marker>
+      </defs>
+
+      <!-- Form box -->
+      <rect x="20" y="228" width="196" height="112" rx="8" fill="none" stroke="currentColor" stroke-width="1.3"></rect>
+      <text x="118" y="256" text-anchor="middle" font-size="13.5" font-weight="650" fill="currentColor">Add Partner form</text>
+      <text x="118" y="278" text-anchor="middle" font-size="10.5" fill="var(--muted)">partner_name, partner_type,</text>
+      <text x="118" y="292" text-anchor="middle" font-size="10.5" fill="var(--muted)">domain + contact #1 fields</text>
+      <text x="118" y="314" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="var(--muted)">13 fields, all required</text>
+
+      <!-- Partner hub -->
+      <rect x="368" y="248" width="176" height="76" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"></rect>
+      <text x="456" y="280" text-anchor="middle" font-size="13.5" font-weight="650" fill="var(--accent)">TBL_PARTNER</text>
+      <text x="456" y="299" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="var(--muted)">1 row · partner_id</text>
+
+      <!-- Contact #1 -->
+      <rect x="672" y="36" width="252" height="64" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.4"></rect>
+      <text x="798" y="62" text-anchor="middle" font-size="13" font-weight="650" fill="var(--accent)">Contact #1</text>
+      <text x="798" y="80" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="var(--muted)">born with the partner, same write</text>
+
+      <!-- Contact #2 -->
+      <rect x="672" y="122" width="252" height="60" rx="8" fill="none" stroke="currentColor" stroke-width="1.2"></rect>
+      <text x="798" y="147" text-anchor="middle" font-size="13" font-weight="650" fill="currentColor">Contact #2</text>
+      <text x="798" y="164" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="var(--muted)">added later, same partner_id</text>
+
+      <!-- Contact #N dashed -->
+      <rect x="672" y="204" width="252" height="48" rx="8" fill="none" stroke="var(--loop)" stroke-width="1.2" stroke-dasharray="4 4"></rect>
+      <text x="798" y="233" text-anchor="middle" font-size="12" fill="var(--loop)">Contact #N — repeat, no cap</text>
+
+      <!-- Form -> Partner -->
+      <line x1="216" y1="284" x2="360" y2="284" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arrowAccent)"></line>
+      <text x="288" y="273" text-anchor="middle" font-size="11" fill="var(--accent)" font-family="ui-monospace,monospace">/create</text>
+
+      <!-- Partner -> Contact 1 (born together) -->
+      <path d="M 544 268 C 600 240, 620 90, 668 68" fill="none" stroke="var(--accent)" stroke-width="1.6" marker-end="url(#arrowAccent)"></path>
+      <text x="608" y="150" font-size="11" fill="var(--accent)" font-family="ui-monospace,monospace">atomic — one</text>
+      <text x="608" y="163" font-size="11" fill="var(--accent)" font-family="ui-monospace,monospace">transaction</text>
+
+      <!-- Partner -> Contact 2/N (add-contact loop) -->
+      <path d="M 544 300 C 600 320, 620 150, 668 152" fill="none" stroke="var(--loop)" stroke-width="1.6" marker-end="url(#arrowLoop)"></path>
+      <text x="560" y="370" font-size="11" fill="var(--loop)" font-family="ui-monospace,monospace">/add-contact</text>
+      <text x="560" y="383" font-size="11" fill="var(--loop)" font-family="ui-monospace,monospace">repeat ×N, same partner_id</text>
+      <path d="M 544 312 C 590 400, 620 220, 668 222" fill="none" stroke="var(--loop)" stroke-width="1.4" stroke-dasharray="3 4" marker-end="url(#arrowLoop)"></path>
+
+      <!-- Edit: contact back to partner name/type -->
+      <path d="M 672 60 C 610 40, 500 30, 470 46 C 452 55, 452 60, 456 78" fill="none" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="2 4" marker-end="url(#arrowMuted)"></path>
+      <text x="470" y="24" text-anchor="middle" font-size="10.5" fill="var(--muted)" font-family="ui-monospace,monospace">/update — edits this contact</text>
+      <text x="470" y="37" text-anchor="middle" font-size="10.5" fill="var(--muted)" font-family="ui-monospace,monospace">+ partner name/type</text>
+
+      <!-- Delete: contact #2 row removed -->
+      <line x1="924" y1="152" x2="1000" y2="152" stroke="var(--muted)" stroke-width="1.3" marker-end="url(#arrowMuted)"></line>
+      <text x="962" y="140" text-anchor="middle" font-size="10.5" fill="var(--muted)" font-family="ui-monospace,monospace">/delete</text>
+      <text x="1000" y="152" font-size="14" fill="var(--muted)" text-anchor="start" dy="4">✕</text>
+      <text x="962" y="176" text-anchor="middle" font-size="9.5" fill="var(--muted)">this row only</text>
+
+      <!-- No delete-partner route -->
+      <rect x="368" y="424" width="176" height="70" rx="8" fill="none" stroke="var(--danger)" stroke-width="1.3" stroke-dasharray="4 4"></rect>
+      <text x="456" y="452" text-anchor="middle" font-size="12.5" font-weight="650" fill="var(--danger)">Delete Partner</text>
+      <text x="456" y="469" text-anchor="middle" font-size="10" fill="var(--danger)">no route — on hold</text>
+      <line x1="456" y1="324" x2="456" y2="420" stroke="var(--danger)" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arrowDanger)"></line>
+      <text x="466" y="378" font-size="14" fill="var(--danger)">✕</text>
+    </svg>
+    <figcaption>
+      Add Partner creates the Partner row and Contact&nbsp;#1 in one write. The
+      Add&nbsp;Contact button on that partner's row repeats independently to attach
+      Contact&nbsp;#2, #3 … #N, all sharing the same <code style="font-family:var(--mono)">partner_id</code>.
+      Edit and Delete only ever act on a single contact row; the dashed red line
+      marks the one action — deleting the Partner row itself — that has no route.
+    </figcaption>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i> create (atomic)</span>
+      <span><i style="background:var(--loop)"></i> add-contact (repeatable)</span>
+      <span><i style="background:var(--muted)"></i> edit / delete (single row)</span>
+      <span><i style="background:var(--danger)"></i> no route exists</span>
+    </div>
+  </figure>
+
+  <h2>Routes, at a glance</h2>
+  <table>
+    <thead>
+      <tr><th>Route</th><th>Touches</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="route">POST /partner-contact/create</td>
+        <td><span class="tag create">create</span> Partner + Contact #1</td>
+        <td class="note">Atomic — both rows or neither. All 13 fields required.</td>
+      </tr>
+      <tr>
+        <td class="route">POST /partner-contact/add-contact</td>
+        <td><span class="tag loop">loop</span> new Contact row</td>
+        <td class="note">Reuses the row's partner_id; partner name/type/domain locked read-only. No limit on repeats.</td>
+      </tr>
+      <tr>
+        <td class="route">POST /partner-contact/update</td>
+        <td>1 Contact row + partner name/type</td>
+        <td class="note">Matched by partner_id + contact_id, not by name text.</td>
+      </tr>
+      <tr>
+        <td class="route">POST /partner-contact/delete</td>
+        <td>1 Contact row</td>
+        <td class="note">Partner row and its other contacts are untouched.</td>
+      </tr>
+      <tr>
+        <td class="route">—</td>
+        <td><span class="tag gap">gap</span> Partner row</td>
+        <td class="note">No route removes a Partner. Declined for now — see below.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    Delete Partner (a real cascading delete of the partner + all its contacts)
+    was discussed and explicitly held off on for now — not built.
+  </footer>
+</main>
+</body>
+</html>

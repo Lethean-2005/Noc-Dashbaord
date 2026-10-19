@@ -1,0 +1,791 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Partner Contact{% endblock %}
+
+{% block content %}
+<div class="pc-header">
+    <div class="pc-header-left">
+        <h1 class="pc-title">Partner Contact</h1>
+        <span class="pc-row-count">{{ rows|length }} records</span>
+    </div>
+    <div class="pc-header-right">
+        <button type="button" class="btn-export" onclick="openPartnerModal('create')"><i class="ti ti-plus"></i> Add Partner</button>
+        <a id="pc-btn-template" class="btn-export" href="{{ url_for('partner_contact.import_template') }}"><i class="ti ti-file-spreadsheet"></i> Template</a>
+        <button type="button" class="btn-export" onclick="pcOpenImportPasswordModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-import">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                <path d="M5 13v-8a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5.5m-9.5 -2h7m-3 -3l3 3l-3 3" />
+            </svg>
+            Import
+        </button>
+        <input type="file" id="pcImportFileInput" accept=".xlsx,.csv" style="display:none" onchange="pcHandleImportFile(this)">
+        <a id="pc-btn-export" class="btn-export" href="{{ url_for('partner_contact.export_csv') }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-export">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+                <path d="M11.5 21h-4.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v5m-5 6h7m-3 -3l3 3l-3 3" />
+            </svg>
+            Export
+        </a>
+    </div>
+</div>
+
+{# Toolbar row: domain tabs (e.g. "Telcotech"/"Cellcard", from
+   TBL_PARTNER.Domain) on the left, search on the right — both are
+   client-side row filters (see applyFilters() below), combined so
+   switching tabs keeps the current search text and vice versa. "All"
+   (empty data-domain) is always first and starts active. #}
+<div class="pc-toolbar">
+    {% if domains %}
+    <div class="pc-tabs" id="pc-tabs">
+        <button type="button" class="pc-tab active" data-domain="">All</button>
+        {% for d in domains %}
+        <button type="button" class="pc-tab" data-domain="{{ d }}">{{ d }}</button>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div></div>
+    {% endif %}
+    <div class="pc-toolbar-search">
+        <i class="ti ti-search"></i>
+        <input type="text" id="pc-search" placeholder="Search...">
+        <button type="button" id="pc-search-clear" class="pc-search-clear" title="Clear search" aria-label="Clear search"><i class="ti ti-x"></i></button>
+    </div>
+</div>
+
+<div class="pc-grid-wrap">
+    <div class="pc-grid-scroll">
+        <table class="pc-grid">
+            {# One <col> per column (data-col 0-11, matching the <th>s
+               below) — column width lives here, not on individual
+               <th>/<td> cells, so pcFitColumn() (partner_contact.js)
+               only ever has to touch ONE element per fit. Actions (last
+               column) has no id — sizes itself to its icon buttons,
+               nothing to fit. The px widths below are only a fallback
+               for the instant before JS runs — pcFitAllColumns()
+               measures every column's actual content on load (and again
+               any time the page header's "Fit Columns" button is
+               clicked) and overwrites these with real fit-to-content
+               widths, so a long Contact Name isn't stuck truncated by a
+               guessed
+               number here. #}
+            <colgroup>
+                <col id="pc-col-0" style="width:42px">
+                <col id="pc-col-1" style="width:140px">
+                <col id="pc-col-2" style="width:110px">
+                <col id="pc-col-4" style="width:120px">
+                <col id="pc-col-5" style="width:160px">
+                <col id="pc-col-6" style="width:160px">
+                <col id="pc-col-7" style="width:160px">
+                <col id="pc-col-8" style="width:130px">
+                <col id="pc-col-9" style="width:160px">
+                <col id="pc-col-11" style="width:380px">
+                <col style="width:130px">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="pc-grid-th sortable" data-col="0">No.</th>
+                    <th class="pc-grid-th sortable" data-col="1">Partner Name</th>
+                    <th class="pc-grid-th sortable" data-col="2">Partner Type</th>
+                    <th class="pc-grid-th sortable" data-col="4">Escalation Level</th>
+                    <th class="pc-grid-th" data-col="5">Escalation Matrix</th>
+                    <th class="pc-grid-th sortable" data-col="6">Contact Name</th>
+                    <th class="pc-grid-th sortable" data-col="7">Contact Role</th>
+                    <th class="pc-grid-th sortable" data-col="8">Phone Number</th>
+                    <th class="pc-grid-th" data-col="9">Email</th>
+                    <th class="pc-grid-th" data-col="11">Remark</th>
+                    <th class="pc-grid-th">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="pc-tbody">
+                {# data-partner-* here (not on one cell) — clicking ANY
+                   column in this row opens the "all contacts for this
+                   partner" popup (pcWireRecordClicks, partner_contact.js),
+                   except the Actions column and any real link/button
+                   already in the row, which keep their own click. #}
+                {% for row in rows %}
+                <tr data-domain="{{ row.domain }}" class="pc-record-row" data-partner-id="{{ row.partner_id }}" data-partner-name="{{ row.partner_name }}" data-partner-type="{{ row.partner_type }}">
+                    <td class="pc-grid-td pc-grid-td-num">{{ loop.index }}</td>
+                    <td class="pc-grid-td">{{ row.partner_name }}</td>
+                    <td class="pc-grid-td">{{ row.partner_type }}</td>
+                    <td class="pc-grid-td">{{ row.escalation_level }}</td>
+                    <td class="pc-grid-td" title="{{ row.escalation_matrix }}">{{ row.escalation_matrix }}</td>
+                    {# Same 50-char cutoff + view-icon + popup pattern as
+                       Remark/Email/Phone Number/Contact Role. #}
+                    <td class="pc-grid-td">{{ row.contact_name[:50] }}{% if row.contact_name and row.contact_name|length > 50 %}...{% endif %}</td>
+                    {# Same 50-char cutoff + view-icon + popup pattern as
+                       Remark/Email/Phone Number. #}
+                    <td class="pc-grid-td">{{ row.contact_role[:50] }}{% if row.contact_role and row.contact_role|length > 50 %}...{% endif %}</td>
+                    {# Same 50-char cutoff + view-icon + popup pattern as
+                       Remark/Email — some rows have several numbers
+                       jammed into one "/"-separated value. #}
+                    <td class="pc-grid-td">{{ row.phone_number[:50] }}{% if row.phone_number and row.phone_number|length > 50 %}...{% endif %}</td>
+                    {# Visible text capped at 50 chars, same as Remark —
+                       real cutoff, not just CSS ellipsis. mailto: href
+                       still gets the FULL row.email (every address, not
+                       just the truncated ones) so the link itself still
+                       works correctly; the view icon opens the same
+                       full value in a popup (pcOpenEmailModal(),
+                       partner_contact.js) for reading it whole. #}
+                    <td class="pc-grid-td{% if row.email %} pc-email-cell{% endif %}">{% if row.email %}<a href="mailto:{{ row.email }}">{{ row.email[:50] }}{% if row.email|length > 50 %}...{% endif %}</a><button type="button" class="pc-cell-view-icon" title="View full email" onclick='pcOpenEmailModal({{ row.email|tojson }})'><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M3 17a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v3a1 1 0 0 1 -1 1h-3a1 1 0 0 1 -1 -1l0 -3" /><path d="M4 12v-6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-6" /><path d="M12 8h4v4" /><path d="M16 8l-5 5" /></svg></button>{% endif %}</td>
+                    {# Truncated to a fixed 50 chars server-side — not just
+                       CSS ellipsis, which would show more or less text
+                       depending on the column's current fit-to-content
+                       width. Full value is reachable via the row's own
+                       click (pcOpenPartnerContactsModal, partner_contact.js). #}
+                    <td class="pc-grid-td pc-grid-td-remark">{{ row.remark[:50] }}{% if row.remark and row.remark|length > 50 %}...{% endif %}</td>
+                    <td class="pc-grid-td pc-grid-td-actions">
+                        {# Add Contact only needs partner_id (never
+                           contact_id) — shown for EVERY row, including a
+                           Partner with zero Contacts yet (e.g. right
+                           after Add Partner if its first Contact fields
+                           were left blank), so a contact-less Partner
+                           always has a way forward instead of being a
+                           dead end with no actions at all. Edit/Delete
+                           genuinely operate on a Contact row, so they
+                           stay gated behind a real contact_id below. #}
+                        <button type="button" class="pc-action-btn" title="Add Contact for this Partner"
+                            onclick="openPartnerModal('add-contact', this)"
+                            data-partner-id="{{ row.partner_id }}"
+                            data-partner-name="{{ row.partner_name }}"
+                            data-partner-type="{{ row.partner_type }}"
+                            data-domain="{{ row.domain }}"><i class="ti ti-user-plus"></i></button>
+                        {% if row.contact_id %}
+                        <button type="button" class="pc-action-btn" title="Edit"
+                            onclick="openPartnerModal('edit', this)"
+                            data-partner-id="{{ row.partner_id }}"
+                            data-contact-id="{{ row.contact_id }}"
+                            data-partner-name="{{ row.partner_name }}"
+                            data-partner-type="{{ row.partner_type }}"
+                            data-domain="{{ row.domain }}"
+                            data-escalation-level="{{ row.escalation_level }}"
+                            data-escalation-matrix="{{ row.escalation_matrix }}"
+                            data-contact-name="{{ row.contact_name }}"
+                            data-contact-role="{{ row.contact_role }}"
+                            data-phone-number="{{ row.phone_number }}"
+                            data-email="{{ row.email }}"
+                            data-remark="{{ row.remark }}"><i class="ti ti-edit"></i></button>
+                        <form method="POST" action="{{ url_for('partner_contact.delete') }}" class="pc-inline-form"
+                            data-confirm="Delete this partner contact record? This cannot be undone."
+                            data-confirm-yes="Yes, Delete!">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="contact_id" value="{{ row.contact_id }}">
+                            <button type="submit" class="pc-action-btn pc-action-btn-danger" title="Delete"><i class="ti ti-trash"></i></button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="pc-grid-td pc-grid-empty" colspan="12">No partner contact data available. Waiting for first sync from MSSQL...</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Gates the Import button — bulk-adding/updating partner contacts
+   from a spreadsheet is easy to trigger by accident, so this asks for
+   a shared password first. Styled like the Add Partner card above
+   (.pc-modal-card/.pc-modal-header/.pc-field-group/.pc-modal-footer),
+   just without that card's header icon. The password is checked
+   server-side (routes/partner_contact.py: verify_import_password /
+   import_rows) — the browser never holds the real value, only what
+   the user typed.
+
+   Two steps on purpose, not one: #pcImportPasswordAction (partner_contact.js)
+   verifies the password first; only once that succeeds does it relabel
+   itself to "Choose File" for a second, separate click that opens the
+   native file dialog. It does NOT auto-trigger that dialog from a
+   script — a modal close + scripted file-input click happening
+   back-to-back is what left the OS mouse cursor invisible over
+   Chrome/the dialog on this machine's GPU. A real second click gives
+   the screen a full repaint before the dialog takes over, instead of
+   racing a setTimeout against it. #}
+<div class="modal" id="pcImportPasswordModal">
+    <div class="modal-content pc-modal-card" style="width:360px;">
+        <div class="pc-modal-header">
+            <div>
+                <h2>Import Contacts</h2>
+                <p id="pcImportPasswordSubtitle">Enter the password to continue.</p>
+            </div>
+            <span class="close-modal pc-modal-close" id="pcImportPasswordClose">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x">
+                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                    <path d="M18 6l-12 12" />
+                    <path d="M6 6l12 12" />
+                </svg>
+            </span>
+        </div>
+        <div class="pc-modal-body">
+            <div class="pc-field-group" id="pcImportPasswordStep">
+                <label for="pcImportPasswordInput">Password</label>
+                <input type="password" id="pcImportPasswordInput" placeholder="Password" autocomplete="off">
+                <span class="pc-field-hint pc-field-hint-warning" id="pcImportPasswordError" hidden>Incorrect password</span>
+            </div>
+            <div class="pc-field-group" id="pcImportChooseFileStep" hidden>
+                <span class="pc-field-hint">Pick the .xlsx or .csv file to import.</span>
+            </div>
+        </div>
+        <div class="pc-modal-footer">
+            <div class="pc-modal-footer-left"></div>
+            <div class="pc-modal-footer-right">
+                <button type="button" class="pc-btn pc-btn-primary" id="pcImportPasswordAction">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="partnerModalOverlay">
+    <div class="modal-content pc-modal-card" id="partnerModalCard">
+        <form method="POST" action="{{ url_for('partner_contact.create') }}" id="partnerForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="partner_id" id="pcPartnerId">
+            <input type="hidden" name="contact_id" id="pcContactId">
+
+            <div class="pc-modal-header">
+                <span class="pc-modal-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-user-square-rounded">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M12 13a3 3 0 1 0 0 -6a3 3 0 0 0 0 6" />
+                        <path d="M12 3c7.2 0 9 1.8 9 9c0 7.2 -1.8 9 -9 9c-7.2 0 -9 -1.8 -9 -9c0 -7.2 1.8 -9 9 -9" />
+                        <path d="M6 20.05v-.05a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v.05" />
+                    </svg>
+                </span>
+                <div>
+                    <h2 id="partnerModalTitle">Add Partner</h2>
+                    <p id="partnerModalSubtitle">Add a new partner and contact record</p>
+                </div>
+                <span class="close-modal pc-modal-close" onclick="closePartnerModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M18 6l-12 12" />
+                        <path d="M6 6l12 12" />
+                    </svg>
+                </span>
+            </div>
+
+            {# Shown only right after auto-reopening this modal following a
+               successful Add Contact submit (see the status-handling
+               script below) — openPartnerModal() hides/clears this every
+               time it opens any other way. #}
+            <div class="pc-modal-notice" id="pcModalNotice" style="display:none;"></div>
+
+            <div class="pc-modal-body">
+                <div class="pc-modal-grid">
+                    <div class="pc-field-group">
+                        <label for="pcPartnerName">Partner Name<span class="pc-required">*</span></label>
+                        <input type="text" name="partner_name" id="pcPartnerName" placeholder="e.g. Telcotech" required autocomplete="off">
+                        {# Filled in by partner_contact.js as the user types
+                           (Add Partner mode only) — checked live against
+                           /partner-contact/check-name, not just on submit. #}
+                        <span class="pc-field-hint" id="pcPartnerNameHint"></span>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcPartnerType">Partner Type<span class="pc-required">*</span></label>
+                        <input type="text" name="partner_type" id="pcPartnerType" placeholder="e.g. ISP" required>
+                    </div>
+                    {# Required — TBL_PARTNER.Domain is NOT NULL with no
+                       default in MSSQL (confirmed live; omitting it 515s).
+                       Same dropdown-card shell as the dashboard's Filter
+                       by Category (.date-filter-form, tables.css) —
+                       toggle button + a styled card of existing Domain
+                       values, populated by partner_contact.js. Still a
+                       real <input>, not a <select> — picking an option
+                       fills it, but typing a genuinely new Domain by
+                       hand works exactly the same as before. #}
+                    <div class="pc-field-group">
+                        <label for="pcDomain">Domain<span class="pc-required">*</span></label>
+                        <div class="pc-field-with-dropdown">
+                            <input type="text" name="domain" id="pcDomain" placeholder="e.g. Telcotech" required autocomplete="off">
+                            <button type="button" class="pc-field-selector-btn" id="pcDomainToggle" title="Choose an existing domain">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-selector">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M8 9l4 -4l4 4" />
+                                    <path d="M16 15l-4 4l-4 -4" />
+                                </svg>
+                            </button>
+                            <div class="pc-field-dropdown-card" id="pcDomainDropdown" style="display:none;">
+                                <div class="pc-field-dropdown-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-building-skyscraper">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M3 21l18 0" />
+                                        <path d="M5 21v-14l8 -4v18" />
+                                        <path d="M19 21v-10l-6 -4" />
+                                        <path d="M9 9l0 .01" />
+                                        <path d="M9 12l0 .01" />
+                                        <path d="M9 15l0 .01" />
+                                        <path d="M9 18l0 .01" />
+                                    </svg>
+                                    <span>Choose a Domain</span>
+                                </div>
+                                <div class="pc-field-dropdown-options" id="pcDomainOptions"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {# Shared by all three modes: 'create' submits this as the
+                   Partner's first Contact, 'edit' pre-fills it from the
+                   clicked row, 'add-contact' starts it blank for a new
+                   Contact on an existing partner. Contact Role and Remark
+                   both live on TBL_PARTNER_CONTACT (per-contact, not
+                   per-partner) so they belong in this group too, not a
+                   separate Partner-level field. #}
+                <div class="pc-modal-grid" id="pcSingleContactGroup">
+                    {# Same dropdown-card pattern as Domain above — toggle
+                       button + a styled card of existing Escalation Level
+                       values, populated by partner_contact.js. Still a
+                       real <input>, typing a genuinely new level by hand
+                       works exactly the same as before. #}
+                    {# Not required — EscalationLevel is NULLABLE in TBL_PARTNER_CONTACT
+                       (confirmed live via INFORMATION_SCHEMA.COLUMNS), same as Remark's
+                       own "not required" comment below. The dropdown's "(Blank)" option
+                       couldn't actually be submitted while this still had `required` —
+                       the browser blocked it regardless of what the database allows. #}
+                    <div class="pc-field-group">
+                        <label for="pcEscalationLevel">Escalation Level</label>
+                        <div class="pc-field-with-dropdown">
+                            <input type="text" name="escalation_level" id="pcEscalationLevel" placeholder="e.g. L1" autocomplete="off">
+                            <button type="button" class="pc-field-selector-btn" id="pcEscalationLevelToggle" title="Choose an existing escalation level">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-selector">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M8 9l4 -4l4 4" />
+                                    <path d="M16 15l-4 4l-4 -4" />
+                                </svg>
+                            </button>
+                            <div class="pc-field-dropdown-card" id="pcEscalationLevelDropdown" style="display:none;">
+                                <div class="pc-field-dropdown-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-escalator-up">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M19.5 7h-2.672a2 2 0 0 0 -1.414 .586l-8.414 8.414h-2.5a2.5 2.5 0 1 0 0 5h3.672a2 2 0 0 0 1.414 -.586l8.414 -8.414h1.5a2.5 2.5 0 1 0 0 -5" />
+                                        <path d="M6 10v-7" />
+                                        <path d="M3 6l3 -3l3 3" />
+                                    </svg>
+                                    <span>Escalation Level</span>
+                                </div>
+                                <div class="pc-field-dropdown-options" id="pcEscalationLevelOptions"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {# Not required — EscalationMatrix is NULLABLE too, same reasoning
+                       as Escalation Level above. #}
+                    <div class="pc-field-group">
+                        <label for="pcEscalationMatrix">Escalation Matrix</label>
+                        <div class="pc-field-with-dropdown">
+                            <input type="text" name="escalation_matrix" id="pcEscalationMatrix" placeholder="e.g. NOC -> Manager" autocomplete="off">
+                            <button type="button" class="pc-field-selector-btn" id="pcEscalationMatrixToggle" title="Choose an existing escalation matrix">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-selector">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                    <path d="M8 9l4 -4l4 4" />
+                                    <path d="M16 15l-4 4l-4 -4" />
+                                </svg>
+                            </button>
+                            <div class="pc-field-dropdown-card" id="pcEscalationMatrixDropdown" style="display:none;">
+                                <div class="pc-field-dropdown-header">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-escalator-up">
+                                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                                        <path d="M19.5 7h-2.672a2 2 0 0 0 -1.414 .586l-8.414 8.414h-2.5a2.5 2.5 0 1 0 0 5h3.672a2 2 0 0 0 1.414 -.586l8.414 -8.414h1.5a2.5 2.5 0 1 0 0 -5" />
+                                        <path d="M6 10v-7" />
+                                        <path d="M3 6l3 -3l3 3" />
+                                    </svg>
+                                    <span>Escalation Matrix</span>
+                                </div>
+                                <div class="pc-field-dropdown-options" id="pcEscalationMatrixOptions"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcContactName">Contact Name<span class="pc-required">*</span></label>
+                        <input type="text" name="contact_name" id="pcContactName" placeholder="Contact person" required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcContactRole">Contact Role<span class="pc-required">*</span></label>
+                        <input type="text" name="contact_role" id="pcContactRole" placeholder="e.g. NOC Manager" required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcPhoneNumber">Phone Number<span class="pc-required">*</span></label>
+                        <input type="text" name="phone_number" id="pcPhoneNumber" placeholder="+855 ..." required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcEmail">Email<span class="pc-required">*</span></label>
+                        <input type="text" name="email" id="pcEmail" placeholder="name@partner.com" required>
+                    </div>
+                    {# Not required — 137 of 163 existing contacts have
+                       this blank. #}
+                    <div class="pc-field-group pc-field-span2">
+                        <label for="pcRemark">Remark</label>
+                        <textarea name="remark" id="pcRemark" rows="3" placeholder="Any extra notes about this contact..."></textarea>
+                    </div>
+                </div>
+
+                <div class="pc-field-group pc-field-full">
+                    <label for="pcUsername">Your Name<span class="pc-required">*</span></label>
+                    <input type="text" name="username" id="pcUsername" placeholder="Who is saving this?" required>
+                </div>
+            </div>
+
+            <div class="pc-modal-footer">
+                <div class="pc-modal-footer-left">
+                    <button type="button" class="pc-btn pc-btn-ghost" id="pcResetBtn">Reset</button>
+                    {# Add Partner mode only. First click (once Partner
+                       Name/Type/Domain are filled and the name isn't a
+                       known duplicate): saves just the Partner row and
+                       switches this modal into the split "contacts on
+                       the right" layout. Every click after that: stays
+                       "New", adds one more Contact to that same partner
+                       instead — see its click handler in
+                       partner_contact.js. #}
+                    <button type="button" class="pc-btn pc-btn-ghost" id="pcNewPartnerBtn" style="display:none;">New</button>
+                </div>
+                <div class="pc-modal-footer-right">
+                    <button type="button" class="pc-btn pc-btn-ghost" onclick="closePartnerModal()">Cancel</button>
+                    <button type="submit" class="pc-btn pc-btn-primary" id="partnerModalSubmit">Save Partner</button>
+                </div>
+            </div>
+            {# Split panel's own status line (pcSubmitSplitContact/
+               pcDeleteMiniContact, partner_contact.js) — a failed Add/
+               Delete used to fail completely silently (button just
+               re-enabled, nothing else happened); this makes sure it
+               never does that again. #}
+            <span class="pc-field-hint" id="pcSplitStatusHint"></span>
+        </form>
+        {# Right-side panel of the split layout — hidden until "New"'s
+           first click saves the Partner (partner_contact.js). Lives as a
+           sibling of <form id="partnerForm">, not inside it, so it's
+           never part of that form's own submit. #}
+        <aside class="pc-modal-split-right" id="pcModalSplitRight" style="display:none;">
+            <div class="pc-modal-split-right-title">Contacts added</div>
+            {# Same bordered/header-row look as the main .pc-grid (see
+               tables.css) — a smaller instance of it, not a different
+               style, per the "table style like contact partner" request.
+               Every cell truncates to a fixed character count + "…"
+               (pcAppendMiniContactRow/pcRenderMiniContactRow, JS) rather
+               than relying on CSS ellipsis, same reasoning as the main
+               grid's own truncation. #}
+            <div class="pc-mini-table-wrap">
+                <table class="pc-mini-table">
+                    <thead>
+                        <tr>
+                            <th>Level</th>
+                            <th>Matrix</th>
+                            <th>Contact Name</th>
+                            <th>Role</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Remark</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcMiniContactsBody"></tbody>
+                </table>
+                <div class="pc-mini-table-empty" id="pcMiniContactsEmpty">No contacts added yet.</div>
+            </div>
+            {# Explicit "done adding contacts" action for this panel —
+               same closePartnerModal() as the header's X / the form's own
+               Cancel button, just placed where this list's own workflow
+               naturally ends instead of only up in the corner. #}
+            <div class="pc-modal-split-right-footer">
+                <button type="button" class="pc-btn pc-btn-ghost" onclick="closePartnerModal()">Close</button>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<div class="modal" id="pcPartnerContactsOverlay">
+    <div class="modal-content pc-escalation-card">
+        <span class="close-modal pc-escalation-close" onclick="pcClosePartnerContactsModal()">&times;</span>
+        <h2 class="pc-escalation-title" id="pcPartnerContactsTitle"></h2>
+        <div class="pc-escalation-table-wrap">
+            <table class="pc-escalation-table">
+                <thead>
+                    <tr>
+                        <th>Level</th>
+                        <th>Matrix</th>
+                        {# Same 4 fields update-contact-only requires (PC_ESCALATION_REQUIRED,
+                           partner_contact.js) — marked here the same way every other
+                           required field on this page is (.pc-required, see the Add/Edit
+                           Partner form's own labels above), so it's visible before editing
+                           a row, not just discovered via a shake after Save fails. #}
+                        <th>Contact Name<span class="pc-required">*</span></th>
+                        <th>Role<span class="pc-required">*</span></th>
+                        <th>Phone<span class="pc-required">*</span></th>
+                        <th>Email<span class="pc-required">*</span></th>
+                        <th>Remark</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="pcPartnerContactsModalBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal pc-value-overlay" id="pcEmailOverlay">
+    <div class="modal-content pc-remark-card">
+        <span class="close-modal pc-remark-card-close" onclick="pcCloseEmailModal()">&times;</span>
+        <div class="pc-remark-card-badge-row">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pc-remark-card-icon"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M7.586 4.586a2 2 0 0 0 -1.414 -.586h-.172a2 2 0 0 0 -2 2v.172a2 2 0 0 0 .586 1.414a2 2 0 0 1 0 2.828a2 2 0 0 0 -.586 1.414v.344a2 2 0 0 0 .586 1.414c.4 .4 .595 .928 .585 1.452c-.01 .5 -.204 .995 -.585 1.376a2 2 0 0 0 -.586 1.414v.172a2 2 0 0 0 2 2h.172a2 2 0 0 0 1.414 -.586a2 2 0 0 1 2.828 0a2 2 0 0 0 1.414 .586h.344a2 2 0 0 0 1.414 -.586a2 2 0 0 1 2.828 0a2 2 0 0 0 1.414 .586h.172a2 2 0 0 0 2 -2v-.172a2 2 0 0 0 -.586 -1.414a1.996 1.996 0 0 1 0 -2.828a2 2 0 0 0 .586 -1.414v-.344a2 2 0 0 0 -.586 -1.414a2 2 0 0 1 0 -2.828a2 2 0 0 0 .586 -1.414v-.172a2 2 0 0 0 -2 -2h-.172a2 2 0 0 0 -1.414 .586a2 2 0 0 1 -2.828 0a2 2 0 0 0 -1.414 -.586h-.344a2 2 0 0 0 -1.414 .586a2 2 0 0 1 -2.828 0" /><path d="M10 10a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /><path d="M9 15c0 -1.105 .672 -2 1.5 -2h3c.828 0 1.5 .895 1.5 2" /></svg>
+            <span class="pc-remark-card-chip">Email</span>
+        </div>
+        <div class="pc-remark-card-text" id="pcEmailModalText"></div>
+    </div>
+</div>
+
+{# Edit Contact popup — opened by a mini-table row's pencil icon
+   (pcStartEditMiniContact, partner_contact.js). Its own small card, on
+   top of the already-open Add Partner/Add Contact modal, instead of
+   reusing that modal's own form fields — same field styling
+   (.pc-modal-grid/.pc-field-group) as the rest of this page for a
+   consistent look, just its own separate popup. #}
+<div class="modal" id="pcMiniEditOverlay">
+    <div class="modal-content pc-modal-card" id="pcMiniEditCard">
+        <form id="pcMiniEditForm">
+            <div class="pc-modal-header">
+                <span class="pc-modal-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-edit">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
+                        <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
+                        <path d="M16 5l3 3" />
+                    </svg>
+                </span>
+                <div>
+                    <h2>Edit Contact</h2>
+                    <p>Update this contact's details</p>
+                </div>
+                <span class="close-modal pc-modal-close" onclick="pcCloseMiniEdit()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x">
+                        <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                        <path d="M18 6l-12 12" />
+                        <path d="M6 6l12 12" />
+                    </svg>
+                </span>
+            </div>
+
+            <div class="pc-modal-body">
+                <div class="pc-modal-grid">
+                    {# Not required — see the main modal's own Escalation Level/Matrix
+                       fields above for why (both columns are NULLABLE in
+                       TBL_PARTNER_CONTACT). #}
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditEscalationLevel">Escalation Level</label>
+                        <input type="text" id="pcMiniEditEscalationLevel" placeholder="e.g. L1">
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditEscalationMatrix">Escalation Matrix</label>
+                        <input type="text" id="pcMiniEditEscalationMatrix" placeholder="e.g. NOC -> Manager">
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditContactName">Contact Name<span class="pc-required">*</span></label>
+                        <input type="text" id="pcMiniEditContactName" placeholder="Contact person" required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditContactRole">Contact Role<span class="pc-required">*</span></label>
+                        <input type="text" id="pcMiniEditContactRole" placeholder="e.g. NOC Manager" required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditPhoneNumber">Phone Number<span class="pc-required">*</span></label>
+                        <input type="text" id="pcMiniEditPhoneNumber" placeholder="+855 ..." required>
+                    </div>
+                    <div class="pc-field-group">
+                        <label for="pcMiniEditEmail">Email<span class="pc-required">*</span></label>
+                        <input type="text" id="pcMiniEditEmail" placeholder="name@partner.com" required>
+                    </div>
+                    <div class="pc-field-group pc-field-span2">
+                        <label for="pcMiniEditRemark">Remark</label>
+                        <textarea id="pcMiniEditRemark" rows="3" placeholder="Any extra notes about this contact..."></textarea>
+                    </div>
+                </div>
+                <span class="pc-field-hint" id="pcMiniEditHint"></span>
+            </div>
+
+            <div class="pc-modal-footer">
+                <div></div>
+                <div class="pc-modal-footer-right">
+                    <button type="button" class="pc-btn pc-btn-ghost" onclick="pcCloseMiniEdit()">Cancel</button>
+                    <button type="submit" class="pc-btn pc-btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.NOC_PARTNER_CREATE_URL = "{{ url_for('partner_contact.create') }}";
+    window.NOC_PARTNER_CHECK_NAME_URL = "{{ url_for('partner_contact.check_name') }}";
+    window.NOC_PARTNER_DOMAINS_URL = "{{ url_for('partner_contact.domains') }}";
+    window.NOC_PARTNER_ESCALATION_LEVELS_URL = "{{ url_for('partner_contact.escalation_levels') }}";
+    window.NOC_PARTNER_ESCALATION_MATRIX_URL = "{{ url_for('partner_contact.escalation_matrix_values') }}";
+    window.NOC_PARTNER_CONTACTS_URL = "{{ url_for('partner_contact.partner_contacts') }}";
+    window.NOC_PARTNER_CREATE_PARTNER_ONLY_URL = "{{ url_for('partner_contact.create_partner_only') }}";
+    window.NOC_PARTNER_ADD_CONTACT_ONLY_URL = "{{ url_for('partner_contact.add_contact_only') }}";
+    window.NOC_PARTNER_UPDATE_CONTACT_ONLY_URL = "{{ url_for('partner_contact.update_contact_only') }}";
+    window.NOC_PARTNER_DELETE_CONTACT_ONLY_URL = "{{ url_for('partner_contact.delete_contact_only') }}";
+    window.NOC_PARTNER_UPDATE_URL = "{{ url_for('partner_contact.update') }}";
+    window.NOC_PARTNER_ADD_CONTACT_URL = "{{ url_for('partner_contact.add_contact') }}";
+    window.NOC_PARTNER_IMPORT_URL = "{{ url_for('partner_contact.import_rows') }}";
+    window.NOC_PARTNER_VERIFY_IMPORT_PASSWORD_URL = "{{ url_for('partner_contact.verify_import_password') }}";
+    window.NOC_DEFAULT_ACK_USERNAME = {{ default_ack_username|tojson }};
+</script>
+<script src="{{ versioned_static('js/partner_contact.js') }}"></script>
+{% if request.args.get('status') %}
+<script>
+(function () {
+    var status = {{ request.args.get('status')|tojson }};
+
+    // After a successful Add Contact, reopen the SAME modal already
+    // pre-filled for this partner (partner_id/name/type rode along on
+    // the redirect — see add_contact()'s own docstring) instead of just
+    // showing a plain toast — lets you add contact after contact for one
+    // partner without re-finding its row and clicking "Add Contact"
+    // again each time.
+    if (status === 'contact_added' && {{ request.args.get('partner_id', '')|tojson }}) {
+        openPartnerModal('add-contact', {
+            dataset: {
+                partnerId: {{ request.args.get('partner_id', '')|tojson }},
+                partnerName: {{ request.args.get('partner_name', '')|tojson }},
+                partnerType: {{ request.args.get('partner_type', '')|tojson }},
+            },
+        });
+        var notice = document.getElementById('pcModalNotice');
+        notice.textContent = 'Contact added. Add another, or close when done.';
+        notice.style.display = '';
+    } else {
+        var messages = {
+            created: ['Success', 'Partner created successfully.'],
+            duplicate: ['Error', 'A partner with this name already exists. Use "Add Contact" on that row instead.'],
+            updated: ['Success', 'Partner updated successfully.'],
+            contact_added: ['Success', 'Contact added successfully.'],
+            deleted: ['Success', 'Partner contact deleted successfully.'],
+            error: ['Error', 'Something went wrong — please check the required fields and try again.'],
+        };
+        var m = messages[status];
+        if (m) showModal(m[0], m[1]);
+    }
+
+    // Strip ?status=...&partner_id=...&... so a refresh/bookmark doesn't
+    // re-show the popup or reopen the modal (same pattern the cross-page
+    // search's ?highlight= param uses).
+    var url = new URL(window.location.href);
+    ['status', 'partner_id', 'partner_name', 'partner_type'].forEach(function (key) {
+        url.searchParams.delete(key);
+    });
+    window.history.replaceState({}, '', url);
+})();
+</script>
+{% endif %}
+<script>
+(function () {
+    var search = document.getElementById('pc-search');
+    var searchClear = document.getElementById('pc-search-clear');
+    var tbody = document.getElementById('pc-tbody');
+    if (!search || !tbody) return;
+
+    var allRows = Array.from(tbody.querySelectorAll('tr'));
+
+    function renumber() {
+        var idx = 1;
+        allRows.forEach(function (tr) {
+            if (tr.style.display !== 'none') {
+                tr.children[0].textContent = idx++;
+            }
+        });
+    }
+
+    // Search text AND the active domain tab both narrow the same rows —
+    // combined here so switching tabs keeps whatever's typed in search,
+    // and typing in search keeps whatever tab is active.
+    var tabsWrap = document.getElementById('pc-tabs');
+    var activeDomain = '';
+
+    function applyFilters() {
+        var q = search.value.toLowerCase();
+        allRows.forEach(function (tr) {
+            var matchesDomain = !activeDomain || tr.dataset.domain === activeDomain;
+            var matchesSearch = !q || tr.textContent.toLowerCase().includes(q);
+            tr.style.display = matchesDomain && matchesSearch ? '' : 'none';
+        });
+        renumber();
+        if (searchClear) searchClear.style.display = search.value ? 'flex' : 'none';
+    }
+
+    search.addEventListener('input', applyFilters);
+
+    // Widens the search box so it starts under the Template button and
+    // ends under Export — both header rows are flex/justify-content:
+    // space-between over the same width, so the two right edges already
+    // line up on their own; only the LEFT edge (i.e. the width) needs
+    // computing, since it depends on Add Partner/Template/Import's
+    // rendered widths, which aren't knowable from CSS alone.
+    var templateBtn = document.getElementById('pc-btn-template');
+    var exportBtn = document.getElementById('pc-btn-export');
+    var searchWrap = document.querySelector('.pc-toolbar-search');
+
+    function pcAlignSearchWidth() {
+        if (!templateBtn || !exportBtn || !searchWrap) return;
+        var width = exportBtn.getBoundingClientRect().right - templateBtn.getBoundingClientRect().left;
+        if (width > 0) searchWrap.style.width = width + 'px';
+    }
+
+    pcAlignSearchWidth();
+    window.addEventListener('load', pcAlignSearchWidth);
+    window.addEventListener('resize', pcAlignSearchWidth);
+
+    if (searchClear) {
+        searchClear.addEventListener('click', function () {
+            search.value = '';
+            applyFilters();
+            search.focus();
+        });
+    }
+
+    if (tabsWrap) {
+        tabsWrap.querySelectorAll('.pc-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                activeDomain = this.dataset.domain;
+                tabsWrap.querySelectorAll('.pc-tab').forEach(function (t) {
+                    t.classList.toggle('active', t === tab);
+                });
+                applyFilters();
+            });
+        });
+    }
+
+    var cols = document.querySelectorAll('th.sortable');
+    var sortDir = {};
+    cols.forEach(function (th) {
+        sortDir[th.dataset.col] = 'asc';
+        th.addEventListener('click', function () {
+            var col = parseInt(this.dataset.col);
+            var dir = sortDir[col] === 'asc' ? 'desc' : 'asc';
+            sortDir[col] = dir;
+
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort(function (a, b) {
+                var av = a.children[col] ? a.children[col].textContent.trim() : '';
+                var bv = b.children[col] ? b.children[col].textContent.trim() : '';
+                var ai = parseFloat(av);
+                var bi = parseFloat(bv);
+                if (!isNaN(ai) && !isNaN(bi)) {
+                    return dir === 'asc' ? ai - bi : bi - ai;
+                }
+                return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+            });
+
+            rows.forEach(function (tr) { tbody.appendChild(tr); });
+
+            cols.forEach(function (c) { c.classList.remove('sort-asc', 'sort-desc'); });
+            this.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+
+            renumber();
+        });
+    });
+})();
+</script>
+{% endblock %}

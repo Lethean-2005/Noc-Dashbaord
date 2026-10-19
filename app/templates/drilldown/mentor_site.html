@@ -25,6 +25,7 @@
                 <th>Site Code</th>
                 <th>Occurred At</th>
                 <th>Outage(min)</th>
+                <th>ID</th>
                 <th>Event Name</th>
                 <th>Category</th>
                 <th>Responsible Team</th>
@@ -47,6 +48,7 @@
                 <td>{{ row.site_code }}</td>
                 <td>{{ row.occurred_at }}</td>
                 <td class="right">{{ row.outage_min }}</td>
+                <td>{% if row.alarm_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/alarm/form/{{ row.alarm_numeric_id }}" target="_blank" rel="noopener">{{ row.alarm_numeric_id }}</a>{% else %}{{ row.alarm_numeric_id }}{% endif %}</td>
                 <td>{{ row.event_name }}</td>
                 <td>{{ row.category }}</td>
                 <td>{{ row.responsible_team }}</td>
@@ -57,7 +59,7 @@
                 <td>{{ row.province }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="17">No Mentor site alarms found</td></tr>
+            <tr class="empty-row"><td colspan="18">No Mentor site alarms found</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -65,5 +67,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/date-picker.js') }}"></script>
+<script src="{{ versioned_static('js/date-picker.js') }}"></script>
 {% endblock %}

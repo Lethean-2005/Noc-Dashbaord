@@ -33,12 +33,11 @@ def retry_fetch(
     a longer-lived conflict. Returns None (and logs) if every attempt
     fails; callers must check for None and return early.
 
-    Every outcome is logged (see app/utils/logger.py's ATTEMPT/SUCCESS/
-    FAILED handling and logs/attempts.log): a warning per failed attempt, a
-    "sync succeeded on attempt N/M, got R row(s) in X.XXs" info line on
-    success — timed from the very first attempt, so it reflects the full
-    cost of any retries it took to get there, not just the winning call —
-    and an error once every attempt is exhausted."""
+    Every outcome is logged to logs/attempts.log: a warning per failed
+    attempt, a "sync succeeded on attempt N/M, got R row(s) in X.XXs" info
+    line on success — timed from the first attempt, so it reflects the
+    full retry cost, not just the winning call — and an error once every
+    attempt is exhausted."""
     start = time.monotonic()
     last_error = None
     for attempt in range(1, max_attempts + 1):

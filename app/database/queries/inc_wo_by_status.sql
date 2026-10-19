@@ -1,17 +1,10 @@
 -- ==============================================================
--- INC-WO drilldown detail, synced into inc_wo_by_status every
--- INCIDENT_SYNC_INTERVAL_SECONDS — every INC-WO badge (see
--- incwo_service.py's BADGE_FILTERS) filters from this one cached table.
--- Only wo.status != 'closed' rows are kept.
---
--- Resolved Incident + Customer Complaint rows are dropped here: that
--- combination never matches any badge (see BADGE_FILTERS'
--- _is_resolved_customer_complaint), so caching them is dead weight.
--- Every other category keeps its Resolved-incident rows normally.
---
--- "Other Site" fallback: when an INC-WO's own `site` FK is null (its
--- parent Incident is an "Other Site" case), Site Code/Province/District/
--- Commune fall back to the parent Incident's own values instead of blank.
+-- INC-WO drilldown detail (see incwo_service.py's BADGE_FILTERS), synced
+-- into inc_wo_by_status every INCIDENT_SYNC_INTERVAL_SECONDS. Only
+-- wo.status != 'closed' rows are kept; Resolved Incident + Customer
+-- Complaint rows are dropped (never match any badge). "Other Site"
+-- fallback: a null `site` FK falls back to the parent Incident's own
+-- Site Code/Province/District/Commune.
 -- ==============================================================
 
 -- name: inc_wo_by_status
@@ -32,7 +25,7 @@ SELECT
   END AS "INC-WO Status",
   wo.resolved_at AS "Resolved At",
   INITCAP(REPLACE(inc.incident_category, '_', ' ')) AS "Incident Category",
-  ploc.fra_site_name AS "Site Name",
+  ploc.name AS "Site Name",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE WHEN wo.overdue THEN 'Yes' ELSE 'No' END AS Overdue,
   CASE wo.support_level

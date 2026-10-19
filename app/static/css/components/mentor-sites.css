@@ -66,7 +66,7 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 #uploadCard.drag {
@@ -242,7 +242,7 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   background: rgba(99, 102, 241, 0.12);
   color: #818cf8;
   border: 1px solid rgba(99, 102, 241, 0.35);
@@ -325,7 +325,7 @@
   border-radius: 3px;
   margin-bottom: 12px;
   overflow: hidden;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .mentor-alert::after {
@@ -376,7 +376,7 @@
 .mentor-alert-action {
   z-index: 1;
   flex-shrink: 0;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: 12px;
   font-weight: 600;
   border-radius: 5px;
@@ -469,7 +469,7 @@
   padding: 1px 6px;
   border-radius: 3px;
   line-height: 1.5;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
   cursor: default;
 }
 
@@ -484,8 +484,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 .mentor-confirm-overlay[hidden] {
@@ -501,7 +500,7 @@
   box-shadow: var(--shadow-card);
   padding: 24px 20px 20px;
   text-align: center;
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Nunito', sans-serif;
 }
 
 .mentor-confirm-icon {

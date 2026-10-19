@@ -1,0 +1,59 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{% set scope = 'Incident Volume' %}
+<div class="alarm-header">
+    <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ rows|length }}</button>
+    <div class="alarm-actions">
+        <span class="alarm-row-count">{{ rows|length }} records</span>
+        {% include "drilldown/_category_filter.html" %}
+        {% set field_name, field_label, available_field_values, selected_field_values = 'severity', 'Severity', available_severities, selected_severities %}
+        {% include "drilldown/_field_filter.html" with context %}
+        {% set field_name, field_label, available_field_values, selected_field_values = 'province', 'Province', available_provinces, selected_provinces %}
+        {% include "drilldown/_field_filter.html" with context %}
+        {% set field_name, field_label, available_field_values, selected_field_values = 'vendor', 'Vendor', available_vendors, selected_vendors %}
+        {% include "drilldown/_field_filter.html" with context %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=selected_categories, severity=selected_severities, province=selected_provinces, vendor=selected_vendors) }}"><i class="ti ti-download"></i> Export</a>
+    </div>
+</div>
+<div class="alarm-table-wrap">
+    <table class="alarm-table">
+        <thead>
+            <tr>
+                <th>Incident ID</th>
+                <th>Incident Status</th>
+                <th>Created At</th>
+                <th>Category</th>
+                <th>Severity</th>
+                <th>Site Name</th>
+                <th>Site Code</th>
+                <th>Vendor</th>
+                <th>Province</th>
+                <th>District</th>
+                <th>Commune</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.incident_status %}<span class="status-badge {{ row.incident_status|status_badge_class }}">{{ row.incident_status }}</span>{% endif %}</td>
+                <td>{{ row.created_at }}</td>
+                <td>{{ row.category }}</td>
+                <td>{{ row.severity }}</td>
+                <td>{{ row.site_name }}</td>
+                <td>{{ row.site_code }}</td>
+                <td>{{ row.vendor }}</td>
+                <td>{{ row.province }}</td>
+                <td>{{ row.district }}</td>
+                <td>{{ row.commune }}</td>
+            </tr>
+            {% else %}
+            <tr class="empty-row"><td colspan="11">No incidents found</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

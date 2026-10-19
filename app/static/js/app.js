@@ -89,18 +89,22 @@ document.addEventListener('DOMContentLoaded', function () {
         '/reports/': 'ti-adjustments-minus',
     };
 
+    // `target` is the exact .card-title/.card-section-title text
+    // findAndHighlight() must match on-page — only set when it differs
+    // from the user-facing `label` (e.g. the card was renamed after this
+    // index was written).
     const SEARCH_INDEX = [
         { label: 'VVIP Site', page: '/', pageName: 'Overall Dashboard' },
         { label: 'Mentor Site', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'ISP POP / EZE', page: '/', pageName: 'Overall Dashboard' },
+        { label: 'ISP POP / EZE', page: '/', pageName: 'Overall Dashboard', target: 'IP Ezecom' },
         { label: 'IP Telcotech/Cellcard', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'RAN Site Down', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'RAN Main AC Alarm', page: '/', pageName: 'Overall Dashboard' },
+        { label: 'RAN Site Down', page: '/', pageName: 'Overall Dashboard', target: 'Site Down' },
+        { label: 'RAN Main AC Alarm', page: '/', pageName: 'Overall Dashboard', target: 'Main AC Alarm' },
         { label: 'DC Low/High', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'RAN Tech Down', page: '/', pageName: 'Overall Dashboard' },
+        { label: 'RAN Tech Down', page: '/', pageName: 'Overall Dashboard', target: 'Tech Down' },
         { label: 'Incident', page: '/', pageName: 'Overall Dashboard' },
         { label: 'INC-WO', page: '/', pageName: 'Overall Dashboard' },
-        { label: 'Incident Site Down', page: '/reports/', pageName: 'Custom Dashboard' },
+        { label: 'Incident Site Down', page: '/reports/', pageName: 'Custom Dashboard', target: 'Current Site Down' },
         { label: 'Alarm Site Down', page: '/reports/', pageName: 'Custom Dashboard' },
         { label: 'Alarm Completely Site Down', page: '/reports/', pageName: 'Custom Dashboard' },
         { label: 'Alarm Main Failure', page: '/reports/', pageName: 'Custom Dashboard' },
@@ -143,10 +147,11 @@ document.addEventListener('DOMContentLoaded', function () {
         closeResults();
         searchInput.value = '';
         searchInput.blur();
+        const target = item.target || item.label;
         if (item.page === window.location.pathname) {
-            findAndHighlight(item.label);
+            findAndHighlight(target);
         } else {
-            window.location.href = item.page + '?highlight=' + encodeURIComponent(item.label);
+            window.location.href = item.page + '?highlight=' + encodeURIComponent(target);
         }
     }
 
@@ -241,7 +246,24 @@ document.addEventListener('DOMContentLoaded', function () {
 })();
 
 // Notification modal — call showModal(title, message) from anywhere.
+// Title "Success"/"Error" (case-insensitive) also picks a colored icon +
+// accent (green/red) via .is-success/.is-error on .modal-content — see
+// app.css. Any other title (e.g. the default "Notification") stays
+// neutral, no icon.
+const MODAL_STATUS_ICONS = {
+    success: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 12l2 2l4 -4"/></svg>',
+    error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v4"/><path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.871l-8.106 -13.534a1.914 1.914 0 0 0 -3.274 0z"/><path d="M12 16h.01"/></svg>',
+};
+
 function showModal(title, message) {
+    const content = document.querySelector('#custom-modal .modal-content');
+    const icon = document.getElementById('modal-status-icon');
+    const key = (title || '').trim().toLowerCase();
+
+    content.classList.remove('is-success', 'is-error');
+    icon.innerHTML = MODAL_STATUS_ICONS[key] || '';
+    if (key === 'success' || key === 'error') content.classList.add('is-' + key);
+
     document.getElementById('modal-title').textContent = title;
     document.getElementById('modal-message').textContent = message;
     document.getElementById('custom-modal').style.display = 'block';
@@ -276,37 +298,96 @@ window.addEventListener('click', function (event) {
 // for both RAN sub-cards, losing which one) — confirmed live once the 4th
 // sub-card made the ambiguity between all of them obvious. Uses the full
 // scope now, same fix as the fallback branch above.
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.badge-item').forEach(function (item) {
-        item.addEventListener('click', function () {
-            const badge = item.querySelector('.badge');
-            const label = item.querySelector('.badge-label');
-            const labelText = label ? label.textContent.trim() : '';
-            const valueText = badge ? badge.textContent.trim() : '0';
+// Delegated on document (not bound per-.badge-item at DOMContentLoaded)
+// so badges inside a card row swapped in later — e.g. graph_cards.js
+// replacing .graph-row when a filter dropdown is applied — still work
+// without needing their own rebind.
+document.addEventListener('click', function (e) {
+    const item = e.target.closest('.badge-item');
+    if (!item) return;
 
-            let scope, pageTitle;
-            if (badge && badge.hasAttribute('data-scope')) {
-                scope = badge.getAttribute('data-scope');
-                pageTitle = (scope + ' ' + labelText).trim();
-            } else {
-                const card = item.closest('.card');
-                const cardTitle = card ? card.querySelector('.card-title').textContent.trim() : '';
-                scope = cardTitle;
-                pageTitle = (cardTitle + ' ' + labelText).trim();
-            }
+    const badge = item.querySelector('.badge');
+    const label = item.querySelector('.badge-label');
+    const labelText = label ? label.textContent.trim() : '';
+    const valueText = badge ? badge.textContent.trim() : '0';
 
-            const params = new URLSearchParams({
-                title: pageTitle,
-                label: labelText,
-                value: valueText,
-                scope: scope
-            });
-            if (badge && badge.hasAttribute('data-type')) {
-                params.set('type', badge.getAttribute('data-type'));
-            }
-            window.location.href = '/drilldown?' + params.toString();
-        });
+    let scope, pageTitle;
+    if (badge && badge.hasAttribute('data-scope')) {
+        scope = badge.getAttribute('data-scope');
+        pageTitle = (scope + ' ' + labelText).trim();
+    } else {
+        const card = item.closest('.card');
+        const cardTitle = card ? card.querySelector('.card-title').textContent.trim() : '';
+        scope = cardTitle;
+        pageTitle = (cardTitle + ' ' + labelText).trim();
+    }
+
+    const params = new URLSearchParams({
+        title: pageTitle,
+        label: labelText,
+        value: valueText,
+        scope: scope
     });
+    if (badge && badge.hasAttribute('data-type')) {
+        params.set('type', badge.getAttribute('data-type'));
+    }
+
+    // Incident Volume's trend dots and Incidents Closed's trend bars are
+    // both already filtered server-side by their own card's Category
+    // filter (volume_category / closed_category) before this click even
+    // happens — but this handler only ever knew about title/label/value/
+    // scope/type, so clicking through used to silently drop that filter
+    // and drill into EVERY category instead of just the one being
+    // charted. Forwarding the same filter value(s) already active on
+    // the current page as `category` (the exact param name both
+    // scopes' own drilldown fetch already reads) keeps the drilldown
+    // consistent with what the chart is actually showing.
+    const categoryParamByScope = {
+        'Incident Volume': 'volume_category',
+        'Incidents Closed': 'closed_category',
+    };
+    const categoryParam = categoryParamByScope[scope];
+    if (categoryParam) {
+        new URLSearchParams(window.location.search).getAll(categoryParam).forEach(function (v) {
+            params.append('category', v);
+        });
+    }
+
+    // Top 10 Site Down / Root Cause Breakdown's own filters — site
+    // cross-filter (clicking a site code on Top 10 Site Down narrows
+    // Root Cause Breakdown to just that site) and Top 10 Site Down's
+    // own multi-select "Filter by Week" (badge_type no longer encodes
+    // the week itself — see get_top_site_down()'s own docstring for
+    // why — so a bar/slice click has to carry it separately or it would
+    // silently reset back to "All" on every click). Needed for BOTH
+    // scopes: a Top Site Down bar click should keep whichever weeks are
+    // selected, and a Root Cause Breakdown slice click should keep both
+    // the site AND the weeks the pie itself is currently showing.
+    if (scope === 'Top Site Down' || scope === 'Root Cause Breakdown') {
+        const currentParams = new URLSearchParams(window.location.search);
+        if (scope === 'Root Cause Breakdown') {
+            const siteCode = currentParams.get('root_cause_site');
+            if (siteCode) params.set('root_cause_site', siteCode);
+        }
+        currentParams.getAll('top_site_down_week').forEach(function (v) {
+            params.append('top_site_down_week', v);
+        });
+    }
+
+    // Site-Down Root Cause — Breakdown's own cross-filters (clicking a
+    // duration bucket on "Site-Down Duration — Weekly Trend"'s x-axis,
+    // or that same card's Compare Weeks selection it now follows) need
+    // the same carry-through, same reasoning as root_cause_site above.
+    if (scope === 'Site-Down Root Cause Week' || scope === 'Site-Down Root Cause Week Duration') {
+        const currentParams = new URLSearchParams(window.location.search);
+        const bucket = currentParams.get('root_cause_bucket');
+        if (bucket) params.set('root_cause_bucket', bucket);
+        currentParams.getAll('site_down_duration_week').forEach(function (v) {
+            params.append('site_down_duration_week', v);
+        });
+    }
+
+    window.location.href = '/drilldown?' + params.toString();
 });
 
 // ── Badge alert light ────────────────────────────────────────────
@@ -366,48 +447,71 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 })();
 
-// Confirm popup: intercept any form with data-confirm and show the styled
-// dialog instead of the native browser confirm().
-(function () {
-    document.addEventListener('DOMContentLoaded', function () {
-        const overlay = document.getElementById('confirmOverlay');
-        if (!overlay) return;
-        const titleEl = document.getElementById('confirmTitle');
-        const msgEl = document.getElementById('confirmMsg');
-        const yesBtn = document.getElementById('confirmYes');
-        const noBtn = document.getElementById('confirmNo');
-        let target = null;
+// Confirm popup: the styled dialog everything on this site uses instead
+// of the native browser confirm(). Two ways in:
+//   1. Any <form data-confirm="..."> — submitting it is intercepted
+//      automatically (see the 'submit' listener below).
+//   2. window.showConfirm(message, options) — call this directly from
+//      plain JS (a button click handler, a fetch()-based delete, etc.)
+//      that isn't a form submission at all; resolves true/false.
+// Both share the same overlay/state — only one confirm can ever be open
+// at a time, which is also all this page ever needs.
+function showConfirm(message, opts) {
+    opts = opts || {};
+    const overlay = document.getElementById('confirmOverlay');
+    if (!overlay) return Promise.resolve(window.confirm(message));
 
-        document.addEventListener('submit', function (e) {
-            const form = e.target.closest('form[data-confirm]');
-            if (!form || form.dataset.confirmed === '1') return;
-            e.preventDefault();
-            target = form;
-            titleEl.textContent = form.getAttribute('data-confirm-title') || 'Are you sure?';
-            msgEl.textContent = form.getAttribute('data-confirm') || '';
-            yesBtn.textContent = form.getAttribute('data-confirm-yes') || 'Yes, Delete!';
-            noBtn.textContent = form.getAttribute('data-confirm-no') || 'No, keep it.';
-            overlay.hidden = false;
-            noBtn.focus();
-        }, true);
+    const titleEl = document.getElementById('confirmTitle');
+    const msgEl = document.getElementById('confirmMsg');
+    const yesBtn = document.getElementById('confirmYes');
+    const noBtn = document.getElementById('confirmNo');
 
-        function close() { overlay.hidden = true; target = null; }
-        noBtn.addEventListener('click', close);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && !overlay.hidden) close();
-        });
-        yesBtn.addEventListener('click', function () {
-            if (!target) return close();
-            const form = target;
+    titleEl.textContent = opts.title || 'Are you sure?';
+    msgEl.textContent = message || '';
+    yesBtn.textContent = opts.yesLabel || 'Yes, Delete!';
+    noBtn.textContent = opts.noLabel || 'No, keep it.';
+    overlay.hidden = false;
+    noBtn.focus();
+
+    return new Promise(function (resolve) {
+        function cleanup(result) {
             overlay.hidden = true;
-            target = null;
+            yesBtn.removeEventListener('click', onYes);
+            noBtn.removeEventListener('click', onNo);
+            overlay.removeEventListener('click', onOverlayClick);
+            document.removeEventListener('keydown', onKeydown);
+            resolve(result);
+        }
+        function onYes() { cleanup(true); }
+        function onNo() { cleanup(false); }
+        function onOverlayClick(e) { if (e.target === overlay) cleanup(false); }
+        function onKeydown(e) { if (e.key === 'Escape') cleanup(false); }
+
+        yesBtn.addEventListener('click', onYes);
+        noBtn.addEventListener('click', onNo);
+        overlay.addEventListener('click', onOverlayClick);
+        document.addEventListener('keydown', onKeydown);
+    });
+}
+window.showConfirm = showConfirm;
+
+(function () {
+    document.addEventListener('submit', function (e) {
+        const form = e.target.closest('form[data-confirm]');
+        if (!form || form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        showConfirm(form.getAttribute('data-confirm') || '', {
+            title: form.getAttribute('data-confirm-title') || 'Are you sure?',
+            yesLabel: form.getAttribute('data-confirm-yes') || 'Yes, Delete!',
+            noLabel: form.getAttribute('data-confirm-no') || 'No, keep it.',
+        }).then(function (confirmed) {
+            if (!confirmed) return;
             form.dataset.confirmed = '1';
             if (typeof form.requestSubmit === 'function') form.requestSubmit();
             else form.submit();
             form.dataset.confirmed = '';
         });
-    });
+    }, true);
 })();
 
 // Theme (light / dark) — persisted in localStorage.
@@ -464,3 +568,58 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('DOMContentLoaded', syncWideCardHeight);
     window.addEventListener('resize', syncWideCardHeight);
 })();
+
+// "All <Field>" master checkbox — drilldown/_category_filter.html's
+// Category filter AND _field_filter.html's Severity/Province/Vendor
+// filters all share this same .category-filter-options/
+// .category-filter-all-checkbox markup, just with a different real
+// checkbox `name` per field. Checking the master checks every real
+// value checkbox in that same dropdown at once (and unchecking it
+// unchecks them all); checking/unchecking an individual value box in
+// turn keeps the master box in sync (checked only once every real box
+// is checked, OR none are — see the "0 or all" comment below). The
+// master itself carries no `name`, so it never submits as a real
+// filter value — Apply still submits exactly the individual boxes'
+// own checked state, same "none checked = no filter" convention as
+// before, this only saves clicking every box by hand. Matched by
+// "any real checkbox in the group that isn't the master" rather than
+// a specific `name`, so one handler covers all 4 fields. Delegated on
+// `document` since a page can render more than one of these dropdowns
+// (Incident Volume alone has 4 — Category/Severity/Province/Vendor).
+document.addEventListener('change', function (e) {
+    const master = e.target.closest('.category-filter-all-checkbox');
+    if (master) {
+        const group = master.closest('.category-filter-options');
+        if (!group) return;
+        group.querySelectorAll('input[type="checkbox"]:not(.category-filter-all-checkbox)').forEach(function (box) {
+            box.checked = master.checked;
+        });
+        return;
+    }
+
+    const box = e.target.closest('.category-filter-options input[type="checkbox"]:not(.category-filter-all-checkbox)');
+    if (!box) return;
+    const group = box.closest('.category-filter-options');
+    const masterBox = group ? group.querySelector('.category-filter-all-checkbox') : null;
+    if (!masterBox) return;
+    const boxes = Array.from(group.querySelectorAll('input[type="checkbox"]:not(.category-filter-all-checkbox)'));
+    const checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+    masterBox.checked = checkedCount === 0 || checkedCount === boxes.length;
+});
+
+// Same sync as above, run once on load — covers visiting a URL with
+// every value explicitly listed in the query string by hand, which
+// the server-rendered master checkbox (checked only when NO value is
+// selected) wouldn't otherwise reflect as "all".
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.category-filter-options').forEach(function (group) {
+        const masterBox = group.querySelector('.category-filter-all-checkbox');
+        const boxes = Array.from(group.querySelectorAll('input[type="checkbox"]:not(.category-filter-all-checkbox)'));
+        if (!masterBox || !boxes.length) return;
+        const checkedCount = boxes.filter(function (b) { return b.checked; }).length;
+        // Either everything checked or nothing checked both mean "no
+        // filter" server-side — only a PARTIAL selection should leave
+        // the master unchecked.
+        masterBox.checked = checkedCount === 0 || checkedCount === boxes.length;
+    });
+});
