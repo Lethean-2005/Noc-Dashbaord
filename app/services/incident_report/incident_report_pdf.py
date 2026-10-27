@@ -72,8 +72,32 @@ def _get_word(win32, pythoncom):
     # just for one call.
     pythoncom.CoInitialize()
     word = win32.DispatchEx("Word.Application")
-    word.Visible = False
+    # Visible=True, not False — confirmed live on the VM that a manual,
+    # visible Word export of a blank doc succeeds while this app's own
+    # invisible, automated export of a real filled-in doc fails every
+    # time with a bare "Command failed" from BOTH ExportAsFixedFormat
+    # AND the legacy SaveAs fallback (same document, same account, same
+    # already-connected RDP session — only the Visible flag differs).
+    # That matches a known Windows Server limitation: some of Word's own
+    # export/rendering code paths need a real paintable window surface,
+    # which an invisible automation instance never gets allocated. The
+    # window briefly appearing on the SERVER's own screen (never seen by
+    # an actual dashboard user) is an acceptable tradeoff for the export
+    # actually working.
+    word.Visible = True
     word.DisplayAlerts = 0
+    try:
+        # msoAutomationSecurityForceDisable (3) — on an unattended server
+        # this instance never has a UI to click through, so any macro/
+        # ActiveX security prompt that Word would normally pop up has
+        # nowhere to go; instead of blocking (and DisplayAlerts=0
+        # suppressing the dialog while the call underneath still waits
+        # on it) it can surface as exactly the generic "export failed
+        # due to an unexpected error" seen on the VM. Forcing this off
+        # removes that whole class of silent failure.
+        word.AutomationSecurity = 3
+    except Exception:
+        pass
     _thread_local.word = word
     return word
 
@@ -117,7 +141,7 @@ def build_pdf(report):
     _MAX_ATTEMPTS = 3
     for attempt in range(1, _MAX_ATTEMPTS + 1):
         try:
-            return _export_via_word(docx_bytes, win32, pythoncom, t_start, t_docx_built)
+            return _export_via_word(docx_bytes, win32, pythoncom, pywintypes, t_start, t_docx_built)
         except pywintypes.com_error as e:
             _discard_word()
             if attempt == _MAX_ATTEMPTS:
@@ -141,7 +165,7 @@ def build_pdf(report):
             time.sleep(2)
 
 
-def _export_via_word(docx_bytes, win32, pythoncom, t_start, t_docx_built):
+def _export_via_word(docx_bytes, win32, pythoncom, pywintypes, t_start, t_docx_built):
     with tempfile.TemporaryDirectory() as tmp_dir:
         docx_path = os.path.join(tmp_dir, "incident_report.docx")
         pdf_path = os.path.join(tmp_dir, "incident_report.pdf")
@@ -184,12 +208,30 @@ def _export_via_word(docx_bytes, win32, pythoncom, t_start, t_docx_built):
             # (not WithMarkup) is a second, redundant guard against the
             # same markup-leaking-into-export risk the Final-view lines
             # above already cover.
-            doc.ExportAsFixedFormat(
-                OutputFileName=pdf_path,
-                ExportFormat=_WD_EXPORT_FORMAT_PDF,
-                OptimizeFor=_WD_EXPORT_OPTIMIZE_FOR_PRINT,
-                Item=_WD_EXPORT_DOCUMENT_CONTENT,
-            )
+            try:
+                doc.ExportAsFixedFormat(
+                    OutputFileName=pdf_path,
+                    ExportFormat=_WD_EXPORT_FORMAT_PDF,
+                    OptimizeFor=_WD_EXPORT_OPTIMIZE_FOR_PRINT,
+                    Item=_WD_EXPORT_DOCUMENT_CONTENT,
+                )
+            except pywintypes.com_error as export_error:
+                # ExportAsFixedFormat is the high-fidelity path (see
+                # above), but it's also the one seen failing on the VM
+                # with a bare "unexpected error" and no further detail —
+                # same open, already-working document, just a different
+                # Word export API, so this is cheap to try before giving
+                # up and tearing down the whole Word instance (the
+                # caller's own 3-attempt retry, which DOES tear it down,
+                # is still the backstop if this also fails). Slightly
+                # bolder table borders is a far better outcome than no
+                # PDF at all.
+                logger.warning(
+                    "ExportAsFixedFormat failed (%s) — retrying this export via "
+                    "legacy SaveAs(wdFormatPDF) before giving up",
+                    export_error,
+                )
+                doc.SaveAs(pdf_path, FileFormat=_WD_EXPORT_FORMAT_PDF)
             t_exported = time.monotonic()
         finally:
             # Only the DOCUMENT closes per call — the Word APPLICATION

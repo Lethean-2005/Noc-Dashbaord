@@ -34,6 +34,7 @@ def create_app(env=None, instance_path=None):
     _register_template_filters(app)
     _register_context_processors(app)
     _register_static_cache_headers(app)
+    _register_request_timing_log(app)
     _init_cache_db(app)
     _validate_scheduler_offsets()
     _start_background_jobs(app)
@@ -137,6 +138,33 @@ def _register_static_cache_headers(app):
         return response
 
 
+def _register_request_timing_log(app):
+    """One line per HTTP request (method, path, status, duration,
+    remote address) into logs/requests.log — added so a reported "slow
+    dashboard reload" can be correlated against a specific endpoint or a
+    burst of concurrent requests, instead of guessing from Werkzeug's
+    own access-log line (which has no duration)."""
+    import time
+
+    from app.utils.logger import get_logger
+
+    logger = get_logger("app.request_timing")
+
+    @app.before_request
+    def _start_request_timer():
+        request._started_at = time.perf_counter()
+
+    @app.after_request
+    def _log_request_timing(response):
+        started_at = getattr(request, "_started_at", None)
+        duration_ms = (time.perf_counter() - started_at) * 1000 if started_at else -1
+        logger.info(
+            f"{request.method} {request.path} -> {response.status_code} "
+            f"({duration_ms:.0f}ms) from {request.remote_addr}"
+        )
+        return response
+
+
 def _register_context_processors(app):
     @app.context_processor
     def inject_feature_flags():
@@ -179,6 +207,7 @@ _SCHEDULER_OFFSET_MODULES = (
     "app.services.pop.pop_scheduler",
     "app.services.site.mssql_site_onair_scheduler",
     "app.services.partner_contact.partner_contact_scheduler",
+    "app.services.incident.site_down_24h_alert_scheduler",
 )
 
 
@@ -212,6 +241,22 @@ def _validate_scheduler_offsets():
                 "not already used by any other entry in _SCHEDULER_OFFSET_MODULES."
             )
         seen[offset] = module_path
+
+    # site_down_24h_alert_scheduler runs TWO independently-timed loops
+    # (down-alert + restore-confirmation) sharing one module, so it needs
+    # a second offset checked here too — its own OFFSET_SECONDS (the
+    # down-alert loop) was already checked by the generic loop above.
+    from app.services.incident import site_down_24h_alert_scheduler as _sd24h
+
+    restore_offset = _sd24h.RESTORE_OFFSET_SECONDS
+    if restore_offset in seen:
+        raise RuntimeError(
+            "Scheduler offset collision: site_down_24h_alert_scheduler's own "
+            f"RESTORE_OFFSET_SECONDS={restore_offset} collides with "
+            f"{seen[restore_offset]!r}. Pick a value not already used by any "
+            "other entry in _SCHEDULER_OFFSET_MODULES."
+        )
+    seen[restore_offset] = "app.services.incident.site_down_24h_alert_scheduler (restore loop)"
 
 
 # (scheduler module, config key holding its interval in seconds) — every

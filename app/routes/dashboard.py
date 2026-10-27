@@ -378,6 +378,7 @@ _RESPONSE_TIME_DURATION_CSV_COLUMNS = [
     ("category", "Category"),
     ("iso_week", "Week"),
     ("response_display", "Response Time"),
+    ("creation_method", "Creation Method"),
     ("occurred_at", "Occurred At"),
     ("took_in_progress_at", "Took In Progress At"),
 ]
@@ -387,6 +388,7 @@ _RESOLUTION_TIME_DURATION_CSV_COLUMNS = [
     ("category", "Category"),
     ("iso_week", "Week"),
     ("resolution_display", "Resolution Time"),
+    ("creation_method", "Creation Method"),
     ("occurred_at", "Occurred At"),
     ("resolved_at", "Resolved At"),
 ]
@@ -665,6 +667,11 @@ _SCOPE_HANDLERS = {
         "template": "drilldown/incidents.html",
         "csv_columns": _INCIDENT_CSV_COLUMNS,
         "none_is_404": True,
+        "extra_template_kwargs": lambda alarm_type: {
+            "worklog_by_incident": incident_service.get_worklog_by_incident_ids(
+                r.get("incident_numeric_id") for r in (incident_service.get_details(alarm_type) or [])
+            )
+        },
     },
     "Incident Volume": {
         "fetch": lambda alarm_type: incident_service.get_volume_trend_details(
@@ -2177,6 +2184,7 @@ def _performance_cards_context():
         "selected_root_cause_site": request.args.get("root_cause_site") or None,
         "root_cause_week_breakdown": incident_service.get_site_down_root_cause_week_breakdown(
             duration_bucket=request.args.get("root_cause_bucket") or None,
+            duration_buckets=request.args.getlist("duration_bucket"),
             weeks=request.args.getlist("site_down_duration_week"),
         ),
         "root_cause_week_table": incident_service.get_site_down_root_cause_week_table(
@@ -2230,6 +2238,7 @@ def _graph_cards_context(incident_status_rows=None):
         "incident_age_chart": incident_service.get_incident_age_chart(
             selected_age_buckets, rows=incident_status_rows
         ),
+        "incident_age_worklog_by_bucket": incident_service.get_worklog_by_age_bucket(),
         "selected_age_buckets": selected_age_buckets,
         "incident_closed_trend": incident_service.get_incident_closed_trend(
             selected_closed_categories, selected_closed_weeks, rows=closed_trend_rows
@@ -2346,11 +2355,23 @@ def performance_cards():
     """HTML fragment for just the Performance section, re-rendered from
     the query string's filters. Fetched by performance.js so applying a
     card's filter swaps this section in place instead of reloading the
-    whole dashboard — same pattern as graph_cards() above."""
+    whole dashboard — same pattern as graph_cards() above.
+
+    available_weeks/default_weeks are computed here too, not just
+    reused from _graph_cards_context() — that function only runs for a
+    FULL page load, never for this AJAX fragment route, so without
+    this performance_cards.html's own "Compare Weeks" checkbox list
+    silently rendered empty the instant a user clicked Apply (looping
+    over an undefined Jinja variable raises nothing, it's just zero
+    iterations) — confirmed live: the checkboxes show up fine on first
+    page load, then vanish after Apply re-fetches this same fragment."""
+    available_weeks = incident_service.get_available_weeks()
     return render_template(
         "dashboard/partials/performance_cards.html",
         **_performance_cards_context(),
         **_graph_card_filter_passthrough(),
+        available_weeks=available_weeks,
+        default_weeks=[w["iso"] for w in available_weeks[1:3]],
     )
 
 

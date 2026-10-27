@@ -696,10 +696,16 @@
   color: #e36c0a;
 }
 
-.ir-fixed-line-placeholder {
-  font-weight: 400;
-  font-style: italic;
-  color: var(--text-muted);
+/* Chronology date-group headers now sit INLINE inside #irEventRows (one
+   before the first event of each day, not a single line pinned above
+   the whole list — see incident_report_service.py's own
+   annotate_chronology_events_with_headers() and incident-report.js's
+   matching live recompute) — a top margin keeps each one visually
+   separated from the previous day's last event row above it, same
+   "clear separation between day groups" reasoning as the exported
+   document's own space_before on every header past the first. */
+.ir-chronology-header {
+  margin-top: 14px;
 }
 
 .ir-subhead {
@@ -716,7 +722,7 @@
    date for the whole list. */
 .ir-event-row {
   display: grid;
-  grid-template-columns: 132px 90px 1fr 32px;
+  grid-template-columns: 132px 90px 1fr 32px 32px;
   gap: 8px;
   margin-bottom: 8px;
   align-items: start;
@@ -756,6 +762,20 @@
   border: 1px solid var(--border-card, #e5e7eb);
   background: var(--bg-card, #fff);
   color: #b91c1c;
+  cursor: pointer;
+  height: 32px;
+}
+
+/* Per-row "insert a new event directly below this one" — distinct from
+   .ir-add-event (always appends to the very end of the list): staff
+   filling in a chronology after the fact often need to slot a missed
+   event in BETWEEN two already-entered ones, not just at the bottom.
+   Green/add semantics (vs. remove's red) so the two are visually
+   distinguishable at a glance, not just by icon shape. */
+.ir-event-insert {
+  border: 1px solid var(--border-card, #e5e7eb);
+  background: var(--bg-card, #fff);
+  color: #15803d;
   cursor: pointer;
   height: 32px;
 }
@@ -800,11 +820,12 @@
   }
   .ir-event-row {
     grid-template-columns: 1fr 1fr;
-    grid-template-areas: "date time" "desc desc" "remove remove";
+    grid-template-areas: "date time" "desc desc" "insert remove";
   }
   .ir-event-row .ir-date-field { grid-area: date; }
   .ir-event-row input[name="event_time"] { grid-area: time; }
   .ir-event-row input[name="event_description"] { grid-area: desc; }
+  .ir-event-row .ir-event-insert { grid-area: insert; justify-self: end; }
   .ir-event-row .ir-event-remove { grid-area: remove; justify-self: end; }
 }
 

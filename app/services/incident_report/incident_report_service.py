@@ -37,6 +37,40 @@ def _event_sort_key(event):
         return (datetime.max,)
 
 
+def annotate_chronology_events_with_headers(events, incident_date):
+    """Groups already-chronologically-sorted `events` (see
+    _event_sort_key()) by their own `date`, for a "Date and Time:
+    <date>" header to show once per group instead of repeating the
+    date on every line — same grouping incident_report_docx.py's own
+    export has always done (a chronology rolling past midnight gets
+    its own new header right where the day changes), now shared here
+    so the on-page web form shows the SAME grouping instead of a
+    single static date pinned above the whole list regardless of how
+    many different days the events actually span.
+
+    Returns a NEW list of event dicts (shallow copies — originals
+    untouched), each with an added "header_date" key: the date string
+    to show as a header immediately before that event, or None if it
+    continues the same day as the event before it. The very first
+    event always gets a header — starting from `incident_date`, same
+    as the export, so a chronology whose first event's own date
+    hasn't been typed yet (or matches the incident date) still shows
+    one initial header rather than none at all."""
+    current_day = incident_date
+    annotated = []
+    for i, event in enumerate(events):
+        event = dict(event)
+        event_date = (event.get("date") or "").strip()
+        if i == 0 or (event_date and event_date != current_day):
+            event["header_date"] = event_date or current_day
+            if event_date:
+                current_day = event_date
+        else:
+            event["header_date"] = None
+        annotated.append(event)
+    return annotated
+
+
 _TEXT_FIELDS = (
     "document_title",
     "file_name",
@@ -190,8 +224,28 @@ class IncidentReportService:
         unchanged if Pillow can't open it at all (rare — better to keep
         an odd-but-working upload than block it outright)."""
         try:
-            from PIL import Image, ImageOps
             from io import BytesIO as _BytesIO
+
+            import pillow_heif
+            from PIL import Image, ImageOps
+
+            # Registers HEIC/HEIF with Pillow's Image.open() — Pillow has
+            # no built-in HEIC support, and a phone camera's default
+            # format IS HEIC (iPhone, and many Android phones). Without
+            # this, Image.open() below raises on every HEIC upload, this
+            # whole function falls through to the except below, and the
+            # RAW undecoded HEIC bytes get embedded as-is — confirmed
+            # live as the actual root cause of a VM PDF export failing
+            # with a bare "Command failed" from Word (both
+            # ExportAsFixedFormat AND the legacy SaveAs path) on a report
+            # with an iPhone photo, even when done by hand in Word
+            # directly, not just through this app's own automation: Word
+            # can often still insert/display a HEIC image inline, but
+            # whatever in its export/print pipeline tries to rasterize
+            # it chokes with no further detail. Registering is cheap
+            # and idempotent, so just doing it inline here rather than
+            # once at import time keeps this self-contained.
+            pillow_heif.register_heif_opener()
 
             image = Image.open(_BytesIO(data))
             image = ImageOps.exif_transpose(image)

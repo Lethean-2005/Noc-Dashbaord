@@ -21,6 +21,7 @@
                 <th>Category</th>
                 <th>Week</th>
                 <th>Resolution Time</th>
+                <th>Creation Method</th>
                 <th>Occurred At</th>
                 <th>Resolved At</th>
             </tr>
@@ -32,11 +33,12 @@
                 <td>{{ row.category }}</td>
                 <td>{{ row.iso_week }}</td>
                 <td>{{ row.resolution_display }}</td>
+                <td>{{ row.creation_method }}</td>
                 <td>{{ row.occurred_at }}</td>
                 <td>{{ row.resolved_at }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="6">No incidents found</td></tr>
+            <tr class="empty-row"><td colspan="7">No incidents found</td></tr>
             {% endfor %}
         </tbody>
     </table>

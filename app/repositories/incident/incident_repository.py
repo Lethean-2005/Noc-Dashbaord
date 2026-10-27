@@ -172,3 +172,63 @@ class IncidentRepository:
         return run_query(
             "inc_wo_by_incident_ids", "inc_wo_by_incident_ids", incident_ids=list(incident_ids)
         )
+
+    def fetch_worklog_by_ids(self, incident_ids):
+        """Free-text Worklog comments (object_362) for a batch of
+        incident numeric ids — one HALF of Streamline's own "Worklog"
+        tab; pair with fetch_audit_log_by_ids() for the other half (its
+        system field-change entries) — see incident_worklog_by_ids.sql."""
+        if not incident_ids:
+            return []
+        return run_query(
+            "incident_worklog_by_ids", "incident_worklog_by_ids", incident_ids=list(incident_ids)
+        )
+
+    def fetch_audit_log_by_ids(self, incident_ids):
+        """System field-change entries (object_323, "Field 'Status'
+        changed from 'New' to 'In Progress'") for a batch of incident
+        numeric ids — the other HALF of Streamline's own "Worklog" tab;
+        pair with fetch_worklog_by_ids() for the free-text comments —
+        see incident_audit_log_by_ids.sql."""
+        if not incident_ids:
+            return []
+        return run_query(
+            "incident_audit_log_by_ids", "incident_audit_log_by_ids", incident_ids=list(incident_ids)
+        )
+
+    def fetch_combined_worklog_by_ids(self, incident_ids):
+        """Both halves of Streamline's own "Worklog" tab (free-text
+        comments + system field-change entries) merged into ONE
+        timeline, newest first — matching exactly what Streamline
+        itself shows (confirmed live against a real incident: 4 comment
+        rows + 3 field-change rows = the same 7 entries, same order,
+        seen on screen). Each entry gets a plain "text" line so the
+        caller/template doesn't need to know which of the two sources
+        it came from — a field-change entry's text is built the same
+        "Field 'X' changed from 'Y' to 'Z'" way Streamline's own UI
+        phrases it, with a bare value shown as "Null" to match."""
+        comments = [
+            {
+                "incident_numeric_id": r["Incident Numeric ID"],
+                "incident_id": r["Incident ID"],
+                "text": r["Worklog"],
+                "created_at": r["Created At"],
+                "created_by": r["Created By"],
+            }
+            for r in self.fetch_worklog_by_ids(incident_ids)
+        ]
+        field_changes = [
+            {
+                "incident_numeric_id": r["Incident Numeric ID"],
+                "incident_id": r["Incident ID"],
+                "text": (
+                    f"Field '{r['Field']}' changed from "
+                    f"'{r['From'] if r['From'] not in (None, '') else 'Null'}' to "
+                    f"'{r['To'] if r['To'] not in (None, '') else 'Null'}'"
+                ),
+                "created_at": r["Created At"],
+                "created_by": r["Created By"],
+            }
+            for r in self.fetch_audit_log_by_ids(incident_ids)
+        ]
+        return sorted(comments + field_changes, key=lambda e: e["created_at"], reverse=True)

@@ -455,6 +455,34 @@ _INCIDENT_SITE_DOWN_ROOT_CAUSE_CACHE_COLUMNS = {
     "occurred_at",
 }
 
+# Worklog (free-text comments + system field-change entries, merged —
+# see incident_worklog_by_ids.sql/incident_audit_log_by_ids.sql) for
+# "Site Down by Age"'s own worklog popup — behind the bar chart's
+# click-through. Deliberately scoped ONLY to currently-open Site Down
+# incidents (the same set incident_site_down_cache already tracks), not
+# the full worklog/audit history for every incident ever — keeps this
+# table small and self-pruning: a resolved/closed incident's rows
+# naturally disappear on the next sync cycle once it drops out of
+# incident_site_down_cache, the same replace_all()-every-cycle pattern
+# every other cache table here already uses. No PRIMARY KEY (an
+# incident legitimately has several worklog entries).
+INCIDENT_WORKLOG_CACHE_TABLES = ("incident_worklog",)
+
+_INCIDENT_WORKLOG_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        incident_numeric_id INTEGER, incident_id TEXT, entry_text TEXT,
+        created_at TEXT, created_by TEXT
+    )
+"""
+
+_INCIDENT_WORKLOG_CACHE_COLUMNS = {
+    "incident_numeric_id",
+    "incident_id",
+    "entry_text",
+    "created_at",
+    "created_by",
+}
+
 # One row per Site Down incident seen on the Telegram alert's last run —
 # not filtered by ALERT_THRESHOLD_MIN, so this always reflects every
 # current Site Down incident, not just the ones actually sent.
@@ -523,7 +551,8 @@ INCIDENT_RESPONSE_TIME_DETAILS_CACHE_TABLES = ("incident_response_time_details",
 _INCIDENT_RESPONSE_TIME_DETAILS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT PRIMARY KEY, incident_numeric_id INTEGER, iso_week TEXT,
-        category TEXT, occurred_at TEXT, took_in_progress_at TEXT, response_minutes REAL
+        category TEXT, occurred_at TEXT, took_in_progress_at TEXT, response_minutes REAL,
+        creation_method TEXT
     )
 """
 
@@ -535,6 +564,7 @@ _INCIDENT_RESPONSE_TIME_DETAILS_CACHE_COLUMNS = {
     "occurred_at",
     "took_in_progress_at",
     "response_minutes",
+    "creation_method",
 }
 
 # Resolution Time — Weekly Trend (Performance page), real data straight
@@ -570,7 +600,8 @@ INCIDENT_RESOLUTION_TIME_DETAILS_CACHE_TABLES = ("incident_resolution_time_detai
 _INCIDENT_RESOLUTION_TIME_DETAILS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT PRIMARY KEY, incident_numeric_id INTEGER, iso_week TEXT,
-        category TEXT, occurred_at TEXT, resolved_at TEXT, resolution_minutes REAL
+        category TEXT, occurred_at TEXT, resolved_at TEXT, resolution_minutes REAL,
+        creation_method TEXT
     )
 """
 
@@ -582,6 +613,7 @@ _INCIDENT_RESOLUTION_TIME_DETAILS_CACHE_COLUMNS = {
     "occurred_at",
     "resolved_at",
     "resolution_minutes",
+    "creation_method",
 }
 
 # SLA Compliance — Weekly Trends (Performance page), real data straight
@@ -1108,6 +1140,11 @@ _CACHE_DEFINITIONS = (
         INCIDENT_SITE_DOWN_ROOT_CAUSE_CACHE_TABLES,
         _INCIDENT_SITE_DOWN_ROOT_CAUSE_TABLE_SCHEMA,
         _INCIDENT_SITE_DOWN_ROOT_CAUSE_CACHE_COLUMNS,
+    ),
+    (
+        INCIDENT_WORKLOG_CACHE_TABLES,
+        _INCIDENT_WORKLOG_TABLE_SCHEMA,
+        _INCIDENT_WORKLOG_CACHE_COLUMNS,
     ),
     (
         INCIDENT_RESPONSE_TIME_WEEKLY_CACHE_TABLES,

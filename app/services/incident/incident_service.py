@@ -29,6 +29,9 @@ from app.repositories.incident.incident_duration_weekly_cache_repository import 
     IncidentDurationWeeklyCacheRepository,
 )
 from app.repositories.incident.incident_status_cache_repository import IncidentStatusCacheRepository
+from app.repositories.incident.incident_worklog_cache_repository import (
+    IncidentWorklogCacheRepository,
+)
 from app.utils.datetime import elapsed_minutes
 from app.utils.ttl_cache import ttl_cache
 
@@ -587,6 +590,7 @@ class IncidentService:
         site_down_duration_weekly_cache_repository=None,
         duration_weekly_cache_repository=None,
         site_down_root_cause_cache_repository=None,
+        worklog_cache_repository=None,
     ):
         self.status_cache_repository = status_cache_repository or IncidentStatusCacheRepository()
         self.site_down_cache_repository = (
@@ -607,6 +611,7 @@ class IncidentService:
         self.site_down_root_cause_cache_repository = (
             site_down_root_cause_cache_repository or IncidentSiteDownRootCauseCacheRepository()
         )
+        self.worklog_cache_repository = worklog_cache_repository or IncidentWorklogCacheRepository()
         self._rank_site_down_codes_cache = None
 
     @ttl_cache(15)
@@ -2382,18 +2387,55 @@ class IncidentService:
                 matched.append(r)
         return matched
 
-    def get_site_down_root_cause_week_breakdown(self, duration_bucket=None, weeks=None):
+    @staticmethod
+    def _filter_rows_by_duration_buckets(rows, duration_buckets):
+        """Like _filter_rows_by_duration_bucket() above, but narrows to
+        ANY of several buckets at once — "Filter by Duration"'s own
+        multi-select checkboxes (duration_bucket as a list), as opposed
+        to that method's single x-axis-label click (duration_bucket as
+        one value). No-op (every row kept) if duration_buckets is
+        empty/every value invalid, same "empty means no filter"
+        convention every other filter on this page uses — matches the
+        checkboxes' own default-all-checked state when nothing's been
+        explicitly picked."""
+        valid = [b for b in (duration_buckets or []) if b in _DURATION_BUCKET_LABELS]
+        if not valid:
+            return rows
+        matched = []
+        for r in rows:
+            occurred_at, resolved_at = r.get("occurred_at"), r.get("resolved_at")
+            if not (occurred_at and resolved_at):
+                continue
+            try:
+                occurred_dt = datetime.fromisoformat(str(occurred_at)[:19])
+                resolved_dt = datetime.fromisoformat(str(resolved_at)[:19])
+            except ValueError:
+                continue
+            hours = (resolved_dt - occurred_dt).total_seconds() / 3600
+            if hours >= 0 and _DURATION_BUCKET_LABELS[_duration_bucket_index(hours)] in valid:
+                matched.append(r)
+        return matched
+
+    def get_site_down_root_cause_week_breakdown(self, duration_bucket=None, duration_buckets=None, weeks=None):
         """Week-scoped equivalent of get_site_down_root_cause_
         breakdown() — for "Site-Down Root Cause — Breakdown"'s own pie.
         See that method's docstring for the shared "Cancelled/AutoClosed"
         slice/pct treatment; the real differences are the population
         (whichever week(s) are selected, every site — not top-10-sites)
-        and the optional `duration_bucket` cross-filter from "Site-Down
-        Duration — Weekly Trend"'s x-axis labels. `weeks` is that same
-        card's own Compare Weeks selection (site_down_duration_week) —
-        see _filter_rows_by_weeks()'s own docstring for the default."""
+        and the duration cross-filter from "Site-Down Duration — Weekly
+        Trend": `duration_bucket` (one value) from clicking an x-axis
+        label takes priority when set; otherwise `duration_buckets` (a
+        list) from that same card's own "Filter by Duration" checkboxes
+        applies — confirmed live this previously did nothing at all,
+        so checking/unchecking buckets there had zero effect on this
+        card's own total. `weeks` is that same card's own Compare Weeks
+        selection (site_down_duration_week) — see
+        _filter_rows_by_weeks()'s own docstring for the default."""
         rows, mondays = self._filter_rows_by_weeks(self._site_down_duration_weekly_rows(), weeks)
-        rows = self._filter_rows_by_duration_bucket(rows, duration_bucket)
+        if duration_bucket:
+            rows = self._filter_rows_by_duration_bucket(rows, duration_bucket)
+        else:
+            rows = self._filter_rows_by_duration_buckets(rows, duration_buckets)
         root_cause_lookup = self._root_cause_lookup()
 
         counts = {}
@@ -2739,6 +2781,60 @@ class IncidentService:
         for r in filtered:
             r["outage_min"] = elapsed_minutes(r.get("occurred_at"))
         return filtered
+
+    def get_worklog_by_incident_ids(self, incident_numeric_ids):
+        """Cached worklog entries (incident_worklog — see
+        IncidentSyncService.sync_site_down_worklog()) for the "Incident"
+        drilldown's own worklog popup, grouped by incident numeric id so
+        the template can look each row's own list up directly. Scoped
+        live to currently-open Site Down incidents only (that sync
+        method's own design), so most badge types' rows simply won't
+        have an entry here — the caller/template treats a missing key
+        the same as "no worklog to show" rather than an error."""
+        ids = {i for i in incident_numeric_ids if i}
+        if not ids:
+            return {}
+        rows = self.worklog_cache_repository.fetch_all("incident_worklog")
+        grouped = {}
+        for r in rows:
+            numeric_id = r.get("incident_numeric_id")
+            if numeric_id in ids:
+                grouped.setdefault(numeric_id, []).append(r)
+        return grouped
+
+    def get_worklog_by_age_bucket(self):
+        """Every currently-open Site Down incident's worklog, grouped
+        by which "Incident Age – Open" bucket badge_type it's in right
+        now (_AGE_BUCKET_BADGE_TYPES) — behind that bar chart's own
+        worklog icon (next to the count — see graph_cards.html), which
+        pops up a list of incidents first, each expandable to its own
+        worklog, same accordion pattern as the "Incident Volume — Sun"
+        popup's own Category rows (.volume-category-row/.volume-
+        duration-panel — reused as-is here, no new JS needed). Reuses
+        get_details() per bucket rather than re-deriving the age
+        thresholds here, so _matches_age_bucket() stays the one place
+        that decides which bucket an incident falls into. Returns
+        {badge_type: [{"incident_numeric_id", "incident_id", "entries"}, ...]},
+        each incident's own entries newest first, incidents themselves
+        ordered by their own newest entry first."""
+        result = {}
+        for badge_type in _AGE_BUCKET_BADGE_TYPES.values():
+            bucket_rows = self.get_details(badge_type) or []
+            numeric_ids = {r.get("incident_numeric_id") for r in bucket_rows if r.get("incident_numeric_id")}
+            worklog_by_id = self.get_worklog_by_incident_ids(numeric_ids)
+            incidents = []
+            for numeric_id, entries in worklog_by_id.items():
+                entries = sorted(entries, key=lambda e: e.get("created_at") or "", reverse=True)
+                incidents.append({
+                    "incident_numeric_id": numeric_id,
+                    "incident_id": entries[0]["incident_id"] if entries else "",
+                    "entries": entries,
+                })
+            incidents.sort(
+                key=lambda i: i["entries"][0]["created_at"] if i["entries"] else "", reverse=True
+            )
+            result[badge_type] = incidents
+        return result
 
     def get_incident_site_down_counts(self):
         """Badge counts for the "Incident Site Down" card (Hub,

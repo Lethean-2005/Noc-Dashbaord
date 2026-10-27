@@ -16,6 +16,13 @@ Reports/Custom Dashboard pages read the same live services as the main
 dashboard. Toggle any card off without touching code via the `FEATURE_*`
 flags in `.env` (re-read on every request, no restart needed).
 
+`/incident-report` is a fillable, exportable incident report document
+(PDF/DOCX) matching the standard Wholesale Products & Service Delivery
+template — editable fields laid directly on the page, a date-grouped
+Chronology of Events, and phone-photo (including HEIC) Picture Reference
+uploads. See `app/services/incident_report/` and the in-app Help page's own
+"Incident Report" section for the full behavior.
+
 `/congestion` is a standalone, bookmarkable page showing just the Top
 Congestion Devices card (e.g. for a dedicated wallboard) — the card itself
 isn't shown on the main dashboard at all.
@@ -100,9 +107,12 @@ copy .env.example .env           # then fill in real values — see below
 python run.py
 ```
 
-The app runs at `http://localhost:5000` (or whatever `PORT` is set to in
-`.env`). The local alarm cache (`instance/localstorage.db`) is created
-automatically on first run — no manual seed step needed.
+The app runs at `http://localhost:<PORT>`, where `PORT` comes from `.env`
+(code default is 8000 if unset — but set it explicitly per machine, since
+`.env` is gitignored and never shared between environments; e.g. this
+project's own VM runs on 5000 while local dev runs on 8000). The local
+alarm cache (`instance/localstorage.db`) is created automatically on first
+run — no manual seed step needed.
 
 ### Required `.env` values
 
@@ -150,6 +160,7 @@ readable without grepping the full log (see `app/utils/logger.py`):
 | `logs/dashboard.log` | Data freshness — one line per page view, plus a clock-aligned heartbeat every `DASHBOARD_LOG_INTERVAL_SECONDS` even with no visits |
 | `logs/telegram.log` | The Telegram alert's own send/skip/fail history |
 | `logs/webhook.log` | The Teams webhook alerts' own send/skip/fail history |
+| `logs/requests.log` | One line per HTTP request (method, path, status, duration, remote address) — use this to correlate a slow/reported page load with a specific endpoint or a burst of concurrent requests |
 
 Each file rotates at `LOG_MAX_BYTES` (default 10MB), keeping
 `LOG_BACKUP_COUNT` (default 5) old copies.

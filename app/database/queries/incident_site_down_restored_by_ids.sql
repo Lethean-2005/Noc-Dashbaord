@@ -24,11 +24,25 @@
 -- as incident_closed_trend_by_ids.sql — this only ever touches the
 -- small number of rows still pending a restore-confirmation, not a
 -- full-table scan.
+--
+-- "Occurred At" (same source-based split as incident_site_down.sql's
+-- own down-side column) — added so the restore-confirmation's own
+-- "Incident/Outage Start" always has a real value. Without it, an
+-- incident that already cleared its alarm/resolved and so already
+-- dropped out of incident_site_down (the active-only cache Stage 2
+-- otherwise reads occurred_at from) rendered "Incident/Outage Start: -"
+-- in a real sent message — confirmed live — since nothing here ever
+-- actually provided the fallback the service layer's own comment
+-- promised.
 -- ==============================================================
 
 -- name: incident_site_down_restored_by_ids
 SELECT
   inc.incident_id AS "Incident ID",
+  CASE
+    WHEN LOWER(inc.source) = 'alarms' THEN inc.issue_occurred_at
+    ELSE inc.created_at
+  END AS "Occurred At",
   CASE
     WHEN LOWER(inc.source) = 'alarms' THEN inc.cleared_alarm_received_at
     ELSE inc.resolved_at

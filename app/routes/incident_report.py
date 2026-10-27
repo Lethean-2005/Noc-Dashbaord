@@ -10,7 +10,10 @@ import re
 
 from flask import Blueprint, abort, redirect, render_template, request, send_file, url_for
 
-from app.services.incident_report.incident_report_service import IncidentReportService
+from app.services.incident_report.incident_report_service import (
+    IncidentReportService,
+    annotate_chronology_events_with_headers,
+)
 
 incident_report_bp = Blueprint("incident_report", __name__)
 incident_report_service = IncidentReportService()
@@ -36,10 +39,19 @@ def _export_filename(report, report_id, extension):
 def index():
     report_id = request.args.get("id")
     report = incident_report_service.get_report(report_id) if report_id else None
+    report = dict(report) if report else {}
+    # Groups chronology_events by their own date, same "Date and Time:
+    # <date>" header-per-day grouping the DOCX/PDF export has always
+    # used — see annotate_chronology_events_with_headers()'s own
+    # docstring for why this needs to match the export exactly rather
+    # than showing one static date pinned above the whole list.
+    report["chronology_events"] = annotate_chronology_events_with_headers(
+        report.get("chronology_events") or [], report.get("incident_date")
+    )
     return render_template(
         "incident_report/document.html",
-        report=report or {},
-        report_id=report["id"] if report else None,
+        report=report,
+        report_id=report.get("id"),
         reports=incident_report_service.list_reports(),
     )
 

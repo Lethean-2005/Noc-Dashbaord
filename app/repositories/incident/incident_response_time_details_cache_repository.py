@@ -18,6 +18,7 @@ class IncidentResponseTimeDetailsCacheRepository(BaseCacheRepository):
         "occurred_at",
         "took_in_progress_at",
         "response_minutes",
+        "creation_method",
     )
     order_by = "occurred_at DESC"
 

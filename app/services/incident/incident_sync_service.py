@@ -46,6 +46,9 @@ from app.repositories.incident.incident_duration_weekly_cache_repository import 
 from app.repositories.incident.incident_site_down_root_cause_cache_repository import (
     IncidentSiteDownRootCauseCacheRepository,
 )
+from app.repositories.incident.incident_worklog_cache_repository import (
+    IncidentWorklogCacheRepository,
+)
 from app.repositories.incident.incident_resolution_time_weekly_cache_repository import (
     IncidentResolutionTimeWeeklyCacheRepository,
 )
@@ -140,6 +143,7 @@ class IncidentSyncService:
         incwo_resolved_cache_repository=None,
         incident_site_down_cache_repository=None,
         incident_site_down_root_cause_cache_repository=None,
+        worklog_cache_repository=None,
         site_down_duration_weekly_cache_repository=None,
         duration_weekly_cache_repository=None,
         response_time_weekly_cache_repository=None,
@@ -178,6 +182,7 @@ class IncidentSyncService:
             incident_site_down_root_cause_cache_repository
             or IncidentSiteDownRootCauseCacheRepository()
         )
+        self.worklog_cache_repository = worklog_cache_repository or IncidentWorklogCacheRepository()
         self.site_down_duration_weekly_cache_repository = (
             site_down_duration_weekly_cache_repository or IncidentSiteDownDurationWeeklyCacheRepository()
         )
@@ -564,6 +569,72 @@ class IncidentSyncService:
         logger.info(f"Synced {len(normalized)} row(s) into {_INCIDENT_SITE_DOWN_TABLE}")
         return len(normalized)
 
+    def sync_site_down_worklog(self):
+        """Refresh incident_worklog — worklog entries (free-text
+        comments + system field-change entries, merged — see
+        IncidentRepository.fetch_combined_worklog_by_ids()) for
+        every currently-open Site Down incident the "Incident Age –
+        Open" bar chart itself can show, not the full worklog/audit
+        history for every incident ever.
+
+        Reads the numeric ids off incident_by_status (category ==
+        "Site Down"), the SAME cache IncidentService.get_details()/
+        get_incident_age_buckets() read — NOT incident_site_down_cache,
+        which this used before. Confirmed live these two tables are NOT
+        the same incident set (22 vs 18 Site Down rows on a real
+        snapshot): incident_site_down additionally requires
+        cleared_alarm_received == FALSE, a condition the age chart's own
+        source query doesn't apply — so an incident whose alarm already
+        cleared but is still "In Progress" showed up on the age chart
+        with no worklog ever cached for it (confirmed: INC-0000275910,
+        visibly in the 12-24h bucket, was in incident_by_status but
+        absent from incident_site_down entirely). Sourcing from the
+        same table the chart reads removes that whole class of mismatch
+        by construction, not just for this one incident.
+
+        Still small and self-pruning the same way: once an incident
+        resolves and drops out of incident_by_status, its worklog rows
+        disappear on the very next cycle's replace_all()."""
+        status_rows = self.status_cache_repository.fetch_all(_STATUS_TABLE)
+        incident_ids = sorted({
+            r.get("incident_numeric_id")
+            for r in status_rows
+            if r.get("category") == "Site Down" and r.get("incident_numeric_id")
+        })
+        if not incident_ids:
+            try:
+                self.worklog_cache_repository.replace_all("incident_worklog", [])
+            except Exception as e:
+                logger.error(f"Incident-worklog cache write failed: {e}")
+                return None
+            logger.info("Synced 0 row(s) into incident_worklog")
+            return 0
+
+        entries = retry_fetch(
+            lambda: self.incident_repository.fetch_combined_worklog_by_ids(incident_ids),
+            "Incident-worklog",
+        )
+        if entries is None:
+            return None
+
+        normalized = [
+            {
+                "incident_numeric_id": e["incident_numeric_id"],
+                "incident_id": e["incident_id"],
+                "entry_text": e["text"],
+                "created_at": to_local_seconds(e["created_at"]),
+                "created_by": e.get("created_by") or "",
+            }
+            for e in entries
+        ]
+        try:
+            self.worklog_cache_repository.replace_all("incident_worklog", normalized)
+        except Exception as e:
+            logger.error(f"Incident-worklog cache write failed: {e}")
+            return None
+        logger.info(f"Synced {len(normalized)} row(s) into incident_worklog")
+        return len(normalized)
+
     def sync_site_down_root_cause(self):
         """Refresh incident_site_down_root_cause — per-incident Site
         Down detail for the last 30 days, with the real Root Cause
@@ -810,6 +881,7 @@ class IncidentSyncService:
                 "response_minutes": (
                     float(r["response_minutes"]) if r.get("response_minutes") is not None else None
                 ),
+                "creation_method": r.get("creation_method"),
             }
             for r in rows
             if r.get("incident_id")
@@ -883,6 +955,7 @@ class IncidentSyncService:
                 "resolution_minutes": (
                     float(r["resolution_minutes"]) if r.get("resolution_minutes") is not None else None
                 ),
+                "creation_method": r.get("creation_method"),
             }
             for r in rows
             if r.get("incident_id")

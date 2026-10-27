@@ -448,7 +448,7 @@ def check_and_send_restore_alerts():
         restored = _parse_ts(row.get("Restored At"))
         if not incident_id or not restored:
             continue
-        occurred = occurred_by_id.get(incident_id)
+        occurred = occurred_by_id.get(incident_id) or _parse_ts(row.get("Occurred At"))
         root_cause = row.get("L1 NOC Investigation Result") or ""
         note = row.get("Last Comments") or ""
         html = _build_restore_alert_html(occurred, restored, root_cause, note)

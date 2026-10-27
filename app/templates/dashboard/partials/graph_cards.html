@@ -124,6 +124,31 @@
               {% endif %}
             </div>
             <span class="expenses-count-value badge" data-scope="Incident" data-type="{{ seg.badge_type }}">{{ seg.count }}</span>
+            {% if incident_age_worklog_by_bucket.get(seg.badge_type) %}
+            {# Worklog icon, right after the count — a deliberate second
+               click target in the same row: the count still opens the
+               full drilldown table (app.js's own badge-item handler);
+               this icon instead pops up the worklog list directly (see
+               the incidentAgeWorklogModal_* block below +
+               graph_cards.js's data-age-worklog-modal handler). app.js
+               bails out early for .incident-age-worklog-icon so this
+               doesn't ALSO trigger the drilldown navigation on the same
+               click. #}
+            <button type="button" class="btn-export btn-icon-only incident-age-worklog-icon" title="View Worklog" data-age-worklog-modal="incidentAgeWorklogModal_{{ seg.badge_type }}">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-logs">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M4 12h.01" />
+                <path d="M4 6h.01" />
+                <path d="M4 18h.01" />
+                <path d="M8 18h2" />
+                <path d="M8 12h2" />
+                <path d="M8 6h2" />
+                <path d="M14 6h6" />
+                <path d="M14 12h6" />
+                <path d="M14 18h6" />
+              </svg>
+            </button>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
@@ -138,6 +163,67 @@
         </div>
       </div>
     </div>
+
+    {# One worklog popup per age bucket, triggered by that bucket's own
+       worklog icon (not its count — see the .incident-age-worklog-icon
+       comment above). Lists every open incident currently in that
+       bucket first (IncidentService.get_worklog_by_age_bucket()); each
+       incident row expands to its own worklog underneath, same
+       accordion pattern as the "Incident Volume — Sun" popup's own
+       Category rows — .volume-category-row/.volume-duration-panel and
+       their existing JS (graph_cards.js) are reused completely as-is,
+       no new JS needed for the expand/collapse itself. Only rendered
+       for buckets that actually have an incident with cached worklog
+       (see the icon's own {% if %} above), so this is never reachable
+       empty. #}
+    {% for seg in incident_age_chart.segments %}
+    {% set incidents = incident_age_worklog_by_bucket.get(seg.badge_type, []) %}
+    {% if incidents %}
+    <div class="modal" id="incidentAgeWorklogModal_{{ seg.badge_type }}">
+        <div class="modal-content" style="width:680px;max-width:90vw;">
+            <div class="modal-header">
+                <div class="modal-header-left">
+                    <h2>Worklog — Site Down {{ seg.label }}</h2>
+                </div>
+                <span class="close-modal duration-popup-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="volume-category-table-wrap" style="overflow-x:auto;">
+                <table class="alarm-table volume-category-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Incident ID</th>
+                            <th class="right">Entries</th>
+                        </tr>
+                    </thead>
+                    {% for incident in incidents %}
+                    <tbody>
+                        <tr class="volume-category-row">
+                            <td>
+                                <span class="volume-category-caret"><i class="ti ti-chevron-right"></i></span>
+                                {{ incident.incident_id }}
+                            </td>
+                            <td class="right">{{ incident.entries|length }}</td>
+                        </tr>
+                    </tbody>
+                    <tbody class="volume-duration-panel">
+                        {% for entry in incident.entries %}
+                        <tr class="volume-duration-row">
+                            <td colspan="2">
+                                <div style="color:var(--text-muted);font-size:11.5px;">{{ entry.created_at }} {{ entry.created_by }}</div>
+                                <div style="color:var(--text-primary);font-size:13px;">{{ entry.entry_text }}</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% endfor %}
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
 
     <!-- Incident Volume – Week over Week -->
     <div class="card card-graph" id="incidentVolumeCard">

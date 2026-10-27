@@ -37,10 +37,12 @@
                 <th>Province</th>
                 <th>District</th>
                 <th>Commune</th>
+                <th>Worklog</th>
             </tr>
         </thead>
         <tbody>
             {% for row in rows %}
+            {% set worklog_entries = worklog_by_incident.get(row.incident_numeric_id) if worklog_by_incident else None %}
             <tr>
                 <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
                 <td>{% if row.incident_status %}<span class="status-badge {{ row.incident_status|status_badge_class }}">{{ row.incident_status }}</span>{% endif %}</td>
@@ -63,13 +65,50 @@
                 <td>{{ row.province }}</td>
                 <td>{{ row.district }}</td>
                 <td>{{ row.commune }}</td>
+                <td>
+                    {% if worklog_entries %}
+                    <button type="button" class="btn-export" data-week-modal="worklogModal_{{ row.incident_numeric_id }}">View ({{ worklog_entries|length }})</button>
+                    {% endif %}
+                </td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="21">No incidents found</td></tr>
+            <tr class="empty-row"><td colspan="22">No incidents found</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+{# Worklog popup — one modal per incident that actually has worklog
+   entries cached (currently-open Site Down incidents only, see
+   IncidentSyncService.sync_site_down_worklog()). Same data-week-modal
+   open/close mechanism as Response/Resolution Time's own "By Duration"
+   popups (performance.js) — a plain button opens #worklogModal_<id>,
+   closed via its own .close-modal or clicking outside it. #}
+{% if worklog_by_incident %}
+{% for row in rows %}
+{% set worklog_entries = worklog_by_incident.get(row.incident_numeric_id) %}
+{% if worklog_entries %}
+<div class="modal" id="worklogModal_{{ row.incident_numeric_id }}">
+    <div class="modal-content" style="width:680px;max-width:90vw;">
+        <div class="modal-header">
+            <div class="modal-header-left">
+                <h2>Worklog — {{ row.incident_id }}</h2>
+            </div>
+            <span class="close-modal duration-popup-close">&times;</span>
+        </div>
+        <div class="modal-body">
+            {% for entry in worklog_entries %}
+            <div style="padding:8px 0;{% if not loop.last %}border-bottom:1px solid var(--border-table-row);{% endif %}">
+                <div style="color:var(--text-muted);font-size:11.5px;">{{ entry.created_at }} {{ entry.created_by }}</div>
+                <div style="color:var(--text-primary);font-size:13px;">{{ entry.entry_text }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

@@ -266,8 +266,18 @@ class Config:
     SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL = os.environ.get(
         "SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL", ""
     )
+    # How often the down-alert check runs (24h by default — only needs
+    # to catch an incident shortly after it actually crosses the
+    # threshold, not continuously).
     SITE_DOWN_24H_ALERT_INTERVAL_SECONDS = int(
         os.environ.get("SITE_DOWN_24H_ALERT_INTERVAL_SECONDS", 86400)
+    )
+    # How often the restore-confirmation check runs — separate from the
+    # down-alert interval above, confirmed needed: a restore should be
+    # noticed soon after it actually happens, not wait for the same
+    # once-a-day cadence as the down-alert check.
+    SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS = int(
+        os.environ.get("SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS", 900)
     )
     SITE_DOWN_24H_ALERT_THRESHOLD_HOURS = int(
         os.environ.get("SITE_DOWN_24H_ALERT_THRESHOLD_HOURS", 24)

@@ -30,6 +30,7 @@ def start(app, interval_seconds):
         total += service.sync_inc_wo_category_power() or 0
         total += service.sync_inc_wo_resolved() or 0
         total += service.sync_incident_site_down() or 0
+        total += service.sync_site_down_worklog() or 0
         total += service.sync_site_down_root_cause() or 0
         total += service.sync_site_down_duration_weekly() or 0
         total += service.sync_duration_weekly() or 0

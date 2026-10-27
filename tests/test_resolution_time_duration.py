@@ -59,6 +59,7 @@ def _seed_resolution_time_details(app, rows):
                 "occurred_at": "2026-09-01 00:00:00",
                 "resolved_at": "2026-09-01 00:01:00",
                 "resolution_minutes": r["resolution_minutes"],
+                "creation_method": r.get("creation_method", "Automatically"),
             }
             for i, r in enumerate(rows)
         ]

@@ -65,6 +65,7 @@ def _seed_response_time_details(app, rows):
                 "occurred_at": "2026-09-01 00:00:00",
                 "took_in_progress_at": "2026-09-01 00:01:00",
                 "response_minutes": r["response_minutes"],
+                "creation_method": r.get("creation_method", "Automatically"),
             }
             for i, r in enumerate(rows)
         ]

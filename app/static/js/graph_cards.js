@@ -109,6 +109,33 @@
         }
     });
 
+    // "Incident Age – Open"'s own worklog popups — one modal per age
+    // bucket (incidentAgeWorklogModal_<badge_type>, see graph_cards.html
+    // and IncidentService.get_worklog_by_age_bucket()), opened by
+    // clicking that bucket's BAR specifically — app.js's own document
+    // click handler bails out early for .incident-age-bar so clicking
+    // it doesn't ALSO navigate to the drilldown table the way the
+    // count next to it still does. Fully server-rendered (no fetch —
+    // unlike the per-weekday popups above, every bucket's worklog is
+    // small enough to ship inline), so opening is just a display swap.
+    // The X close button is handled generically by performance.js's
+    // own .duration-popup-close delegation; only the "click the
+    // backdrop to close" case needs its own id-scoped check here.
+    document.addEventListener('click', function (e) {
+        const trigger = e.target.closest('[data-age-worklog-modal]');
+        if (trigger) {
+            const modal = document.getElementById(trigger.getAttribute('data-age-worklog-modal'));
+            if (modal) modal.style.display = 'block';
+            return;
+        }
+        if (
+            e.target.classList && e.target.classList.contains('modal') &&
+            e.target.id.indexOf('incidentAgeWorklogModal_') === 0
+        ) {
+            e.target.style.display = 'none';
+        }
+    });
+
     // Category/Severity/Province/Vendor tabs inside each per-weekday
     // popup above — all 4 fields are already rendered server-side (see
     // graph_cards.html), so switching tabs is just a class toggle

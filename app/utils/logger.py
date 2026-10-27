@@ -4,10 +4,12 @@ Every module gets its logger via get_logger(__name__). Each logger writes
 to the console (colored per label) plus its own file: LOG_PATH for
 everything at LOG_LEVEL+, LOG_ERROR_PATH for ERROR/CRITICAL only,
 ATTEMPTS_LOG_PATH for retry_fetch()'s own ATTEMPT/SUCCESS/FAILED records,
-DASHBOARD_LOG_PATH for dashboard.py's per-table last_synced_at, and
-TELEGRAM_LOG_PATH/WEBHOOK_LOG_PATH for their own alert modules — each
-kept separate so one job's history is readable without grepping it out
-of app.log's general noise.
+DASHBOARD_LOG_PATH for dashboard.py's per-table last_synced_at,
+TELEGRAM_LOG_PATH/WEBHOOK_LOG_PATH for their own alert modules, and
+REQUEST_LOG_PATH for app/__init__.py's per-request timing hook (method,
+path, status, duration, remote address — one line per HTTP request) —
+each kept separate so one job's history is readable without grepping it
+out of app.log's general noise.
 
 Reads *_PATH straight from the environment rather than Flask's
 app.config, since loggers are module-level singletons created at import
@@ -46,6 +48,7 @@ if "pytest" in sys.modules:
     _DASHBOARD_LOG_PATH = os.path.join(_log_dir, "dashboard.log")
     _TELEGRAM_LOG_PATH = os.path.join(_log_dir, "telegram.log")
     _WEBHOOK_LOG_PATH = os.path.join(_log_dir, "webhook.log")
+    _REQUEST_LOG_PATH = os.path.join(_log_dir, "requests.log")
 else:
     _LOG_PATH = os.environ.get("LOG_PATH", "logs/app.log")
     _LOG_ERROR_PATH = os.environ.get("LOG_ERROR_PATH", "logs/error.log")
@@ -53,6 +56,7 @@ else:
     _DASHBOARD_LOG_PATH = os.environ.get("DASHBOARD_LOG_PATH", "logs/dashboard.log")
     _TELEGRAM_LOG_PATH = os.environ.get("TELEGRAM_LOG_PATH", "logs/telegram.log")
     _WEBHOOK_LOG_PATH = os.environ.get("WEBHOOK_LOG_PATH", "logs/webhook.log")
+    _REQUEST_LOG_PATH = os.environ.get("REQUEST_LOG_PATH", "logs/requests.log")
 
 _RESET = colorama.Style.RESET_ALL
 
@@ -100,6 +104,7 @@ _TELEGRAM_LOGGER_NAME = (
     "app.services.telegram.telegram_alert"  # must match telegram_alert.py's get_logger(__name__)
 )
 _WEBHOOK_LOGGER_NAME = "webhook"  # must match webhook/__init__.py's get_logger(__name__)
+_REQUEST_LOGGER_NAME = "app.request_timing"  # must match the name passed to get_logger() in app/__init__.py's request-timing hook
 
 
 def _is_retry_record(message):
@@ -145,6 +150,8 @@ def _job_name_for(record, message):
         return "Total all sync"
     if record.name == _DASHBOARD_LOGGER_NAME:
         return "dashboard"
+    if record.name == _REQUEST_LOGGER_NAME:
+        return "request"
     return record.threadName
 
 
@@ -234,6 +241,10 @@ def _webhook_only_filter(record):
     return record.name == _WEBHOOK_LOGGER_NAME
 
 
+def _request_only_filter(record):
+    return record.name == _REQUEST_LOGGER_NAME
+
+
 class _SafeRotatingFileHandler(logging.handlers.RotatingFileHandler):
     """Rotation (rename app.log -> app.log.1) fails with PermissionError on
     Windows whenever another process still has the file open — routine
@@ -277,5 +288,6 @@ def get_logger(name):
         logger.addHandler(_file_handler(_DASHBOARD_LOG_PATH, record_filter=_dashboard_only_filter))
         logger.addHandler(_file_handler(_TELEGRAM_LOG_PATH, record_filter=_telegram_only_filter))
         logger.addHandler(_file_handler(_WEBHOOK_LOG_PATH, record_filter=_webhook_only_filter))
+        logger.addHandler(_file_handler(_REQUEST_LOG_PATH, record_filter=_request_only_filter))
         logger.setLevel(_LOG_LEVEL)
     return logger

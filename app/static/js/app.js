@@ -303,6 +303,16 @@ window.addEventListener('click', function (event) {
 // replacing .graph-row when a filter dropdown is applied — still work
 // without needing their own rebind.
 document.addEventListener('click', function (e) {
+    // "Incident Age – Open"'s own worklog icon (sits right after the
+    // count, inside the same .badge-item row) is the one deliberate
+    // exception: clicking it opens a worklog popup (graph_cards.js's
+    // own data-age-worklog-modal handler) instead of this handler's
+    // usual "navigate to the drilldown table" — the count itself still
+    // does that, unchanged. Bailing out here before the .badge-item
+    // lookup below is what actually prevents the navigation; without
+    // this guard both behaviors would fire on the same click.
+    if (e.target.closest('.incident-age-worklog-icon')) return;
+
     const item = e.target.closest('.badge-item');
     if (!item) return;
 

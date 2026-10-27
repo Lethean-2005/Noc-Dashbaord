@@ -84,10 +84,18 @@
 // delegated listener here; the date field's calendar icon works via
 // the delegated picker handler further down this file, so a row added
 // here gets the same picker with no extra wiring.
+//
+// Each row ALSO has its own "+" insert button (.ir-event-insert) —
+// requested: staff filling in a chronology after the fact often need to
+// slot a missed event in BETWEEN two already-entered ones, not just at
+// the bottom via "Add Event". That handler is delegated (further down
+// this IIFE) rather than wired per-row like remove is, so it covers
+// both the server-rendered initial rows AND ones created here with no
+// extra wiring either way.
 (function () {
     var addBtn = document.getElementById('irAddEvent');
     var rows = document.getElementById('irEventRows');
-    if (!addBtn || !rows) return;
+    if (!rows) return;
 
     var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -95,25 +103,7 @@
         return n < 10 ? '0' + n : String(n);
     }
 
-    addBtn.addEventListener('click', function () {
-        var now = new Date();
-        // Follows the LAST existing event row's own date first — a
-        // chronology moves forward in time, so once it's already
-        // progressed to a later day (e.g. rolled past midnight), the
-        // next new row should keep following that same later day, not
-        // jump back to the incident's original start date. Only falls
-        // back to Incident Date when there's no event row yet to follow
-        // (the very first "Add Event" click), and to today's real date
-        // if even that's still empty.
-        var existingDateInputs = rows.querySelectorAll('input[name="event_date"]');
-        var lastEventDate = existingDateInputs.length
-            ? existingDateInputs[existingDateInputs.length - 1].value.trim()
-            : '';
-        var incidentDateInput = document.querySelector('input[name="incident_date"]');
-        var incidentDate = incidentDateInput ? incidentDateInput.value.trim() : '';
-        var defaultDate = lastEventDate || incidentDate ||
-            (now.getDate() + '-' + MONTHS[now.getMonth()] + '-' + now.getFullYear());
-        var defaultTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    function buildEventRow(dateValue, timeValue) {
         var row = document.createElement('div');
         row.className = 'ir-event-row';
         row.innerHTML =
@@ -126,14 +116,66 @@
                 '<button type="button" class="ir-date-pick-btn" aria-label="Pick a time"><i class="ti ti-clock"></i></button>' +
             '</div>' +
             '<input type="text" name="event_description" placeholder="What happened at this time..." required>' +
+            '<button type="button" class="ir-event-insert" aria-label="Insert event below this one"><i class="ti ti-plus"></i></button>' +
             '<button type="button" class="ir-event-remove"><i class="ti ti-x"></i></button>';
-        row.querySelector('.ir-date-text').value = defaultDate;
-        row.querySelector('input[name="event_time"]').value = defaultTime;
+        row.querySelector('.ir-date-text').value = dateValue;
+        row.querySelector('input[name="event_time"]').value = timeValue;
         row.querySelector('.ir-event-remove').addEventListener('click', function () {
             row.remove();
         });
-        rows.appendChild(row);
-        row.querySelector('input[name="event_time"]').focus();
+        return row;
+    }
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            var now = new Date();
+            // Follows the LAST existing event row's own date first — a
+            // chronology moves forward in time, so once it's already
+            // progressed to a later day (e.g. rolled past midnight), the
+            // next new row should keep following that same later day, not
+            // jump back to the incident's original start date. Only falls
+            // back to Incident Date when there's no event row yet to follow
+            // (the very first "Add Event" click), and to today's real date
+            // if even that's still empty.
+            var existingDateInputs = rows.querySelectorAll('input[name="event_date"]');
+            var lastEventDate = existingDateInputs.length
+                ? existingDateInputs[existingDateInputs.length - 1].value.trim()
+                : '';
+            var incidentDateInput = document.querySelector('input[name="incident_date"]');
+            var incidentDate = incidentDateInput ? incidentDateInput.value.trim() : '';
+            var defaultDate = lastEventDate || incidentDate ||
+                (now.getDate() + '-' + MONTHS[now.getMonth()] + '-' + now.getFullYear());
+            var defaultTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+            var row = buildEventRow(defaultDate, defaultTime);
+            rows.appendChild(row);
+            row.querySelector('input[name="event_time"]').focus();
+        });
+    }
+
+    // Per-row "+" — inserts a new blank row directly AFTER the one it
+    // was clicked on (insertAdjacentElement, not rows.appendChild), so
+    // it lands exactly where it's needed in the middle of the list
+    // instead of always at the bottom. Defaults its date to THAT row's
+    // own date (continuing from that specific point in the chronology),
+    // falling back the same way "Add Event" does if that row's date is
+    // still blank. Delegated on `rows` so it works for every row
+    // regardless of whether it was server-rendered or added later.
+    rows.addEventListener('click', function (e) {
+        var insertBtn = e.target.closest('.ir-event-insert');
+        if (!insertBtn) return;
+        var clickedRow = insertBtn.closest('.ir-event-row');
+        if (!clickedRow) return;
+
+        var now = new Date();
+        var clickedDate = clickedRow.querySelector('input[name="event_date"]').value.trim();
+        var incidentDateInput = document.querySelector('input[name="incident_date"]');
+        var incidentDate = incidentDateInput ? incidentDateInput.value.trim() : '';
+        var defaultDate = clickedDate || incidentDate ||
+            (now.getDate() + '-' + MONTHS[now.getMonth()] + '-' + now.getFullYear());
+        var defaultTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+        var newRow = buildEventRow(defaultDate, defaultTime);
+        clickedRow.insertAdjacentElement('afterend', newRow);
+        newRow.querySelector('input[name="event_time"]').focus();
     });
 })();
 
@@ -1010,61 +1052,181 @@
     });
 })();
 
-// Chronology "Date and Time" preview(s) (document.html) — mirrors the
-// SAME day-grouping build_docx() does at export time: starts from
-// "Incident Date", then adds one more "Date and Time: <date>" line for
-// every chronology event whose own date differs from the running day
-// (in row order), so the form shows exactly how many header lines the
-// exported report will actually get instead of always just one. Purely
-// a live on-screen preview — incident_report_docx.py computes this
-// itself, independently, at export time.
+// Chronology "Date and Time" headers (document.html) — mirrors the
+// SAME day-grouping build_docx() does at export time AND the server's
+// own annotate_chronology_events_with_headers() (incident_report_
+// service.py, used for the initial page render): starts from
+// "Incident Date", then shows one more "Date and Time: <date>" header
+// for every chronology event whose own date differs from the running
+// day (in row order) — INLINE, directly above the first event row of
+// each day's group, not as a single line pinned above the whole list
+// regardless of how many different days the events actually span.
+// Recomputed from scratch on every change rather than diffed, since
+// a single date edit partway through the list can ripple forward
+// (every later header depends on the running day up to that point),
+// and the full list is small enough that this is cheap either way.
 (function () {
     var incidentDateInput = document.querySelector('input[name="incident_date"]');
     var eventRows = document.getElementById('irEventRows');
-    var container = document.getElementById('irChronologyDatePreviews');
-    if (!incidentDateInput || !eventRows || !container) return;
+    if (!incidentDateInput || !eventRows) return;
 
-    function lineHtml(date) {
-        var hasDate = !!date;
-        return '<p class="ir-fixed-line">Date and Time: <span class="ir-fixed-line-date' +
-            (hasDate ? '' : ' ir-fixed-line-placeholder') + '">' +
-            (hasDate ? date : '(same as Incident Date above)') +
-            '</span></p>';
+    var MONTH_INDEX = {
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+        Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+    };
+
+    // Same "date then time, ascending; unparseable/blank sorts last"
+    // rule as incident_report_service.py's own _event_sort_key() — a
+    // plain "YYYY-MM-DD HH:MM" string sorts correctly lexically, so
+    // there's no need for real Date parsing here, just reformatting.
+    function eventSortKey(dateStr, timeStr) {
+        var d = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec((dateStr || '').trim());
+        var t = /^(\d{1,2}):(\d{2})$/.exec((timeStr || '').trim());
+        if (!d || !t || !MONTH_INDEX[d[2]]) return '9999-99-99 99:99';
+        var day = d[1].length === 1 ? '0' + d[1] : d[1];
+        var hour = t[1].length === 1 ? '0' + t[1] : t[1];
+        return d[3] + '-' + MONTH_INDEX[d[2]] + '-' + day + ' ' + hour + ':' + t[2];
+    }
+
+    // Reorders the actual rows in the DOM to match save-time order —
+    // requested: typing events out of date order (e.g. 27th, 28th,
+    // 27th, 28th) left the SAME date showing as a header more than
+    // once, scattered through the list, instead of once with every
+    // one of its events grouped underneath — because refresh() below
+    // only looks at each row's IMMEDIATE neighbor, it can't fix that
+    // on its own; the rows themselves have to actually be in order
+    // first. appendChild on a node already in the document MOVES it
+    // (doesn't clone it), so this is a plain stable re-sort, not a
+    // rebuild — every row's own listeners/typed values survive untouched.
+    function sortEventRows() {
+        var rows = Array.prototype.slice.call(eventRows.querySelectorAll('.ir-event-row'));
+        rows.sort(function (a, b) {
+            var ka = eventSortKey(
+                a.querySelector('input[name="event_date"]').value,
+                a.querySelector('input[name="event_time"]').value
+            );
+            var kb = eventSortKey(
+                b.querySelector('input[name="event_date"]').value,
+                b.querySelector('input[name="event_time"]').value
+            );
+            return ka < kb ? -1 : ka > kb ? 1 : 0;
+        });
+        rows.forEach(function (row) { eventRows.appendChild(row); });
     }
 
     function refresh() {
+        eventRows.querySelectorAll('.ir-chronology-header').forEach(function (h) { h.remove(); });
+
+        var rows = eventRows.querySelectorAll('.ir-event-row');
+        if (!rows.length) return;
+
         var currentDay = incidentDateInput.value.trim();
-        var lines = [lineHtml(currentDay)];
-        var eventDates = Array.prototype.map.call(
-            eventRows.querySelectorAll('input[name="event_date"]'),
-            function (input) { return input.value.trim(); }
-        );
-        eventDates.forEach(function (date) {
-            if (date && date !== currentDay) {
-                lines.push(lineHtml(date));
-                currentDay = date;
+        rows.forEach(function (row, i) {
+            var dateInput = row.querySelector('input[name="event_date"]');
+            var eventDate = dateInput ? dateInput.value.trim() : '';
+            var headerDate = null;
+            if (i === 0) {
+                headerDate = eventDate || currentDay;
+                if (eventDate) currentDay = eventDate;
+            } else if (eventDate && eventDate !== currentDay) {
+                headerDate = eventDate;
+                currentDay = eventDate;
+            }
+            if (headerDate) {
+                // Built with createElement/textContent, not innerHTML
+                // string concatenation — headerDate comes straight from
+                // a free-text field (event_date), so a raw '+' into
+                // innerHTML would let something like "<img onerror=...>"
+                // typed into that field execute instead of just
+                // displaying as text. textContent never parses its
+                // input as markup, so this is safe regardless of what
+                // was typed.
+                var header = document.createElement('p');
+                header.className = 'ir-fixed-line ir-chronology-header';
+                header.appendChild(document.createTextNode('Date and Time: '));
+                var dateSpan = document.createElement('span');
+                dateSpan.className = 'ir-fixed-line-date';
+                dateSpan.textContent = headerDate;
+                header.appendChild(dateSpan);
+                row.insertAdjacentElement('beforebegin', header);
             }
         });
-        container.innerHTML = lines.join('');
     }
 
     incidentDateInput.addEventListener('input', refresh);
     // Delegated (not bound per-row) since rows are added/removed freely
     // — this alone also covers a new row's date changing after "Add
-    // Event" appends it (see that button's own handler further up this
-    // file, which doesn't need to call refresh() itself for that reason).
+    // Event"/the per-row "+" insert adds it (see those handlers further
+    // up this file, which don't need to call refresh() themselves for
+    // that reason).
     eventRows.addEventListener('input', function (e) {
         if (e.target.name === 'event_date') refresh();
     });
-    // 'click' (not 'input') because removing a row doesn't fire any
-    // input event on its own — this fires on the way down to whichever
-    // remove button was clicked (both the inline onclick on server-
-    // rendered rows and the listener Add Event wires on new ones
-    // already remove the row synchronously before this bubbles up), so
-    // by the time refresh() runs here the row is already gone.
-    eventRows.addEventListener('click', function (e) {
-        if (e.target.closest('.ir-event-remove')) refresh();
+
+    // Re-sorts the ROWS THEMSELVES once a date/time value is actually
+    // done changing. TWO paths set these fields, and they need two
+    // different triggers:
+    //   - Typing by hand: only 'focusout' (below) should sort — doing
+    //     it on every keystroke would yank the row (and the field the
+    //     user is actively typing in) to a new position under their
+    //     cursor mid-type.
+    //   - The calendar/clock picker (applyAndClose() above): clicking
+    //     a day/applying a time sets .value and dispatches a plain
+    //     'input' event, but NEVER actually focuses the text field
+    //     itself (the click target is the picker's own popup, not the
+    //     input) — so 'focusout' never fires for a picker-driven
+    //     change at all. Confirmed live: picking dates entirely through
+    //     the picker (27, 28, 30, then 29) left 30 sitting above 29,
+    //     unsorted, because the only wired trigger (focusout) never
+    //     saw it. Debouncing the SAME 'input' event this already
+    //     listens to above covers the picker (whose one dispatched
+    //     event settles after the debounce) without reordering mid-
+    //     keystroke for manual typing (each new keystroke's 'input'
+    //     resets the timer, so it only fires once typing actually
+    //     pauses).
+    var sortDebounce = null;
+    eventRows.addEventListener('input', function (e) {
+        if (e.target.name !== 'event_date' && e.target.name !== 'event_time') return;
+        if (sortDebounce) clearTimeout(sortDebounce);
+        sortDebounce = setTimeout(function () {
+            sortDebounce = null;
+            sortEventRows();
+            refresh();
+        }, 600);
     });
+    eventRows.addEventListener('focusout', function (e) {
+        if (e.target.name === 'event_date' || e.target.name === 'event_time') {
+            if (sortDebounce) {
+                clearTimeout(sortDebounce);
+                sortDebounce = null;
+            }
+            sortEventRows();
+            refresh();
+        }
+    });
+    // 'click' (not 'input') because removing a row, or inserting/adding
+    // one, doesn't fire any input event on its own — this fires on the
+    // way down to whichever button was clicked, after that row's own
+    // handler has already added/removed it (inline onclick on server-
+    // rendered remove buttons, and every other handler in this file,
+    // all run before this bubbles up), so by the time refresh() runs
+    // here the row list is already in its new shape.
+    eventRows.addEventListener('click', function (e) {
+        if (e.target.closest('.ir-event-remove, .ir-event-insert')) refresh();
+    });
+    document.getElementById('irAddEvent') && document.getElementById('irAddEvent').addEventListener('click', refresh);
+
+    // Initial render — a saved report's events already come back
+    // chronologically sorted (see _event_sort_key(), applied on every
+    // save) and the server already sends header_date-annotated rows
+    // (see document.html) to match, so sortEventRows() here is just a
+    // safety net, not expected to actually move anything on a normal
+    // load. refresh() still needs to run once either way so later edits
+    // have a correct DOM state to diff from, and so a page with zero
+    // saved events (nothing for the server to annotate) gets its first
+    // header as soon as "Add Event" adds the first row.
+    sortEventRows();
+    refresh();
 })();
 
 // Incident Number/Duration — editable in every table the exported

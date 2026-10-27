@@ -228,14 +228,13 @@
                  value="{{ report.get('actions_taken_summary', 'Acknowledgment, Investigation, Resolution & Root Cause Analysis') }}"
                  placeholder="Acknowledgment, Investigation, Resolution &amp; Root Cause Analysis" required>
         </div>
-        <div id="irChronologyDatePreviews">
-          <p class="ir-fixed-line">Date and Time: <span class="ir-fixed-line-date{{ '' if report.get('incident_date') else ' ir-fixed-line-placeholder' }}">{{ report.get('incident_date') or '(same as Incident Date above)' }}</span></p>
-        </div>
-
         <label style="font-size:10.5px;font-weight:700;color:#b25400;">Events</label>
-        <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">Each event has its own date, so a chronology that runs past midnight still shows which day every line belongs to.</p>
+        <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">Each event has its own date, so a chronology that runs past midnight still shows which day every line belongs to — same grouping the exported document uses.</p>
         <div id="irEventRows">
           {% for event in report.get('chronology_events', []) %}
+          {% if event.header_date is defined and event.header_date %}
+          <p class="ir-fixed-line ir-chronology-header">Date and Time: <span class="ir-fixed-line-date">{{ event.header_date }}</span></p>
+          {% endif %}
           <div class="ir-event-row">
             <div class="ir-date-field">
               <input type="text" name="event_date" value="{{ event.get('date', '') }}" placeholder="22-Sep-2026" class="ir-date-text" required>
@@ -246,6 +245,7 @@
               <button type="button" class="ir-date-pick-btn" aria-label="Pick a time"><i class="ti ti-clock"></i></button>
             </div>
             <input type="text" name="event_description" value="{{ event.description }}" placeholder="What happened at this time..." required>
+            <button type="button" class="ir-event-insert" aria-label="Insert event below this one"><i class="ti ti-plus"></i></button>
             <button type="button" class="ir-event-remove" onclick="this.closest('.ir-event-row').remove()"><i class="ti ti-x"></i></button>
           </div>
           {% endfor %}
