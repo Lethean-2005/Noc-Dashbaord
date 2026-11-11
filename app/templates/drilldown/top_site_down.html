@@ -17,7 +17,7 @@
         <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=request.args.get('type', ''), category=request.args.get('category', ''), root_cause_site=request.args.get('root_cause_site', ''), root_cause_bucket=request.args.get('root_cause_bucket', ''), top_site_down_week=request.args.getlist('top_site_down_week'), site_down_duration_week=request.args.getlist('site_down_duration_week')) }}"><i class="ti ti-download"></i> Export</a>
     </div>
 </div>
-<div class="alarm-table-wrap">
+<div class="alarm-table-wrap drilldown-table-wrap">
     <table class="alarm-table">
         <thead>
             <tr>
@@ -34,9 +34,9 @@
         <tbody>
             {% for row in rows %}
             <tr>
-                <td>{% if row.incident_numeric_id %}<a href="https://prd-web-mc.cellcard.com.kh/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
+                <td>{% if row.incident_numeric_id %}<a href="{{ config.STREAMLINE_BASE_URL }}/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a>{% else %}{{ row.incident_id }}{% endif %}</td>
                 <td>{{ row.site }}</td>
-                <td>{{ row.site_code }}</td>
+                <td>{{ row.site_code | site_code_display }}</td>
                 <td>{{ row.duration_display }}</td>
                 <td>{{ row.occurred_at }}</td>
                 <td>{{ row.resolved_at }}</td>
@@ -44,7 +44,7 @@
                 <td>{{ row.root_cause_category or "None" }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="8">No Site Down incidents found</td></tr>
+            <tr class="empty-row"><td colspan="8">{% with %}{% set empty_message %}No Site Down incidents found{% endset %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
             {% endfor %}
         </tbody>
     </table>

@@ -1,24 +1,7 @@
-"""Background threads for the Site Down 24h Teams alert
-(app/services/incident/site_down_24h_alert_service.py) — two
-INDEPENDENTLY timed loops, not one shared cycle:
+"""Separate Site Down and restoration loops, both defaulting to five minutes.
 
-  - down-alert check, every SITE_DOWN_24H_ALERT_INTERVAL_SECONDS
-    (24h by default) — only needs to catch an incident shortly after
-    it crosses the threshold, not continuously.
-  - restore-confirmation check, every
-    SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS (15min by default) —
-    a restore should be noticed soon after it actually happens, not
-    wait for the same once-a-day cadence the down-alert check uses.
-
-Split into two loops (not one shared `_work()` like before) specifically
-so these two intervals can differ — confirmed needed live: forcing them
-to share one interval meant slowing the down-alert check down to 24h
-(to cut Teams/SharePoint call volume) also slowed restore-confirmation
-down to 24h, adding up to a full day of delay after a site actually
-came back up.
-
-start() is called once from app/__init__.py::create_app(). See
-scheduler_utils.py for the shared loop/guard logic.
+Intervals come from application configuration. Runs align to Cambodia time;
+startup waits until each loop's next scheduled boundary.
 """
 
 from app.services.incident.site_down_24h_alert_service import (
@@ -30,12 +13,8 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# Module-level so app/__init__.py's _validate_scheduler_offsets() can
-# check both at startup — see that function's own docstring. Two
-# separate constants (not one) since this module now runs two
-# independently-timed loops that could otherwise land on the exact
-# same instant as each other, or as some other scheduler.
-OFFSET_SECONDS = 120
+# Distinct clock offsets keep the two checks staggered.
+OFFSET_SECONDS = 43200
 RESTORE_OFFSET_SECONDS = 50
 
 

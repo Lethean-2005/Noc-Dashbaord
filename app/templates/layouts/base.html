@@ -28,9 +28,10 @@
             } catch (e) {}
         })();
     </script>
+    <script src="{{ versioned_static('js/cambodia-time.js') }}"></script>
     {% block head %}{% endblock %}
 </head>
-<body data-card-layout-reset-version="{{ config.CARD_LAYOUT_RESET_VERSION }}">
+<body data-card-layout-reset-version="{{ config.CARD_LAYOUT_RESET_VERSION }}" data-timezone="{{ config.TIMEZONE }}" data-streamline-base="{{ config.STREAMLINE_BASE_URL }}">
     <!-- Notification modal -->
     <div id="custom-modal" class="modal">
         <div class="modal-content">
@@ -74,6 +75,8 @@
     </div>
 
     {% include "layouts/custom_card.html" %}
+    {% include "layouts/congestion_blacklist.html" %}
+    <template id="tableEmptyStateTemplate">{% with empty_message='No results found' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</template>
 
     {% include "layouts/sidebar.html" %}
 
@@ -94,6 +97,9 @@
 
     <script src="{{ versioned_static('js/table.js') }}"></script>
     <script src="{{ versioned_static('js/app.js') }}"></script>
+    <script src="{{ versioned_static('js/filter-dropdowns.js') }}"></script>
+    <script src="{{ versioned_static('js/dashboard-fragments.js') }}"></script>
+    <script src="{{ versioned_static('js/congestion-blacklist.js') }}"></script>
     <script src="{{ versioned_static('js/card-layout.js') }}"></script>
     <script>
         // Scroll to a #card-id anchor after a full page reload (e.g. a

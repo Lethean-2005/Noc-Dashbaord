@@ -64,6 +64,7 @@ class Config:
     """Base configuration shared by all environments."""
 
     # ── Application ──────────────────────────────────────────────
+    STREAMLINE_BASE_URL = os.environ.get("STREAMLINE_BASE_URL", "https://prd-web-mc.cellcard.com.kh").rstrip("/")
     APP_NAME = os.environ.get("APP_NAME", "Dashboard")
     SECRET_KEY = os.environ.get("SECRET_KEY", "change-me")
     # Caps request body size so an oversized upload can't be read fully
@@ -181,7 +182,7 @@ class Config:
     )
 
     # ── Dashboard behavior ───────────────────────────────────────
-    TIMEZONE = os.environ.get("TIMEZONE", "UTC")
+    TIMEZONE = "Asia/Phnom_Penh"
     DEFAULT_THEME = os.environ.get("DEFAULT_THEME", "light")
     ROWS_PER_PAGE = int(os.environ.get("ROWS_PER_PAGE", 25))
 
@@ -266,18 +267,17 @@ class Config:
     SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL = os.environ.get(
         "SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL", ""
     )
-    # How often the down-alert check runs (24h by default — only needs
-    # to catch an incident shortly after it actually crosses the
-    # threshold, not continuously).
+    # How often the down-alert check runs — 5 minutes, so an incident
+    # gets caught shortly after it actually crosses the threshold
+    # instead of waiting up to a full day for the next daily check.
     SITE_DOWN_24H_ALERT_INTERVAL_SECONDS = int(
-        os.environ.get("SITE_DOWN_24H_ALERT_INTERVAL_SECONDS", 86400)
+        os.environ.get("SITE_DOWN_24H_ALERT_INTERVAL_SECONDS", 300)
     )
-    # How often the restore-confirmation check runs — separate from the
-    # down-alert interval above, confirmed needed: a restore should be
-    # noticed soon after it actually happens, not wait for the same
-    # once-a-day cadence as the down-alert check.
+    # How often the restore-confirmation check runs — same 5 minutes as
+    # the down-alert check above, so a restore is noticed within minutes
+    # of actually happening, not up to 15 later.
     SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS = int(
-        os.environ.get("SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS", 900)
+        os.environ.get("SITE_DOWN_24H_ALERT_RESTORE_INTERVAL_SECONDS", 300)
     )
     SITE_DOWN_24H_ALERT_THRESHOLD_HOURS = int(
         os.environ.get("SITE_DOWN_24H_ALERT_THRESHOLD_HOURS", 24)

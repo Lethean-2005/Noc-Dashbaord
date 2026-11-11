@@ -17,6 +17,8 @@ from app.repositories.incident_report.incident_report_repository import (
 )
 from app.services.incident_report.incident_report_docx import build_docx
 from app.services.incident_report.incident_report_pdf import build_pdf
+from app.services.incident_report.smart_network_docx import build_docx as build_smart_network_docx
+from app.services.incident_report.smart_network_pdf import build_pdf as build_smart_network_pdf
 
 
 def _event_sort_key(event):
@@ -123,6 +125,17 @@ _SECOND_FAULT_TEXT_FIELDS = (
     "permanent_fixed_2",
 )
 
+# Smart Network Report — a second report TYPE on this same page (see
+# document.html's own type dropdown), modeled on Telcotech's own monthly
+# circuit report (4 sections: Active Circuits Inventory, Monthly Outage
+# Statistics, Fault Services Statistics & Summary, Services Outage
+# Report). Shares document_title/file_name with the Incident Report type
+# (both need a title and an export filename) but every other field here
+# is unique to this type.
+_SMART_TEXT_FIELDS = ("document_title", "file_name", "smart_report_month", "smart_customer_name")
+
+_SMART_MONTH_KEYS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+
 
 class IncidentReportService:
     def __init__(self, repository=None):
@@ -151,6 +164,7 @@ class IncidentReportService:
         _build_picture_references() below for why this can't just be
         round-tripped through the form itself."""
         fields = {name: (form.get(name) or "").strip() for name in _TEXT_FIELDS}
+        fields["report_type"] = "incident"
         fields["has_second_fault"] = (form.get("has_second_fault") or "").strip()
         fields.update({name: (form.get(name) or "").strip() for name in _SECOND_FAULT_TEXT_FIELDS})
 
@@ -173,6 +187,105 @@ class IncidentReportService:
         pictures = self._build_picture_references(form, files, existing_pictures or [])
         fields["picture_references_json"] = json.dumps(pictures)
         return fields
+
+    def parse_smart_form(self, form):
+        """Flask `request.form` -> the plain dict for a Smart Network
+        Report save (see parse_form() above for the Incident Report's
+        own equivalent). The repeatable tables comes in as
+        parallel form-array lists (one list per column), zipped back
+        into one dict per row; a row where every field is blank is
+        dropped rather than saved as an empty table row, same "drop
+        blank trailing rows" convention parse_form() already uses for
+        chronology events."""
+        fields = {name: (form.get(name) or "").strip() for name in _SMART_TEXT_FIELDS}
+        fields["report_type"] = "smart_network"
+
+        descriptions = form.getlist("circuit_customer_description")
+        services = form.getlist("circuit_service")
+        bandwidths = form.getlist("circuit_bandwidth")
+        circuit_ids = form.getlist("circuit_id")
+        circuits = [
+            {"customer_description": d.strip(), "service": s.strip(), "bandwidth": b.strip(), "circuit_id": c.strip()}
+            for d, s, b, c in zip(descriptions, services, bandwidths, circuit_ids)
+            if d.strip() or s.strip() or b.strip() or c.strip()
+        ]
+        fields["smart_active_circuits_json"] = json.dumps(circuits)
+
+        fields["smart_monthly_outage_json"] = json.dumps(
+            self._parse_smart_month_table(form, "outage")
+        )
+        # Section 3 always mirrors section 2, including cleared/deleted rows.
+        fields["smart_fault_services_json"] = fields["smart_monthly_outage_json"]
+
+        ticket_nos = form.getlist("outage_ticket_no")
+        circuit_id_2 = form.getlist("outage_circuit_id")
+        date_started = form.getlist("outage_date_started")
+        date_finished = form.getlist("outage_date_finished")
+        outage_services = form.getlist("outage_service")
+        issue_owners = form.getlist("outage_issue_owner")
+        interruptions = form.getlist("outage_interruption")
+        notes = form.getlist("outage_notes")
+        outages = [
+            {
+                "ticket_no": tn.strip(), "circuit_id": ci.strip(), "date_started": ds.strip(),
+                "date_finished": df.strip(), "service": sv.strip(), "issue_owner": io.strip(),
+                "interruption": it.strip(), "notes": nt.strip(),
+            }
+            for tn, ci, ds, df, sv, io, it, nt in zip(
+                ticket_nos, circuit_id_2, date_started, date_finished,
+                outage_services, issue_owners, interruptions, notes,
+            )
+            if any((tn.strip(), ci.strip(), ds.strip(), df.strip(), sv.strip(), io.strip(), it.strip(), nt.strip()))
+        ]
+        fields["smart_services_outage_json"] = json.dumps(outages)
+        from app.utils.smart_report import reaction_delay
+        names = ("ticket_no", "circuit_id", "occurred_time", "smart_complain", "tct_respond",
+                 "failure_to_react", "sla", "service_credit", "note")
+        columns = {name: form.getlist("react_" + name) for name in names}
+        reactions = []
+        for index in range(max((len(values) for values in columns.values()), default=0)):
+            row = {name: (values[index].strip() if index < len(values) else "")
+                   for name, values in columns.items()}
+            if not any(row.values()):
+                continue
+            if not row["failure_to_react"]:
+                row["failure_to_react"] = reaction_delay(row["smart_complain"], row["tct_respond"])
+            reactions.append(row)
+        fields["smart_failure_to_react_json"] = json.dumps(reactions)
+        fields["smart_credit_note_json"] = json.dumps(self._parse_smart_month_table(form, "credit"))
+        fields["smart_credit_amounts_json"] = json.dumps({
+            month: (form.get("credit_amount_" + month) or "").strip() for month in _SMART_MONTH_KEYS
+        })
+        return fields
+
+    @staticmethod
+    def _parse_smart_month_table(form, prefix):
+        """One repeatable table shared by Monthly Outage Statistics and
+        Fault Services Statistics & Summary — same row shape (a circuit
+        name plus a Jan-Dec availability % grid), just two separate
+        tables on the page (`prefix` distinguishes which form fields
+        belong to which), since the PDF this is modeled on always shows
+        them as two separate sections even though they carry the same
+        columns."""
+        circuit_names = form.getlist(f"{prefix}_circuit")
+        month_lists = {m: form.getlist(f"{prefix}_{m}") for m in _SMART_MONTH_KEYS}
+        rows = []
+        for i, circuit in enumerate(circuit_names):
+            months = {m: (month_lists[m][i].strip() if i < len(month_lists[m]) else "") for m in _SMART_MONTH_KEYS}
+            if circuit.strip() or any(months.values()):
+                rows.append({"circuit": circuit.strip(), "months": months})
+        return rows
+
+    @staticmethod
+    def is_smart_complete(fields):
+        """Lenient on purpose, unlike the Incident Report's
+        is_complete() — this type is newer and its real-world required-
+        field rules aren't settled yet, so only the two text fields
+        block "Save & Complete" for now; nothing about the repeatable tables is
+        required."""
+        return bool((fields.get("smart_report_month") or "").strip()) and bool(
+            (fields.get("smart_customer_name") or "").strip()
+        )
 
     @staticmethod
     def _build_picture_references(form, files, existing_pictures):
@@ -297,15 +410,26 @@ class IncidentReportService:
 
     def render_pdf(self, report_id, report=None):
         """`report`, if given (the route already needs it for the export
-        filename), is used instead of fetching it again here."""
+        filename), is used instead of fetching it again here. Branches by
+        report_type — each type builds its own PDF (incident_report_pdf.py
+        vs smart_network_pdf.py), both via the same shared Word-automation
+        machinery (app/services/word_export.py)."""
         report = report if report is not None else self.repository.get(report_id)
-        return build_pdf(report) if report else None
+        if not report:
+            return None
+        if (report.get("report_type") or "incident") == "smart_network":
+            return build_smart_network_pdf(report)
+        return build_pdf(report)
 
     def render_docx(self, report_id, report=None):
         """`report`, if given (the route already needs it for the export
         filename), is used instead of fetching it again here."""
         report = report if report is not None else self.repository.get(report_id)
-        return build_docx(report) if report else None
+        if not report:
+            return None
+        if (report.get("report_type") or "incident") == "smart_network":
+            return build_smart_network_docx(report)
+        return build_docx(report)
 
     @staticmethod
     def _now():

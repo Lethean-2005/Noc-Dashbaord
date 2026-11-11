@@ -1,14 +1,22 @@
-// Warns before leaving this page if the document has unsaved changes —
-// covers accidental refresh/back/tab-close, and anything else that
-// might navigate away or reload while typing (this page has no
-// auto-reload timer of its own, unlike the main dashboard, but the
-// browser itself can still discard/reload a backgrounded tab under
-// memory pressure, which a plain page-navigation guard can't prevent,
-// only warn against before an intentional one). Dirty tracking is
-// delegated on the whole form (any field, including ones added later by
-// "Add Event") and clears the moment the form is actually submitted —
-// intentionally saving should never trigger this warning on its own way
-// out.
+// Strict entered-clock parsing for Smart Report intervals; reject rolled-over dates.
+function parseSmartReportDateTime(value) {
+    var text = (value || '').trim();
+    var match = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{1,2}):(\d{2})$/.exec(text);
+    var year, month, day, hour, minute, second = 0;
+    if (match) {
+        var months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+        day = +match[1]; month = months.indexOf(match[2].toLowerCase()); year = +match[3]; hour = +match[4]; minute = +match[5];
+    } else {
+        match = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(text);
+        if (!match) return null;
+        year = +match[1]; month = +match[2] - 1; day = +match[3]; hour = +match[4]; minute = +match[5]; second = +(match[6] || 0);
+    }
+    if (month < 0 || month > 11 || day < 1 || hour < 0 || hour > 23 || minute < 0 || minute > 59 || second > 59) return null;
+    var date = new Date(Date.UTC(year, month, day, hour, minute, second));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month && date.getUTCDate() === day ? date : null;
+}
+
+// Warn before leaving a report with unsaved edits.
 (function () {
     var form = document.getElementById('incidentReportForm');
     if (!form) return;
@@ -17,10 +25,14 @@
     form.addEventListener('input', function () {
         isDirty = true;
     });
-    // Delegated on the whole document, not just this form — Delete and
-    // Mark Final/Revert to Draft (document.html) are each their OWN
-    // separate <form>, and any of those submitting is just as much an
-    // intentional, resolved action as saving the main form is.
+    form.addEventListener('change', function (event) {
+        if (event.isTrusted) isDirty = true;
+    });
+    // Capture before inline remove handlers detach the clicked row.
+    form.addEventListener('click', function (event) {
+        if (event.target.closest('.ir-event-remove, .ir-event-insert, .ir-smart-row-remove, .ir-smart-row-insert, [id^="irAdd"], #irRemoveSecondFault')) isDirty = true;
+    }, true);
+    // Saving or changing report status clears the navigation warning.
     document.addEventListener('submit', function () {
         isDirty = false;
     });
@@ -31,15 +43,47 @@
     });
 })();
 
-// Report picker (top toolbar) — custom dropdown instead of a native
-// <select> (document.html's own note on why: capping visible rows
-// before scroll isn't controllable on a native select's popup). Same
-// toggle/outside-click-close pattern as Incident Received By's own
-// dropdown above, just navigating on click instead of filling a field.
+// Open the report picker and navigate to the selected report.
 (function () {
     var toggle = document.getElementById('irReportPickerToggle');
     var card = document.getElementById('irReportPickerCard');
     var optionsEl = document.getElementById('irReportPickerOptions');
+    if (!toggle || !card || !optionsEl) return;
+
+    function closeDropdown() {
+        card.style.display = 'none';
+        toggle.classList.remove('is-open');
+    }
+
+    toggle.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (card.style.display === 'block') { closeDropdown(); return; }
+        card.style.display = 'block';
+        toggle.classList.add('is-open');
+    });
+
+    optionsEl.querySelectorAll('.pc-field-dropdown-option').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            window.location.href = btn.dataset.href;
+        });
+    });
+
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('.pc-field-with-dropdown')) return;
+        closeDropdown();
+    });
+})();
+
+// Report TYPE picker (top toolbar, left of the report picker) — same
+// toggle/outside-click-close/navigate-on-click pattern as the report
+// picker above, just a separate dropdown instance (see
+// _type_picker.html). Both dropdowns' outside-click handlers already
+// close on any click outside .pc-field-with-dropdown, which covers
+// this one too without changes there.
+(function () {
+    var toggle = document.getElementById('irTypePickerToggle');
+    var card = document.getElementById('irTypePickerCard');
+    var optionsEl = document.getElementById('irTypePickerOptions');
     if (!toggle || !card || !optionsEl) return;
 
     function closeDropdown() {
@@ -128,7 +172,7 @@
 
     if (addBtn) {
         addBtn.addEventListener('click', function () {
-            var now = new Date();
+            var now = window.NocTime.parts();
             // Follows the LAST existing event row's own date first — a
             // chronology moves forward in time, so once it's already
             // progressed to a later day (e.g. rolled past midnight), the
@@ -144,8 +188,8 @@
             var incidentDateInput = document.querySelector('input[name="incident_date"]');
             var incidentDate = incidentDateInput ? incidentDateInput.value.trim() : '';
             var defaultDate = lastEventDate || incidentDate ||
-                (now.getDate() + '-' + MONTHS[now.getMonth()] + '-' + now.getFullYear());
-            var defaultTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+                (now.day + '-' + MONTHS[(now.month - 1)] + '-' + now.year);
+            var defaultTime = pad2(now.hour) + ':' + pad2(now.minute);
             var row = buildEventRow(defaultDate, defaultTime);
             rows.appendChild(row);
             row.querySelector('input[name="event_time"]').focus();
@@ -166,13 +210,13 @@
         var clickedRow = insertBtn.closest('.ir-event-row');
         if (!clickedRow) return;
 
-        var now = new Date();
+        var now = window.NocTime.parts();
         var clickedDate = clickedRow.querySelector('input[name="event_date"]').value.trim();
         var incidentDateInput = document.querySelector('input[name="incident_date"]');
         var incidentDate = incidentDateInput ? incidentDateInput.value.trim() : '';
         var defaultDate = clickedDate || incidentDate ||
-            (now.getDate() + '-' + MONTHS[now.getMonth()] + '-' + now.getFullYear());
-        var defaultTime = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+            (now.day + '-' + MONTHS[(now.month - 1)] + '-' + now.year);
+        var defaultTime = pad2(now.hour) + ':' + pad2(now.minute);
         var newRow = buildEventRow(defaultDate, defaultTime);
         clickedRow.insertAdjacentElement('afterend', newRow);
         newRow.querySelector('input[name="event_time"]').focus();
@@ -584,14 +628,14 @@
         if (!m) return null;
         var monthIndex = MONTHS.indexOf(m[2]);
         if (monthIndex === -1) return null;
-        return new Date(
+        return new Date(Date.UTC(
             parseInt(m[3], 10), monthIndex, parseInt(m[1], 10), parseInt(m[4], 10), parseInt(m[5], 10)
-        );
+        ));
     }
 
     function formatDateTime(d) {
-        return d.getDate() + '-' + MONTHS[d.getMonth()] + '-' + d.getFullYear() +
-            ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        return d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() +
+            ' ' + pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes());
     }
 
     function parseDurationMinutes(value) {
@@ -717,8 +761,8 @@
     }
 
     function nowTime() {
-        var d = new Date();
-        return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        var d = window.NocTime.parts();
+        return pad2(d.hour) + ':' + pad2(d.minute);
     }
 
     function clamp(n, lo, hi) {
@@ -937,8 +981,8 @@
 
         var parsed = parseFieldValue(activeInput.value);
         if (!parsed) {
-            var today = new Date();
-            parsed = { day: today.getDate(), month: today.getMonth(), year: today.getFullYear(), time: null };
+            var today = window.NocTime.parts();
+            parsed = { day: today.day, month: (today.month - 1), year: today.year, time: null };
         }
         viewYear = parsed.year;
         viewMonth = parsed.month;
@@ -1284,4 +1328,265 @@
             });
         });
     });
+})();
+
+// Report Time's title — Detailed Incident Information's own select
+// ("Report Time" / "Occurred Time") drives the read-only mirror's title
+// in Incident Description / Root Cause Analysis, so both sections always
+// show the same word. Display-only: never posted to the server, never
+// saved with the report — always starts back on "Report Time" on page
+// load, same as the <select>'s own default-selected option.
+(function () {
+    var titleSelect = document.getElementById('irReportTimeTitle');
+    var mirrorTitle = document.getElementById('irDescReportTimeTitle');
+    if (!titleSelect || !mirrorTitle) return;
+
+    titleSelect.addEventListener('change', function () {
+        mirrorTitle.textContent = titleSelect.value;
+    });
+})();
+
+// Add or insert rows in the Smart Network report tables.
+(function () {
+    function buildRow(names, placeholders) {
+        var tr = document.createElement('tr');
+        tr.className = 'ir-smart-row';
+        names.forEach(function (name, i) {
+            var td = document.createElement('td');
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.name = name;
+            if (placeholders[i]) input.placeholder = placeholders[i];
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+        var actionsTd = document.createElement('td');
+        actionsTd.className = 'ir-smart-row-actions';
+        var insertBtn = document.createElement('button');
+        insertBtn.type = 'button';
+        insertBtn.className = 'ir-smart-row-insert';
+        insertBtn.title = 'Insert row below';
+        insertBtn.innerHTML = '<i class="ti ti-plus"></i>';
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'ir-smart-row-remove';
+        removeBtn.title = 'Remove row';
+        removeBtn.innerHTML = '<i class="ti ti-trash"></i>';
+        removeBtn.addEventListener('click', function () { tr.remove(); });
+        actionsTd.appendChild(insertBtn);
+        actionsTd.appendChild(removeBtn);
+        tr.appendChild(actionsTd);
+        return tr;
+    }
+
+    // Per-row "+" (.ir-smart-row-insert) — same "insert directly below
+    // THIS row, not just at the bottom of the table" pattern as the
+    // Incident Report's own chronology events (.ir-event-insert): a
+    // staff member filling in rows after the fact often needs to slot a
+    // missed circuit/outage in BETWEEN two already-entered ones.
+    // Delegated on the rows container rather than wired per-button, so
+    // it covers both server-rendered rows and ones added here with no
+    // extra wiring either way.
+    function wireAddButton(buttonId, rowsContainerId, names, placeholders) {
+        var btn = document.getElementById(buttonId);
+        var rows = document.getElementById(rowsContainerId);
+        if (!rows) return;
+        if (btn) {
+            btn.addEventListener('click', function () {
+                rows.appendChild(buildRow(names, placeholders));
+            });
+        }
+        rows.addEventListener('click', function (e) {
+            var insertBtn = e.target.closest('.ir-smart-row-insert');
+            if (!insertBtn) return;
+            var clickedRow = insertBtn.closest('tr');
+            if (!clickedRow) return;
+            var newRow = buildRow(names, placeholders);
+            clickedRow.insertAdjacentElement('afterend', newRow);
+            var firstInput = newRow.querySelector('input');
+            if (firstInput) firstInput.focus();
+        });
+    }
+
+    wireAddButton('irAddCircuitRow', 'irCircuitsRows',
+        ['circuit_customer_description', 'circuit_service', 'circuit_bandwidth', 'circuit_id'],
+        ['e.g. SMART DC/DR – IPLC to SG1 via MTC', 'e.g. IPLC', 'e.g. 100G', 'e.g. MX1453-MX1454']);
+
+    var MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+    function monthTableFieldNames(prefix) {
+        var names = [prefix + '_circuit'];
+        MONTH_KEYS.forEach(function (k) { names.push(prefix + '_' + k); });
+        return names;
+    }
+
+    function monthTablePlaceholders() {
+        var placeholders = ['e.g. MX1453-MX1454'];
+        MONTH_LABELS.forEach(function () { placeholders.push('%'); });
+        return placeholders;
+    }
+
+    wireAddButton('irAddOutageRow', 'irOutageRows', monthTableFieldNames('outage'), monthTablePlaceholders());
+    wireAddButton('irAddCreditRow', 'irCreditRows', monthTableFieldNames('credit'), monthTablePlaceholders());
+    wireAddButton('irAddFailureRow', 'irFailureRows',
+        ['react_ticket_no', 'react_circuit_id', 'react_occurred_time', 'react_smart_complain',
+         'react_tct_respond', 'react_failure_to_react', 'react_sla', 'react_service_credit', 'react_note'],
+        ['Ticket reference', 'Circuit from inventory', 'DD-Mon-YYYY HH:MM', 'DD-Mon-YYYY HH:MM',
+         'DD-Mon-YYYY HH:MM', '00hrs 00mins', 'Pass / Fail', 'e.g. 0%', 'Complaint or response details']);
+    // Section 2 is the single source for the read-only section 3 summary.
+    var outageRows = document.getElementById('irOutageRows');
+    var faultRows = document.getElementById('irFaultRows');
+    function syncFaultSummary() {
+        if (!outageRows || !faultRows) return;
+        var fragment = document.createDocumentFragment();
+        outageRows.querySelectorAll('tr').forEach(function (sourceRow) {
+            var sourceInputs = sourceRow.querySelectorAll('input, select');
+            var hasData = Array.prototype.some.call(sourceInputs, function (input) {
+                return input.value.trim() !== '';
+            });
+            if (!hasData) return;
+            var row = document.createElement('tr');
+            row.className = 'ir-smart-row';
+            sourceInputs.forEach(function (source) {
+                var cell = document.createElement('td');
+                var input = document.createElement('input');
+                input.type = 'text';
+                input.name = source.name.replace(/^outage_/, 'fault_');
+                input.value = source.value;
+                input.readOnly = true;
+                input.setAttribute('aria-readonly', 'true');
+                cell.appendChild(input);
+                row.appendChild(cell);
+            });
+            fragment.appendChild(row);
+        });
+        faultRows.replaceChildren(fragment);
+    }
+    if (outageRows && faultRows) {
+        outageRows.addEventListener('input', syncFaultSummary);
+        outageRows.addEventListener('change', syncFaultSummary);
+        new MutationObserver(syncFaultSummary).observe(outageRows, { childList: true });
+        syncFaultSummary();
+    }
+
+    wireAddButton('irAddServicesOutageRow', 'irServicesOutageRows',
+        ['outage_ticket_no', 'outage_circuit_id', 'outage_date_started', 'outage_date_finished',
+            'outage_service', 'outage_issue_owner', 'outage_interruption', 'outage_notes'],
+        ['e.g. 1979218', 'e.g. MX1453', 'e.g. 22-Sep-2026 13:30', 'e.g. 22-Sep-2026 13:55',
+            'e.g. IPLC', 'e.g. TELCOTECH', 'e.g. 00hrs 25mins', 'e.g. Notes...']);
+})();
+
+// Smart Network Report — Export File Name follows Report Month live
+// ("September 2027" -> "Smart Network Report_Sep 2027"), matching the
+// server's own default (app/routes/incident_report.py's
+// _default_smart_file_name()) so a report already shows the right
+// filename the moment its month is typed, not just on next page load.
+// Keeps running on every Report Month edit — a later manual edit to
+// Export File Name itself is left alone until Report Month changes
+// again, same "auto-fills, still freely editable" behavior as every
+// other defaulted field on this form.
+(function () {
+    var FULL_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    var SHORT_MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function reportMonthToShort(text) {
+        var match = /^([A-Za-z]+)(?:\s*[-\u2013/]\s*([A-Za-z]+))?\s+(\d{4})$/.exec((text || '').trim());
+        if (!match) return '';
+        function monthNumber(name) {
+            return FULL_MONTH_NAMES.findIndex(function (full, index) {
+                return full.toLowerCase() === name.toLowerCase() || SHORT_MONTH_NAMES[index].toLowerCase() === name.toLowerCase();
+            });
+        }
+        var first = monthNumber(match[1]);
+        var last = match[2] ? monthNumber(match[2]) : -1;
+        if (first < 0 || match[2] && last < 0) return '';
+        return SHORT_MONTH_NAMES[first] + (match[2] ? '-' + SHORT_MONTH_NAMES[last] : '') + ' ' + match[3];
+    }
+
+    var monthInput = document.querySelector('input[name="smart_report_month"]');
+    var fileInput = document.querySelector('input[name="file_name"]');
+    if (!monthInput || !fileInput) return;
+
+    monthInput.addEventListener('input', function () {
+        var short = reportMonthToShort(monthInput.value);
+        var year = /\b(\d{4})\b/.exec(monthInput.value);
+        if (year) document.querySelectorAll('.ir-smart-month-table th').forEach(function (th) {
+            var match = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{2}$/.exec(th.textContent.trim());
+            if (match) th.textContent = match[1] + '-' + year[1].slice(-2);
+        });
+        fileInput.value = short ? 'Smart Network Report_' + short : 'Smart Network Report';
+    });
+})();
+
+// Smart Network Report — Services Outage Report's own "Interruption"
+// auto-calculates from Date Started/Date Finished the moment both
+// parse (DD-Mon-YYYY HH:MM, the same format every example on this form
+// already uses) — "00hrs 25mins" style, matching the real data's own
+// convention exactly. Delegated on the rows container (not wired per
+// row) so it covers rows added via "Add Outage Row" and the per-row
+// "+" insert button with no extra wiring either way. Only overwrites
+// Interruption when both dates actually parse and Finished >= Started
+// — an incomplete or invalid pair leaves whatever's already typed
+// there alone, rather than clobbering it with a blank/wrong value.
+(function () {
+    var rows = document.getElementById('irServicesOutageRows');
+    if (!rows) return;
+
+
+    function pad2(n) {
+        return n < 10 ? '0' + n : String(n);
+    }
+
+    function parseDisplayDateTime(text) {
+        return parseSmartReportDateTime(text);
+    }
+
+    function recalc(tr) {
+        var startInput = tr.querySelector('input[name="outage_date_started"]');
+        var endInput = tr.querySelector('input[name="outage_date_finished"]');
+        var interruptionInput = tr.querySelector('input[name="outage_interruption"]');
+        if (!startInput || !endInput || !interruptionInput) return;
+        var start = parseDisplayDateTime(startInput.value);
+        var end = parseDisplayDateTime(endInput.value);
+        if (!start || !end || end < start) return;
+        var totalMinutes = Math.round((end - start) / 60000);
+        interruptionInput.value = pad2(Math.floor(totalMinutes / 60)) + 'hrs ' + pad2(totalMinutes % 60) + 'mins';
+    }
+
+    rows.addEventListener('input', function (e) {
+        var name = e.target.name;
+        if (name !== 'outage_date_started' && name !== 'outage_date_finished') return;
+        var tr = e.target.closest('tr');
+        if (tr) recalc(tr);
+    });
+})();
+
+// Failure-to-react delay follows complaint -> response; SLA and credit remain manual.
+(function () {
+    var body = document.getElementById('irFailureRows');
+    if (!body) return;
+    function calculate(row, initial) {
+        var complaint = row.querySelector('[name="react_smart_complain"]');
+        var response = row.querySelector('[name="react_tct_respond"]');
+        var result = row.querySelector('[name="react_failure_to_react"]');
+        if (!complaint || !response || !result) return;
+        if (initial && result.value.trim()) return;
+        var start = parseSmartReportDateTime(complaint.value);
+        var end = parseSmartReportDateTime(response.value);
+        response.setCustomValidity(start && end && end < start ? 'Response must not be before the complaint time.' : '');
+        if (!start || !end || end < start) {
+            if (result.dataset.calculated === 'true') result.value = '';
+            return;
+        }
+        var minutes = Math.floor((end-start) / 60000);
+        result.value = String(Math.floor(minutes/60)).padStart(2,'0') + 'hrs ' + String(minutes%60).padStart(2,'0') + 'mins';
+        result.dataset.calculated = 'true';
+    }
+    body.addEventListener('input', function (event) {
+        if (event.target.matches('[name="react_smart_complain"], [name="react_tct_respond"]')) calculate(event.target.closest('tr'), false);
+        if (event.target.matches('[name="react_failure_to_react"]')) delete event.target.dataset.calculated;
+    });
+    body.querySelectorAll('tr').forEach(function (row) { calculate(row, true); });
 })();

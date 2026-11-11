@@ -11,12 +11,13 @@ import math
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from flask import current_app
+from flask import current_app, has_app_context
 
 from app.repositories.alarm.alarm_cache_repository import AlarmCacheRepository
 from app.repositories.alarm.alarm_repository import AlarmRepository
 from app.utils.datetime import elapsed_minutes
 from app.utils.ttl_cache import ttl_cache
+from app.services.alarm.congestion_blacklist_service import CongestionBlacklistService
 
 # Duplicated locally rather than cross-imported from incident_service.py's
 # own private _now_local() — this codebase's established convention
@@ -97,6 +98,20 @@ class AlarmService:
     # the number badges on a card. See get_*_details() below for the full
     # row data behind a drilldown table.
 
+    @staticmethod
+    def _visible_congestion(rows, source=None):
+        # Plain unit callers with fake repositories have no Flask cache context.
+        if not has_app_context():
+            return rows
+        return CongestionBlacklistService().filter_rows(rows, source)
+
+    def _badge_rows(self, table, columns):
+        # Badge calculations do not need notes, timestamps or the full alarm payload.
+        fetch = getattr(self.cache_repository, "fetch_columns", None)
+        if fetch is not None:
+            return fetch(table, columns)
+        return self.cache_repository.fetch_all(table)
+
     @ttl_cache(15)
     def get_isp_pop_counts(self):
         """{'POP/PON DOWN': n, 'POP/PON POWER': n} for the ISP POP badges —
@@ -106,7 +121,7 @@ class AlarmService:
         type). POP Name alone isn't a reliable site identity on its own
         (see AlarmRepository), so both fields together are the site key —
         scoped only to this one badge/card, not EZE/TCT's _typed_counts."""
-        rows = self.cache_repository.fetch_all("isp_pop_alarm_cache")
+        rows = self._badge_rows("isp_pop_alarm_cache", ["alarm", "pop_name", "pop_code"])
         sites_by_type = {"POP/PON DOWN": set(), "POP/PON POWER": set()}
         for r in rows:
             pop_name = r.get("pop_name")
@@ -116,13 +131,25 @@ class AlarmService:
                 sites_by_type[alarm].add((pop_name, pop_code))
         return {alarm: len(sites) for alarm, sites in sites_by_type.items()}
 
-    @ttl_cache(15)
     def get_eze_counts(self):
-        """One count per EZE_TYPES entry for the EZE badges."""
-        rows = self.cache_repository.fetch_all("eze_alarm_cache")
-        return self._typed_counts(rows, EZE_TYPES)
+        """One count per EZE_TYPES entry for the EZE badges, except
+        'BANDWIDTH' and 'CONGESTION' — two distinct alarm names MSSQL
+        sends for the same underlying condition (the EZE_<type> naming
+        TCT's own bandwidth/congestion pair already uses — see
+        get_tct_counts()) — merged into a single 'BANDWIDTH' count so
+        the Congestion badge reflects both instead of silently
+        dropping every EZE_CONGESTION row (EZE_TYPES never listed
+        'CONGESTION' at all, so _typed_counts() excluded it from the
+        returned dict entirely — confirmed live: a real EZE_CONGESTION
+        alarm never showed on the badge or its drilldown before this
+        fix). The drilldown for that badge matches both raw types too
+        (see cards.html's data-type + _fetch_rows())."""
+        rows = self._visible_congestion(self._badge_rows("eze_alarm_cache",
+            ["alarm", "alarm_name", "pop_name", "pop_code", "pro_owner", "device_name", "ip_address", "interface"]), "eze")
+        counts = self._typed_counts(rows, EZE_TYPES + ("CONGESTION",))
+        counts["BANDWIDTH"] += counts.pop("CONGESTION")
+        return counts
 
-    @ttl_cache(15)
     def get_tct_counts(self):
         """One count per TCT_TYPES entry for the TCT badges, except
         'bandwidth' and 'congestion' — two distinct alarm names MSSQL
@@ -130,7 +157,8 @@ class AlarmService:
         a single 'congestion' count so the card shows one Congestion
         badge instead of two. The drilldown for that badge matches both
         raw types too (see cards.html's data-type + _fetch_rows())."""
-        rows = self.cache_repository.fetch_all("tct_alarm_cache")
+        rows = self._visible_congestion(self._badge_rows("tct_alarm_cache",
+            ["alarm", "alarm_name", "pop_name", "pop_code", "pro_owner", "device_name", "ip_address", "interface"]), "tct")
         counts = self._typed_counts(rows, TCT_TYPES)
         # Written as literal keys, not unpacked from CONGESTION_TCT_TYPES by
         # position — "which of the two survives as the merged key" is a real
@@ -144,7 +172,7 @@ class AlarmService:
     @ttl_cache(15)
     def get_it_node_count(self):
         """Single count of active IT_NODE alarms for the IT NODE card."""
-        return len(self.cache_repository.fetch_all("it_node_alarm_cache"))
+        return len(self._badge_rows("it_node_alarm_cache", ["id"]))
 
     # ── Full row detail (used by the drilldown table + CSV export) ──
 
@@ -154,11 +182,11 @@ class AlarmService:
 
     def get_eze_details(self):
         """Every active EZE alarm row, with outage_min filled in."""
-        return self._with_outage(self.cache_repository.fetch_all("eze_alarm_cache"))
+        return self._with_outage(self._visible_congestion(self.cache_repository.fetch_all("eze_alarm_cache"), "eze"))
 
     def get_tct_details(self):
         """Every active TCT alarm row, with outage_min filled in."""
-        return self._with_outage(self.cache_repository.fetch_all("tct_alarm_cache"))
+        return self._with_outage(self._visible_congestion(self.cache_repository.fetch_all("tct_alarm_cache"), "tct"))
 
     def get_it_node_details(self):
         """Every active IT_NODE alarm row, with outage_min filled in."""
@@ -178,7 +206,7 @@ class AlarmService:
         rows = self.cache_repository.fetch_where(
             "congestion_history_cache", "device_name = ?", (device_name,)
         )
-        return self._with_actual_duration(rows)
+        return self._with_actual_duration(self._visible_congestion(rows))
 
     def get_congestion_device_interface_summary(self, device_name):
         """One row per Interface for `device_name` — what the device
@@ -211,6 +239,7 @@ class AlarmService:
 
         summary = [
             {
+                "id": r.get("id") or "",
                 "pop_name": r.get("pop_name") or "",
                 "pop_code": r.get("pop_code") or "",
                 "pro_owner": r.get("pro_owner") or "",
@@ -219,6 +248,10 @@ class AlarmService:
                 "interface": interface,
                 "province": r.get("province") or "",
                 "additional_info": r.get("additional_info") or "",
+                # `r` is already each interface's own most recent alarm (see
+                # above) — its down_time is that interface's latest
+                # occurrence, not a new lookup.
+                "latest_occurred_at": r.get("down_time") or "",
                 "total_count": raw_counts[interface],
             }
             for interface, r in latest_by_interface.items()
@@ -244,7 +277,7 @@ class AlarmService:
         rows = self.cache_repository.fetch_where(
             "congestion_history_cache", "down_time >= ? AND down_time < ?", (start, end)
         )
-        return self._with_actual_duration(rows)
+        return self._with_actual_duration(self._visible_congestion(rows))
 
     def get_congestion_week_interface_summary(self, congestion_week):
         """One row per (Device, Interface) for ONE ISO week, across
@@ -267,6 +300,7 @@ class AlarmService:
 
         summary = [
             {
+                "id": r.get("id") or "",
                 "pop_name": r.get("pop_name") or "",
                 "pop_code": r.get("pop_code") or "",
                 "pro_owner": r.get("pro_owner") or "",
@@ -275,6 +309,10 @@ class AlarmService:
                 "interface": interface,
                 "province": r.get("province") or "",
                 "additional_info": r.get("additional_info") or "",
+                # `r` is already this (device, interface) pair's own most
+                # recent alarm within the week (see above) — its down_time
+                # is the latest occurrence, not a new lookup.
+                "latest_occurred_at": r.get("down_time") or "",
                 "total_count": raw_counts[(device, interface)],
             }
             for (device, interface), r in latest_by_key.items()
@@ -306,12 +344,12 @@ class AlarmService:
         `congestion_weeks` is silently dropped, same validate-in-the-
         service convention as IncidentService.get_top_site_down()'s own
         `week` param."""
-        # Only device_name/down_time are read below — fetch_columns()
-        # instead of fetch_all() skips building the other 17 columns'
-        # worth of dict entries per row (measured: ~210ms of this card's
-        # ~235ms on the real ~9-10k row table, see fetch_columns()'s own
-        # docstring).
-        rows = self.cache_repository.fetch_columns("congestion_history_cache", ["device_name", "down_time"])
+        # Include interface identity so rankings respect port-level exclusions.
+        rows = self.cache_repository.fetch_columns(
+            "congestion_history_cache",
+            ["device_name", "down_time", "pop_code", "pro_owner", "ip_address", "interface", "alarm", "alarm_name"],
+        )
+        rows = self._visible_congestion(rows)
         valid_isos = {w["iso"] for w in self.get_congestion_weeks()}
         selected_weeks = [w for w in (congestion_weeks or []) if w in valid_isos]
         if selected_weeks:

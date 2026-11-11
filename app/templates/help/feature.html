@@ -1,0 +1,14 @@
+{% extends "help/documentation.html" %}
+{% block article_body %}
+<p>{{ feature.intro }}</p>
+<h3>When to use this feature</h3>
+{% for paragraph in feature.before %}<p>{{ paragraph }}</p>{% endfor %}
+<h3>Step-by-step instructions</h3>
+<ol class="help-feature-steps">{% for step in feature.steps %}<li>{{ step }}</li>{% endfor %}</ol>
+{% if feature.fields %}<h3>What the fields mean</h3><div class="help-example-table-wrap"><table class="help-example-table"><thead><tr><th scope="col">Field or control</th><th scope="col">What it means</th></tr></thead><tbody>{% for name, description in feature.fields %}<tr><th scope="row">{{ name }}</th><td>{{ description }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<h3>What changes after saving</h3>{% for paragraph in feature.results %}<p>{{ paragraph }}</p>{% endfor %}
+<h3>Scope and important distinctions</h3>{% for paragraph in feature.limits %}<p>{{ paragraph }}</p>{% endfor %}
+<h3>Worked example</h3><p>{{ feature.example }}</p>
+{% if feature.screenshots %}<h3>Screenshot demonstration</h3><p>These are captures of the actual interface using isolated sample data. No operational action was submitted. Open an image to view it at full size.</p>
+{% for path, caption in feature.screenshots %}<figure class="help-demo-figure"><a href="{{ url_for('static', filename='images/' + path) }}" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/' + path) }}" alt="{{ caption }}" loading="lazy" decoding="async"></a><figcaption>{{ caption }} <a href="{{ url_for('static', filename='images/' + path) }}" target="_blank" rel="noopener">Open full-size demo</a></figcaption></figure>{% endfor %}{% endif %}
+{% endblock %}

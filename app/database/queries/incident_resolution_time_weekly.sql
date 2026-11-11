@@ -59,6 +59,6 @@ SELECT
 FROM object_322
 WHERE resolved_at IS NOT NULL
   AND (CASE WHEN creation_method = 'manually' THEN created_at ELSE issue_occurred_at END)
-      >= date_trunc('week', CURRENT_DATE) - INTERVAL '21 days'
+      >= ((date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Phnom_Penh') - INTERVAL '21 days') AT TIME ZONE 'Asia/Phnom_Penh' AT TIME ZONE 'UTC')
 GROUP BY iso_week, category
 ORDER BY iso_week;

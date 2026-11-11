@@ -75,9 +75,9 @@
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
 
   /* ── Shadows ────────────────────────────────────────────── */
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.10);
-  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --shadow-modal: none;
 }
 
 /* ── Dark mode ────────────────────────────────────────────── */
@@ -145,9 +145,9 @@
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.18);
 
   /* Shadows */
-  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.35);
-  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
+  --shadow-card: none;
+  --shadow-card-hover: none;
+  --shadow-modal: none;
 }
 
 /* ── Theme dropdown ────────────────────────────────────────── */
@@ -163,8 +163,8 @@
   margin-top: 4px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 8px;
-  box-shadow: var(--shadow-card-hover);
+  border-radius: 3px;
+  box-shadow: none;
   z-index: 200;
   min-width: 110px;
   padding: 4px;
@@ -183,11 +183,11 @@
   width: 100%;
   padding: 6px 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 12px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   cursor: pointer;
   transition: background 0.15s ease;
 }

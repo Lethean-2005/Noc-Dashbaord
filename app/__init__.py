@@ -55,6 +55,7 @@ def _register_extensions(app):
 
 
 def _register_blueprints(app):
+    from app.routes.congestion_blacklist import congestion_blacklist_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.help import help_bp
     from app.routes.incident_report import incident_report_bp
@@ -64,6 +65,7 @@ def _register_blueprints(app):
     from app.routes.reports import reports_bp
 
     app.register_blueprint(dashboard_bp)
+    app.register_blueprint(congestion_blacklist_bp)
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(mentor_bp, url_prefix="/mentor")
     app.register_blueprint(map_view_bp, url_prefix="/map")
@@ -73,8 +75,9 @@ def _register_blueprints(app):
 
 
 def _register_template_filters(app):
-    from app.utils.formatter import badge_color, status_badge_class
+    from app.utils.formatter import badge_color, status_badge_class, site_code_display
 
+    app.jinja_env.filters["site_code_display"] = site_code_display
     app.jinja_env.filters["badge_color"] = badge_color
     app.jinja_env.filters["status_badge_class"] = status_badge_class
 
@@ -117,6 +120,17 @@ def _register_static_cache_headers(app):
     nothing stays "permanently cached" in the sense of never updating,
     it's just keyed to a URL that's only reused while the file is
     actually unchanged."""
+
+    @app.after_request
+    def _add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        # Existing inline scripts, styles, maps and exports remain supported.
+        response.headers.setdefault("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'self'")
+        if request.is_secure:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return response
 
     @app.after_request
     def _add_static_cache_control(response):

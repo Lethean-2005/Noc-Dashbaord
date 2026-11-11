@@ -233,6 +233,7 @@ _CONGESTION_INTERFACE_SUMMARY_CSV_COLUMNS = [
     ("interface", "Interface"),
     ("province", "Province"),
     ("additional_info", "Additional Info"),
+    ("latest_occurred_at", "Latest Occurrence"),
     ("total_count", "Total"),
 ]
 
@@ -396,6 +397,7 @@ _RESOLUTION_TIME_DURATION_CSV_COLUMNS = [
 _SLA_COMPLIANCE_DETAILS_CSV_COLUMNS = [
     ("incident_id", "Incident ID"),
     ("category", "Category"),
+    ("root_cause_category", "Root Cause Category"),
     ("sla_target_display", "SLA"),
     ("priority", "Priority"),
     ("support_level", "Support Level"),
@@ -420,6 +422,7 @@ _INC_WO_CSV_COLUMNS = [
     ("support_level", "Support Level"),
     ("responsible_team", "Responsible Team"),
     ("fault_description", "Fault Description"),
+    ("resolution", "Resolution"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
     ("site_grade", "Site Grade"),
@@ -441,6 +444,7 @@ _INC_WO_RESOLVED_CSV_COLUMNS = [
     ("support_level", "Support Level"),
     ("responsible_team", "Responsible Team"),
     ("fault_description", "Fault Description"),
+    ("resolution", "Resolution"),
     ("nms", "NMS"),
     ("hub_site", "Hub Site"),
     ("site_grade", "Site Grade"),
@@ -662,16 +666,20 @@ _INCIDENT_SITE_DOWN_CSV_COLUMNS = [
 #   extra_template_kwargs  — "INC-WO Site Down" only: adds the
 #                             export_scope/export_type its download link needs.
 _SCOPE_HANDLERS = {
+    "INC-WO All Resolved": {
+        "fetch": lambda alarm_type: incwo_service.get_all_resolved_details(),
+        "template": "drilldown/incwo_all_resolved.html",
+        "csv_columns": [("incident_id", "Incident ID"), ("incident_status", "Incident Status"),
+                        ("incident_category", "Category"), ("site_code", "Site Codes"),
+                        ("occurred_at", "Occurred At"), ("wo_count", "Total WOs"),
+                        ("resolved_wo_count", "Resolved WOs"), ("resolved_at", "Latest WO Resolved At")],
+        "none_is_404": False,
+    },
     "Incident": {
         "fetch": lambda alarm_type: incident_service.get_details(alarm_type),
         "template": "drilldown/incidents.html",
         "csv_columns": _INCIDENT_CSV_COLUMNS,
         "none_is_404": True,
-        "extra_template_kwargs": lambda alarm_type: {
-            "worklog_by_incident": incident_service.get_worklog_by_incident_ids(
-                r.get("incident_numeric_id") for r in (incident_service.get_details(alarm_type) or [])
-            )
-        },
     },
     "Incident Volume": {
         "fetch": lambda alarm_type: incident_service.get_volume_trend_details(
@@ -1344,7 +1352,6 @@ def _sla_compliance_week_breakdowns(categories=None, rows=None):
     for iso_week, week_rows in by_week.items():
         rows_out = []
         for r in sorted(week_rows, key=lambda r: (r["category"], r["priority"])):
-            not_graded = r["incident_count"] - r["resolution_known_count"]
             rows_out.append({
                 "category": r["category"],
                 "priority": r["priority"],
@@ -1354,13 +1361,48 @@ def _sla_compliance_week_breakdowns(categories=None, rows=None):
                 "resolution_met_count": r["resolution_met_count"],
                 "resolution_known_count": r["resolution_known_count"],
                 "resolution_sla_pct": r["resolution_sla_pct"],
-                "not_graded_count": not_graded,
+                "not_graded_count": r.get("not_graded_count") or 0,
             })
         result[iso_week] = {
             "week_label": "Wk " + iso_week.split("W")[-1],
             "rows": rows_out,
         }
     return result
+
+
+def _sla_root_cause_label(row):
+    return str(row.get("root_cause_category") or "").strip() or "Not Assigned"
+
+
+def _sla_compliance_root_cause_breakdowns(categories=None):
+    """Count root causes for incidents that missed Response or Resolution SLA.
+
+    Keep the occurrence-week anchor, category filters and unassigned causes.
+    The drilldown uses the same root_cause metric predicate.
+    """
+    rows = _sla_compliance_details_cache_repository.fetch_all(_SLA_COMPLIANCE_DETAILS_TABLE)
+    rows = _filter_rows_by_categories(rows, categories)
+
+    counts_by_week = {}
+    for r in rows:
+        iso_week = r.get("iso_week")
+        if not iso_week or not _SLA_COMPLIANCE_METRICS["root_cause"](r):
+            continue
+        category = _sla_root_cause_label(r)
+        week_counts = counts_by_week.setdefault(iso_week, {})
+        counts = week_counts.setdefault(category, {"count": 0, "response_not_met": 0, "resolution_not_met": 0})
+        counts["count"] += 1
+        counts["response_not_met"] += int(r.get("overdue_response") == 1)
+        counts["resolution_not_met"] += int(r.get("overdue") == 1)
+
+    return {
+        iso_week: sorted(
+            ({"category": category, **counts} for category, counts in week_counts.items()),
+            key=lambda c: c["count"],
+            reverse=True,
+        )
+        for iso_week, week_counts in counts_by_week.items()
+    }
 
 
 def _build_sla_compliance_context(categories=None, weeks=None, rows=None):
@@ -1976,6 +2018,34 @@ _SLA_COMPLIANCE_METRICS = {
     "res_known": lambda r: r.get("overdue") is not None,
     "not_graded": lambda r: r.get("overdue") is None,
     "total": lambda r: True,
+    "root_cause": lambda r: r.get("overdue_response") == 1 or r.get("overdue") == 1,
+    "root_cause_resp": lambda r: r.get("overdue_response") == 1,
+    "root_cause_res": lambda r: r.get("overdue") == 1,
+}
+
+# Which week column each metric's iso_week in a badge_type ("{metric}_
+# {iso_week}") should be matched against — must be the SAME anchor
+# incident_sla_compliance_weekly.sql used to compute that metric's own
+# count, or the drilldown shows a different, mismatched set of incidents
+# than the number that was clicked (confirmed live: Resolution Met's
+# "21/43" cell linked to only 17 rows under the old single-iso_week
+# filtering, since resolution_known_count is closed_at-anchored but the
+# filter was issue_occurred_at-anchored — see
+# incident_sla_compliance_details.sql's own header for the full story).
+_SLA_COMPLIANCE_METRIC_WEEK_COLUMN = {
+    "resp_met": "response_iso_week",
+    "res_met": "resolution_iso_week",
+    "res_known": "resolution_iso_week",
+    "not_graded": "iso_week",
+    # "total" backs the popup's "All Incidents" link, which is literally
+    # hyperlinked to row.incident_count (see performance_cards.html) —
+    # and incident_count comes from response_stats in
+    # incident_sla_compliance_weekly.sql, i.e. it's created_at-anchored,
+    # the SAME source as response_met_count. Confirmed live this isn't
+    # theoretical: 7 of 70 real category/week combos already disagreed
+    # between occurred_at-week and created_at-week totals.
+    "total": "response_iso_week",
+    "root_cause": "iso_week",
 }
 
 
@@ -2029,6 +2099,7 @@ def _sla_compliance_details(badge_type=None):
         out = []
         for r in matched_rows:
             row = dict(r)
+            row["root_cause_category"] = _sla_root_cause_label(row)
             row["response_sla_display"] = (
                 "Missed" if row.get("overdue_response") == 1
                 else "Met" if row.get("overdue_response") == 0 else "-"
@@ -2055,11 +2126,16 @@ def _sla_compliance_details(badge_type=None):
 
     category = request.args.get("category")
     priority = request.args.get("priority")
+    root_cause = request.args.get("root_cause")
+    if metric.startswith("root_cause"):
+        rows = _filter_rows_by_categories(rows, request.args.getlist("sla_compliance_category"))
+    week_column = _SLA_COMPLIANCE_METRIC_WEEK_COLUMN.get(metric, "iso_week")
     matched = [
         r for r in rows
-        if r.get("iso_week") == iso_week
+        if r.get(week_column) == iso_week
         and (not category or r.get("category") == category)
         and (not priority or r.get("priority") == priority)
+        and (not metric.startswith("root_cause") or root_cause is None or _sla_root_cause_label(r) == root_cause)
         and metric_fn(r)
     ]
     return _with_display(matched)
@@ -2158,6 +2234,9 @@ def _performance_cards_context():
         "sla_compliance_week_breakdowns": _sla_compliance_week_breakdowns(
             selected_sla_compliance_categories, rows=sla_compliance_weekly_rows
         ),
+        "sla_compliance_root_cause_breakdowns": _sla_compliance_root_cause_breakdowns(
+            selected_sla_compliance_categories
+        ),
         "sla_compliance_categories": _available_categories(
             _sla_compliance_weekly_cache_repository,
             _SLA_COMPLIANCE_WEEKLY_TABLE,
@@ -2238,7 +2317,7 @@ def _graph_cards_context(incident_status_rows=None):
         "incident_age_chart": incident_service.get_incident_age_chart(
             selected_age_buckets, rows=incident_status_rows
         ),
-        "incident_age_worklog_by_bucket": incident_service.get_worklog_by_age_bucket(),
+        "incident_age_worklog_by_bucket": incident_service.get_worklog_age_availability(),
         "selected_age_buckets": selected_age_buckets,
         "incident_closed_trend": incident_service.get_incident_closed_trend(
             selected_closed_categories, selected_closed_weeks, rows=closed_trend_rows
@@ -2399,6 +2478,7 @@ def index():
         **_graph_cards_context(incident_status_rows=incident_status_rows),
         **_performance_cards_context(),
         incwo_counts=incwo_service.get_incwo_counts(),
+        incwo_all_resolved_count=incwo_service.get_all_resolved_count(),
         vip_site_counts=vip_alarm_service.get_counts(),
         ran_main_ac_alarm_counts=ran_main_ac_alarm_service.get_counts(),
         ran_site_down_counts=ran_site_down_service.get_counts(),
@@ -2714,3 +2794,11 @@ def drilldown_download():
     else:
         columns = _CSV_COLUMNS_BY_SOURCE[_ALARM_SOURCE[scope]]
     return _csv_response(rows, columns, _safe_filename(scope, alarm_type))
+
+
+@dashboard_bp.get("/dashboard/worklog/<badge_type>")
+def age_worklog_fragment(badge_type):
+    result = incident_service.get_worklog_by_age_bucket(badge_type)
+    if badge_type not in result:
+        abort(404)
+    return render_template("dashboard/partials/age_worklog_table.html", incidents=result[badge_type])

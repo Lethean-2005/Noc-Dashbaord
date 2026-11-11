@@ -1,0 +1,15 @@
+{% extends "help/documentation.html" %}
+{% block article_body %}
+<div class="help-card-guide">
+    <p>{{ guide.intro }}</p>
+    {% for heading, paragraphs in guide.sections %}
+    <h3>{{ heading }}</h3>
+    {% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    {% endfor %}
+    <h3>When the data refreshes</h3>
+    {% set interval = config[guide.refresh_setting] %}
+    <p>This background update is configured to run every <strong>{% if interval % 60 == 0 %}{{ interval // 60 }} minutes{% else %}{{ interval }} seconds{% endif %}</strong>. Related data can finish updating at different times. New records appear after a successful update; refreshing the browser alone does not fetch new source data.</p>
+    <p class="help-example-note">Site codes, times, and counts in examples explain the rules and are not current live records.</p>
+</div>
+{% include "help/_example_tables.html" %}
+{% endblock %}

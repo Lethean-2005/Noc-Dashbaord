@@ -57,12 +57,12 @@
   --graph-pill-bg: var(--bg-table-header);
   --graph-pill-text: var(--text-primary);
   --graph-tooltip-bg: #ffffff;
-  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  --graph-tooltip-shadow: none;
 }
 
 [data-theme="dark"] .perf-card-graph {
   --graph-tooltip-bg: #2a2a2f;
-  --graph-tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  --graph-tooltip-shadow: none;
 }
 
 /* Belt-and-suspenders: .volume-tooltip's own background/box-shadow
@@ -73,12 +73,12 @@
    or the vars failing to inherit for any reason) regardless of cause. */
 .perf-card-graph .volume-tooltip {
   background: #ffffff;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
 }
 
 [data-theme="dark"] .perf-card-graph .volume-tooltip {
   background: #2a2a2f;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 
 /* An explicit pixel height, not flex-grow, is what actually caps
@@ -107,7 +107,7 @@
 }
 
 .perf-page {
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   color: var(--text-primary);
   width: 100%;
   margin-top: 10px;
@@ -132,7 +132,7 @@
   font-size: 12.5px;
   font-weight: 600;
   padding: 8px 13px;
-  border-radius: 8px;
+  border-radius: 3px;
   cursor: pointer;
 }
 
@@ -154,7 +154,7 @@
   font-weight: 600;
   letter-spacing: 0.03em;
   padding: 5px 10px;
-  border-radius: 999px;
+  border-radius: 3px;
   background: var(--icon-chip-bg);
   color: var(--icon-chip-color);
   white-space: nowrap;
@@ -172,8 +172,8 @@
 .perf-card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
+  border-radius: 3px;
+  box-shadow: none;
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
@@ -212,7 +212,7 @@
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 5px;
+  border-radius: 3px;
   flex: 0 0 auto;
 }
 .perf-delta-good { background: rgba(12, 163, 12, 0.12); color: #0ca30c; }
@@ -278,7 +278,7 @@
   min-width: 130px;
   background: var(--bg-table-header);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 3px;
   padding: 10px 12px;
 }
 .perf-sla-pill-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -306,7 +306,7 @@
   align-items: center;
   padding: 0 8px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--bg-table-header);
   color: var(--text-secondary);
   font-size: 11px;
@@ -327,9 +327,9 @@
   color: var(--text-muted);
   margin: 8px 0 10px;
 }
-.perf-target-met { font-weight: 700; color: #0ca30c; background: rgba(12, 163, 12, 0.12); padding: 1px 7px; border-radius: 999px; font-size: 10px; }
+.perf-target-met { font-weight: 700; color: #0ca30c; background: rgba(12, 163, 12, 0.12); padding: 1px 7px; border-radius: 3px; font-size: 10px; }
 
-table.perf-time-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.perf-time-table { width: 100%; border-collapse: separate; border-spacing: 0; border-radius: 3px; font-size: 12px; }
 table.perf-time-table th {
   text-align: right;
   font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
@@ -371,11 +371,11 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   background: var(--text-primary);
   color: var(--bg-card);
   border: 1px solid rgba(128, 128, 128, 0.3);
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 7px 10px;
   font-size: 11.5px;
-  font-family: 'Nunito', sans-serif;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  font-family: var(--font-ui);
+  box-shadow: none;
   opacity: 0;
   transform: translate(-50%, -100%);
   transition: opacity 0.15s ease;
@@ -482,7 +482,7 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
 .perf-card-weekly-time table.perf-time-table td,
 .perf-card-weekly-time .perf-time-delta,
 .perf-card-weekly-time .perf-week-filter {
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .perf-card-head-actions { display: flex; gap: 6px; flex: 0 0 auto; }
@@ -501,41 +501,12 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
    (the worked examples below) runs longer than fits on screen,
    instead of the whole page having to scroll to reach the bottom
    half of a tall modal. */
-/* Amazon Ember — same font/files as incident-report.css (see that
-   file's own note on where it's from/licensing), declared again here
-   since @font-face only takes effect on pages that load the stylesheet
-   declaring it, and this is the "recipe" (how-this-is-calculated /
-   why-these-numbers-differ) popups' own file, not incident-report.css.
-   Scoped to .perf-help-modal-content only — every OTHER card/modal on
-   the dashboard keeps the site's normal Nunito font untouched. */
-@font-face {
-  font-family: 'Amazon Ember';
-  src: url('../../fonts/AmazonEmber-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Amazon Ember';
-  src: url('../../fonts/AmazonEmber-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'Amazon Ember';
-  src: url('../../fonts/AmazonEmber-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 .perf-help-modal-content {
   width: 420px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  font-family: 'Amazon Ember', 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 .perf-help-modal-content .modal-header { flex: none; }
 .perf-help-modal-body { overflow-y: auto; }
@@ -555,7 +526,7 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   font-size: 12px;
   background: var(--bg-table-header);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .perf-help-formula {
@@ -564,7 +535,7 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   font-weight: 700;
   background: var(--bg-table-header);
   border: 1px solid var(--border-card);
-  border-radius: 6px;
+  border-radius: 3px;
   padding: 8px 12px;
   color: var(--text-primary);
 }
@@ -575,7 +546,7 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   color: var(--text-secondary);
   background: var(--bg-table-header);
   border-left: 3px solid var(--perf-cat-1);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 3px 3px 0;
   padding: 8px 12px;
 }
 .perf-help-example b { color: var(--text-primary); }
@@ -588,7 +559,7 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   overflow-x: auto;
   background: var(--bg-table-header);
   border: 1px solid var(--border-card);
-  border-radius: 6px;
+  border-radius: 3px;
   padding: 10px 12px;
   margin: 0 0 8px;
   color: var(--text-primary);
@@ -606,6 +577,52 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
   min-width: 56px;
   justify-content: center;
   text-align: center;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 .perf-help-legend-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+
+/* Percentages are links, not filled status badges: retain readable theme text. */
+.perf-donut-legend-row .perf-donut-legend-pct,
+.perf-donut-legend-row .perf-donut-legend-pct.badge {
+  color: var(--text-primary) !important;
+  background: transparent;
+  width: auto;
+  min-width: 44px;
+  height: auto;
+  padding: 0;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  text-align: right;
+  justify-content: flex-end;
+}
+.perf-donut-legend-row .perf-donut-legend-label { min-width: 0; }
+.perf-donut-legend { overflow: hidden; }
+.perf-donut-legend-pct:focus-visible { outline: 2px solid var(--input-focus-border); outline-offset: 2px; }
+
+
+/* Reserve space above the plot so both axes move down inside the card. */
+#siteDownDurationCard .campaign-chart-row { margin-top:20px; height:240px; min-height:240px; }
+#siteDownDurationCard .campaign-y-axis { position:relative; flex:0 0 30px; }
+#siteDownDurationCard .campaign-y-axis > span {
+  position:absolute;
+  right:0;
+  transform:translateY(-50%);
+  white-space:nowrap;
+}
+
+/* Use the dashboard font throughout calculation help, including examples. */
+.perf-help-modal-content,
+.perf-help-modal-content :where(h2, h4, p, span, code, pre, button, table, td, th) {
+  font-family: var(--font-ui) !important;
+}
+
+#siteDownDurationCard > .campaign-x-axis { margin-left:38px; }
+
+/* Keep both comparison axes on the same card baseline. */
+#siteDownDurationCard > .campaign-x-axis,
+#topSiteDownCard > .expenses-axis { margin-top:auto; padding-top:10px; min-height:24px; box-sizing:border-box; line-height:14px; }
+
+/* Separate each week and its total without changing other chart legends. */
+#siteDownDurationCard .series-legend { gap:10px 24px; }
+#siteDownDurationCard .series-legend-item b { margin-left:6px; }

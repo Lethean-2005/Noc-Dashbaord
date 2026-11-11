@@ -231,7 +231,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
               class="badge {{ eze_counts['BANDWIDTH']|badge_color }}"
               data-badge-key="eze_congestion"
               data-scope="EZE"
-              data-type="BANDWIDTH"
+              data-type="BANDWIDTH,CONGESTION"
               >{{ eze_counts['BANDWIDTH'] }}</span
             ><span class="badge-label">CONGESTION</span>
           </div>
@@ -748,6 +748,11 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
               >{{ incident_counts['overdue_site_down'] }}</span
             ><span class="badge-label">Overdue Site-Down</span>
           </div>
+          <div class="badge-item">
+            <span class="badge badge-green" data-badge-key="incwo_all_resolved"
+                  data-scope="INC-WO All Resolved" data-type="all_resolved">{{ incwo_all_resolved_count }}</span>
+            <span class="badge-label">All WO is Resolved</span>
+          </div>
         </div>
         <div class="badge-column">
           <div class="card-section-title title-accent">INC-WO</div>
@@ -794,7 +799,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
               data-scope="INC-WO"
               data-type="resolved"
               >{{ incwo_counts['resolved'] }}</span
-            ><span class="badge-label">Resolved</span>
+            ><span class="badge-label">Resolved WOs</span>
           </div>
           <div class="badge-item">
             <span
@@ -856,7 +861,7 @@ equal cards: VVIP Site | Mentor Site | ISP POP / EZE | IP Telcotech/Cellcard #}
         </div>
       </div>
     </div>
-    <div class="card-footer">
+    <div class="card-footer incident-status-footer">
       <a
         class="btn-view"
         href="{{ url_for('dashboard.drilldown', title='Incident', label='Incident', value=0, scope='Incident') }}"

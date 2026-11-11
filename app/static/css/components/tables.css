@@ -12,7 +12,7 @@
 }
 
 .alarm-header h1 {
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
@@ -22,7 +22,7 @@
   font-size: 12px;
   color: var(--text-muted);
   margin-top: 2px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .alarm-actions {
@@ -36,12 +36,12 @@
   font-size: 12px;
   color: var(--text-primary);
   align-self: center;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .alarm-search {
   font-size: 12px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   padding: 6px 10px;
   color: var(--text-primary);
   background: var(--bg-card);
@@ -58,7 +58,7 @@
 .row-cap-notice {
   font-size: 12px;
   color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   padding: 4px 0 8px;
 }
 
@@ -73,7 +73,7 @@
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   color: var(--text-secondary);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -125,6 +125,27 @@
   gap: 0;
 }
 
+/* Shared by filter/calendar summaries and chart/location action buttons. */
+.btn-export.btn-icon-only,
+.btn-export.btn-icon-only:hover,
+.btn-export.btn-icon-only:focus,
+.btn-export.btn-icon-only:active,
+.btn-export.btn-icon-only.is-active,
+.date-filter[open] > summary.btn-export.btn-icon-only {
+  border-radius: 3px;
+  box-shadow: none;
+  text-shadow: none;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-export.btn-icon-only:focus-visible {
+  outline: 2px solid var(--input-focus-border);
+  outline-offset: 2px;
+}
+
 .btn-icon-only.is-active::after {
   content: '';
   position: absolute;
@@ -132,7 +153,7 @@
   right: 3px;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: 3px;
   background: var(--input-focus-border);
   border: 1.5px solid var(--bg-card);
 }
@@ -181,8 +202,8 @@
   padding: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 8px;
-  box-shadow: var(--shadow-card-hover);
+  border-radius: 3px;
+  box-shadow: none;
   min-width: 220px;
 }
 
@@ -212,7 +233,7 @@
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Category filter — the same .date-filter dropdown shell, with a
@@ -246,7 +267,7 @@
   cursor: pointer;
   padding: 4px 6px;
   margin: 0 -6px;
-  border-radius: 4px;
+  border-radius: 3px;
   transition: background-color 0.12s ease;
 }
 
@@ -271,7 +292,7 @@
   margin: 0;
   flex-shrink: 0;
   border: 1.5px solid var(--border-input);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-card);
   cursor: pointer;
   position: relative;
@@ -338,7 +359,7 @@
 .dp-label {
   font-size: 11px;
   color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .dp-trigger {
@@ -352,7 +373,7 @@
   color: var(--text-primary);
   background: var(--bg-search);
   border: 1px solid var(--border-input);
-  border-radius: 6px;
+  border-radius: 3px;
   font-family: inherit;
   cursor: pointer;
 }
@@ -375,9 +396,9 @@
   padding: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 16px;
-  box-shadow: var(--shadow-card-hover);
-  font-family: 'Nunito', sans-serif;
+  border-radius: 3px;
+  box-shadow: none;
+  font-family: var(--font-ui);
 }
 
 .dp-header {
@@ -401,7 +422,7 @@
   height: 22px;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -466,7 +487,7 @@
 /* Today, when it isn't also the selected day — an outline instead of a
    fill, so it reads as "today" rather than "chosen". */
 .dp-day-today {
-  box-shadow: inset 0 0 0 1.5px #6366f1;
+  box-shadow: none;
   color: var(--text-primary);
   font-weight: 600;
 }
@@ -481,9 +502,11 @@
 
 .alarm-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 3px;
   font-size: 12px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .alarm-table th {
@@ -590,7 +613,7 @@
   font-size: 13px;
   padding: 8px 10px;
   border: 1px solid var(--border-card, #d1d5db);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-card, #fff);
   color: var(--text-primary);
   resize: vertical;
@@ -637,7 +660,7 @@
   padding: 4px;
   cursor: pointer;
   color: var(--text-muted);
-  border-radius: 4px;
+  border-radius: 3px;
   transition: color 0.15s, background 0.15s;
   font-size: 16px;
   line-height: 1;
@@ -722,11 +745,11 @@ th.sortable:hover { opacity: 0.8; }
     flex: 1 0 auto;
   }
   .alarm-table-wrap {
-    margin-left: -12px;
-    margin-right: -12px;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 3px;
+    border-left: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
     max-height: calc(100vh - 130px);
   }
   .alarm-table { font-size: 10px; }
@@ -775,7 +798,7 @@ th.sortable:hover { opacity: 0.8; }
 }
 
 .pc-title {
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
@@ -784,7 +807,7 @@ th.sortable:hover { opacity: 0.8; }
 .pc-row-count {
   font-size: 12px;
   color: var(--text-muted);
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 /* Toolbar row (below .pc-header): domain tabs on the left, search on
@@ -815,7 +838,7 @@ th.sortable:hover { opacity: 0.8; }
   box-sizing: border-box;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   padding: 0 12px;
   color: var(--text-secondary);
   background: var(--bg-card);
@@ -872,7 +895,7 @@ th.sortable:hover { opacity: 0.8; }
   flex: 1;
   min-width: 0;
   font-size: 12px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   color: var(--text-primary);
   background: transparent;
   border: none;
@@ -895,7 +918,7 @@ th.sortable:hover { opacity: 0.8; }
   height: 16px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -939,7 +962,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   font-size: 12px;
   table-layout: fixed;
 }
@@ -1082,7 +1105,7 @@ th.sortable:hover { opacity: 0.8; }
   height: 20px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   opacity: 0.6;
@@ -1141,7 +1164,7 @@ th.sortable:hover { opacity: 0.8; }
   height: 26px;
   margin: 0 2px;
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-card);
   color: var(--text-secondary);
   cursor: pointer;
@@ -1166,7 +1189,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 420px;
   max-width: 92vw;
   padding: 16px;
-  border-radius: 10px;
+  border-radius: 3px;
 }
 
 /* Split layout — "New" saves just the Partner row then switches this
@@ -1224,7 +1247,7 @@ th.sortable:hover { opacity: 0.8; }
   min-width: 760px;
   border-collapse: separate;
   border-spacing: 0;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   font-size: 11px;
   table-layout: fixed;
 }
@@ -1321,7 +1344,7 @@ th.sortable:hover { opacity: 0.8; }
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 3px;
   font-size: 13px;
 }
 
@@ -1378,7 +1401,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 1300px;
   max-width: 96vw;
   padding: 24px 26px;
-  border-radius: 10px;
+  border-radius: 3px;
 }
 
 .pc-escalation-close {
@@ -1407,7 +1430,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 100%;
   border-collapse: collapse;
   font-size: 12.5px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .pc-escalation-table th {
@@ -1446,7 +1469,7 @@ th.sortable:hover { opacity: 0.8; }
   height: 18px;
   padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -1566,11 +1589,11 @@ th.sortable:hover { opacity: 0.8; }
   min-width: 90px;
   padding: 4px 6px;
   border: 1px solid var(--border-input, var(--border-table));
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--bg-input, var(--bg-card));
   color: var(--text-primary);
   font-size: 12.5px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .pc-escalation-edit-input:focus {
@@ -1667,7 +1690,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 440px;
   max-width: 92vw;
   padding: 20px 22px;
-  border-radius: 14px;
+  border-radius: 3px;
 }
 
 .pc-remark-card-close {
@@ -1692,7 +1715,7 @@ th.sortable:hover { opacity: 0.8; }
   display: inline-flex;
   align-items: center;
   padding: 4px 12px;
-  border-radius: 5px;
+  border-radius: 3px;
   background: var(--bg-chip-info, rgba(99, 102, 241, 0.12));
   color: var(--text-chip-info, #6366f1);
   font-size: 12px;
@@ -1729,7 +1752,7 @@ th.sortable:hover { opacity: 0.8; }
   width: 28px;
   height: 28px;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--bg-table-header, #f3f4f6);
   color: var(--text-primary);
   font-size: 13px;
@@ -1764,7 +1787,7 @@ th.sortable:hover { opacity: 0.8; }
   font-size: 11px;
   font-weight: 600;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: 3px;
   margin-bottom: 10px;
 }
 
@@ -1804,7 +1827,7 @@ th.sortable:hover { opacity: 0.8; }
   font-size: 12px;
   padding: 6px 8px;
   border: 1px solid var(--border-card, #e5e7eb);
-  border-radius: 5px;
+  border-radius: 3px;
   background: var(--bg-card, #fff);
   color: var(--text-primary);
   resize: vertical;
@@ -1854,7 +1877,7 @@ th.sortable:hover { opacity: 0.8; }
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 3px;
   transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
@@ -1888,8 +1911,8 @@ th.sortable:hover { opacity: 0.8; }
   padding: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
-  box-shadow: var(--shadow-card-hover);
+  border-radius: 3px;
+  box-shadow: none;
   animation: pcDropdownIn 0.14s ease-out;
 }
 
@@ -1930,12 +1953,12 @@ th.sortable:hover { opacity: 0.8; }
   padding: 8px 8px;
   font-size: 12.5px;
   font-weight: 600;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   text-align: left;
   color: var(--text-primary);
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
   transition: background 0.12s ease;
 }
@@ -1978,7 +2001,7 @@ th.sortable:hover { opacity: 0.8; }
   margin-bottom: 4px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-table);
-  border-radius: 6px 6px 0 0;
+  border-radius: 3px 3px 0 0;
 }
 
 /* Small red "*" after a required field's label (e.g. Partner Name) —
@@ -2037,7 +2060,7 @@ th.sortable:hover { opacity: 0.8; }
   font-size: 11.5px;
   font-weight: 600;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
   border: 1px solid transparent;
 }
@@ -2087,11 +2110,11 @@ th.sortable:hover { opacity: 0.8; }
     order: -1;
   }
   .pc-grid-wrap {
-    margin-left: -12px;
-    margin-right: -12px;
-    border-radius: 0;
-    border-left: none;
-    border-right: none;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 3px;
+    border-left: 1px solid var(--border-table);
+    border-right: 1px solid var(--border-table);
     max-height: calc(100vh - 130px);
   }
   .pc-grid { font-size: 10px; }
@@ -2101,3 +2124,198 @@ th.sortable:hover { opacity: 0.8; }
 
 /* Status badges + Streamline links moved to
    app/static/css/components/status_links.css */
+
+
+/* Round the painted corner cells without clipping menus or sticky headers. */
+table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-time-table) {
+  border-radius: 3px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-time-table) > thead > tr:first-child > :first-child {
+  border-top-left-radius: 3px;
+}
+table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-time-table) > thead > tr:first-child > :last-child {
+  border-top-right-radius: 3px;
+}
+table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-time-table) > tbody:last-child > tr:last-child > :first-child {
+  border-bottom-left-radius: 3px;
+}
+table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-time-table) > tbody:last-child > tr:last-child > :last-child {
+  border-bottom-right-radius: 3px;
+}
+
+
+/* Keep the visible table frames rounded at every viewport width. */
+.alarm-table-wrap,
+.pc-grid-wrap,
+.pc-grid-scroll,
+.pc-escalation-table-wrap {
+  border-radius: 3px;
+}
+
+
+.congestion-exclude-dialog,
+.congestion-blacklist-dialog {
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  box-shadow: none;
+}
+.congestion-exclude-dialog { width: 480px; }
+.congestion-blacklist-dialog { width: min(1000px, 94vw); }
+.congestion-blacklist-dialog .modal-body { max-height: 70vh; overflow: auto; }
+.congestion-exclude-dialog .modal-body p + p,
+.congestion-blacklist-dialog .modal-body > p { margin-bottom: 12px; line-height: 1.5; }
+.congestion-blacklist-table { max-height: 50vh; }
+
+
+.table-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 90px;
+  padding: 20px 16px;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  text-align: center;
+}
+.table-empty-state-reference {
+  display: block;
+  width: 180px;
+  max-width: 100%;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  filter: none;
+}
+.table-empty-state-message {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  white-space: normal;
+}
+.table-empty-state-context {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.alarm-table .empty-row td { padding: 16px; }
+.alarm-table .empty-row[hidden] { display: none; }
+
+
+/* Spreadsheet grid for drilldowns; wrapper supplies the outer frame. */
+.drilldown-table-wrap {
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+}
+.drilldown-table-wrap > .alarm-table > thead > tr > th,
+.drilldown-table-wrap > .alarm-table > tbody > tr > td {
+  border-right: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-strong);
+}
+.drilldown-table-wrap > .alarm-table > thead > tr > th:last-child,
+.drilldown-table-wrap > .alarm-table > tbody > tr > td:last-child {
+  border-right: 0;
+}
+.drilldown-table-wrap > .alarm-table > tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+/* The hidden no-match row is appended after the final data row. */
+.drilldown-table-wrap > .alarm-table > tbody > tr:has(+ .search-empty-row[hidden]) > td {
+  border-bottom: 0;
+}
+
+
+/* Native top-layer placement keeps dropdowns above neighboring cards. */
+.date-filter-form.filter-panel-floating {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: max-content;
+  min-width: min(220px, calc(100vw - 16px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  z-index: 1000;
+}
+.date-filter-form.filter-panel-floating::backdrop { background: transparent; pointer-events: none; }
+.filter-panel-floating .category-filter-options { min-height: 0; overscroll-behavior: contain; }
+.filter-panel-floating .date-filter-actions { flex-shrink: 0; }
+
+
+.congestion-blacklist-description { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.congestion-blacklist-table .table-empty-state { min-height: 180px; }
+.congestion-blacklist-table .table-empty-state-reference { width: 130px; }
+.congestion-blacklist-table .table-empty-state-message { font-size: 12px; }
+
+
+.congestion-blacklist-heading { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.congestion-blacklist-heading h2, .congestion-blacklist-heading p { margin: 0; }
+.congestion-blacklist-heading .congestion-blacklist-description { font-size: 11px; font-weight: 400; }
+.congestion-blacklist-table .table-empty-state { min-height: 130px; padding: 14px 8px; gap: 8px; }
+.congestion-blacklist-table .table-empty-state-reference { width: 110px; }
+.congestion-blacklist-table .table-empty-state-message { font-size: 11px; }
+
+
+.alarm-action-menu {
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  margin-top: 0;
+  max-width: calc(100vw - 16px);
+  box-shadow: none;
+  filter: none;
+  backdrop-filter: none;
+}
+
+/* Simple icon controls for congestion dialogs, with a keyboard focus cue. */
+.congestion-modal-close {
+  display:inline-flex; align-items:center; justify-content:center;
+  flex:0 0 auto; width:32px; height:32px; padding:4px;
+  border:0; border-radius:3px; background:transparent;
+  color:var(--text-primary); box-shadow:none; cursor:pointer;
+}
+.congestion-modal-close:hover, .congestion-modal-close:active {
+  background:transparent; border:0; box-shadow:none;
+}
+.congestion-modal-close:focus-visible { outline:2px solid var(--input-focus-border); outline-offset:2px; }
+
+/* Keep the remark and actions in separate rows, including small viewports. */
+.congestion-exclude-dialog {
+  display:flex; flex-direction:column; width:680px;
+  max-width:calc(100vw - 24px); max-height:calc(100dvh - 24px);
+  font-family:var(--font-ui);
+}
+.congestion-exclude-dialog .modal-header { gap:12px; flex:0 0 auto; align-items:flex-start; padding:16px 20px 12px; }
+.congestion-exclude-heading { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px; min-width:0; }
+.congestion-exclude-heading h2 { font-size:16px; line-height:1.5; }
+.congestion-exclude-subtitle { margin:0; font-size:11px; line-height:1.5; color:var(--text-muted); overflow-wrap:anywhere; }
+#congestionExcludeForm { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.congestion-exclude-dialog .modal-body { padding:0 20px 16px; overflow:auto; min-height:0; }
+#congestionExcludeExplanation { margin:0 0 14px; font-size:11.5px; line-height:1.6; color:var(--text-muted); }
+.congestion-exclude-dialog label { display:block; margin:0 0 6px; font-size:12px; }
+.congestion-exclude-dialog label small { font-size:11px; color:var(--text-muted); }
+.congestion-exclude-dialog textarea {
+  display:block; width:100%; min-height:84px; max-height:160px; box-sizing:border-box;
+  resize:vertical; padding:8px 10px; margin:0;
+  border:1px solid var(--border-strong); border-radius:3px;
+  background:var(--bg-card); color:var(--text-primary);
+  font-family:var(--font-ui); font-size:12px; line-height:1.5;
+  box-shadow:none; outline:none;
+}
+.congestion-exclude-dialog textarea:hover,
+.congestion-exclude-dialog textarea:focus { border-color:var(--border-strong); background:var(--bg-card); box-shadow:none; }
+.congestion-exclude-dialog textarea:focus-visible { outline:1px solid var(--border-strong); outline-offset:2px; }
+.congestion-exclude-dialog .modal-footer {
+  display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:8px;
+  padding:12px 20px 16px; border-top:1px solid var(--border-card);
+}

@@ -24,6 +24,7 @@ class IncWoStatusCacheRepository(BaseCacheRepository):
         "support_level",
         "responsible_team",
         "fault_description",
+        "resolution",
         "nms",
         "hub_site",
         "site_grade",

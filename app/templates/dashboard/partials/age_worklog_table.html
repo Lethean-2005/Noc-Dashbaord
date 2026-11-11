@@ -1,0 +1,31 @@
+                <div class="volume-category-table-wrap" style="overflow-x:auto;">
+                <table class="alarm-table volume-category-table" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Incident ID</th>
+                            <th class="right">Entries</th>
+                        </tr>
+                    </thead>
+                    {% for incident in incidents %}
+                    <tbody>
+                        <tr class="volume-category-row">
+                            <td>
+                                <span class="volume-category-caret"><i class="ti ti-chevron-right"></i></span>
+                                {{ incident.incident_id }}
+                            </td>
+                            <td class="right">{{ incident.entries|length }}</td>
+                        </tr>
+                    </tbody>
+                    <tbody class="volume-duration-panel">
+                        {% for entry in incident.entries %}
+                        <tr class="volume-duration-row">
+                            <td colspan="2">
+                                <div style="color:var(--text-muted);font-size:11.5px;">{{ entry.created_at }} {{ entry.created_by }}</div>
+                                <div style="color:var(--text-primary);font-size:13px;">{{ entry.entry_text }}</div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% endfor %}
+                </table>
+                </div>

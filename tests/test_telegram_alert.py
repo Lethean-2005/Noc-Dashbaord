@@ -173,3 +173,19 @@ def test_build_excel_bytes_hyperlinks_rows_with_a_numeric_id_only(app):
         ws = load_workbook(io.BytesIO(data)).active
         assert ws.cell(row=3, column=1).hyperlink.target == "https://prd-web-mc.cellcard.com.kh/incident/form/1"
         assert ws.cell(row=4, column=1).hyperlink is None
+
+
+def test_telegram_excel_uses_huawei_sans_and_preserves_title_and_filters(app):
+    import io
+    from openpyxl import load_workbook
+    with app.app_context():
+        data = _build_excel_bytes([("Site Code", "site_code")], [{"site_code": "0048"}], "Site Down Alerts")
+    wb = load_workbook(io.BytesIO(data))
+    sheet = wb.active
+    assert sheet["A1"].value.startswith("Site Down Alerts")
+    assert sheet["A2"].value == "Site Code"
+    assert sheet["A3"].value == "0048"
+    assert sheet.auto_filter.ref == "A2:A3"
+    assert sheet.freeze_panes == "A3"
+    assert all(cell.font.name == "Huawei Sans" for row in sheet for cell in row if cell.value is not None)
+    wb.close()

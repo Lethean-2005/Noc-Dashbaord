@@ -1,8 +1,8 @@
 -- ==============================================================
 -- Site Down incidents for incident_sync_service.py, cached as
 -- incident_site_down behind the "Incident Site Down" card. The Telegram
--- Site Down alert reads this same cache directly — Last Comments is
--- included here specifically for that.
+-- Site Down alert reads this same cache directly — Last Comments and
+-- Actual Root Cause are included here specifically for that.
 --
 -- Not incident_by_status (that's scoped to new/in_progress for the
 -- dashboard badges) — this follows the source system's own "Incident"
@@ -16,7 +16,7 @@
 -- Customer Complaint) has no alarm feed behind it, so its own created_at
 -- (when the ticket was raised) is the only real "down since" signal.
 -- Same source-based split as incident_site_down_restored_by_ids.sql's
--- own "Restored At" column, for the matching restore-side timestamp.
+-- own "Restored At" column (Cleared Alarm Received At for Alarms; Closed At for NOC/manual).
 --
 -- Same Site/NMS/Province/District/Commune join as incident_by_status.sql
 -- — see that file for the join/fallback/batching reasoning.
@@ -34,10 +34,11 @@ SELECT
   sites.id AS "Site Numeric ID",
   COALESCE(sites.standard_code, inc.site_code) AS "Site Code",
   CASE
-    WHEN LOWER(inc.source) = 'alarms' THEN inc.issue_occurred_at
+    WHEN LOWER(TRIM(inc.source)) = 'alarms' THEN inc.issue_occurred_at
     ELSE inc.created_at
   END AS "Occurred At",
   inc.l1_noc_investigation_result AS "L1 NOC Investigation Result",
+  inc.actual_root_cause AS "Actual Root Cause",
   inc.last_comments AS "Last Comments",
   INITCAP(inc.source) AS "Source",
   sites.hub_site AS "Hub Site",
@@ -68,4 +69,6 @@ LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE inc.incident_category = 'site_down'
   AND inc.status != 'closed'
   AND inc.cleared_alarm_received = FALSE
+  AND ((LOWER(TRIM(inc.source)) = 'alarms' AND inc.cleared_alarm_received_at IS NULL)
+       OR (LOWER(TRIM(inc.source)) != 'alarms' AND inc.closed_at IS NULL))
 ORDER BY "Occurred At" DESC NULLS FIRST;

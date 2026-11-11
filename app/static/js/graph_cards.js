@@ -9,33 +9,24 @@
 // filters.
 (function () {
     function swapGraphRow(search) {
-        fetch('/graph-cards' + search)
-            .then((res) => res.text())
-            .then((html) => {
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = html.trim();
-                const newRow = wrapper.firstElementChild;
-                const oldRow = document.querySelector('.graph-row');
-                if (!newRow || !oldRow) return;
-                oldRow.replaceWith(newRow);
-                window.history.replaceState(null, '', '/' + search);
-            });
+        window.NocDashboardFragments.replace({
+            selector: '.graph-row', url: '/graph-cards' + search,
+            search: search, replaceRoot: true
+        });
     }
 
     document.addEventListener('submit', function (e) {
         const form = e.target;
         if (!form.matches('.graph-row form.date-filter-form')) return;
         e.preventDefault();
-        const params = new URLSearchParams(new FormData(form));
-        const qs = params.toString();
-        swapGraphRow(qs ? '?' + qs : '');
+        swapGraphRow(window.NocDashboardFragments.searchForForm(form));
     });
 
     document.addEventListener('click', function (e) {
         const link = e.target.closest('.graph-row .date-filter-actions a.btn-export');
         if (!link) return;
         e.preventDefault();
-        swapGraphRow(new URL(link.href).search);
+        swapGraphRow(window.NocDashboardFragments.searchForForm(link.closest('form'), true));
     });
 
     // "By Category"/"By Severity"/"By Province"/"By Vendor" popups
@@ -87,15 +78,24 @@
             const modal = document.getElementById(dayBtn.getAttribute('data-day-modal'));
             if (!modal) return;
             modal.style.display = 'block';
-            if (modal.dataset.loaded === '1') return;
+            if (modal.dataset.loaded === '1' || modal.dataset.loading === '1') return;
             const dayIndex = modal.getAttribute('data-day-index');
             const body = modal.querySelector('.volume-day-popup-body');
+            if (!body) return;
+            modal.dataset.loading = '1';
+            body.textContent = 'Loading incident details...';
             fetch('/volume-day-popup/' + dayIndex + location.search)
-                .then((res) => res.text())
+                .then((res) => {
+                    if (!res.ok) throw new Error('Unable to load incident details. Close and reopen to retry.');
+                    return res.text();
+                })
                 .then((html) => {
+                    if (!modal.isConnected) return;
                     body.innerHTML = html;
                     modal.dataset.loaded = '1';
-                });
+                }).catch((error) => {
+                    if (modal.isConnected) body.textContent = error.message;
+                }).finally(() => { delete modal.dataset.loading; });
             return;
         }
         const closeEl = e.target.closest('.volume-day-category-close');
@@ -125,7 +125,20 @@
         const trigger = e.target.closest('[data-age-worklog-modal]');
         if (trigger) {
             const modal = document.getElementById(trigger.getAttribute('data-age-worklog-modal'));
-            if (modal) modal.style.display = 'block';
+            if (modal) {
+                modal.style.display = 'block';
+                const content = modal.querySelector('[data-worklog-content]');
+                if (content && !content.dataset.loaded && !content.dataset.loading) {
+                    content.dataset.loading = 'true'; content.textContent = 'Loading worklog entries...';
+                    fetch(content.dataset.url).then(function (response) {
+                        if (!response.ok) throw new Error('Unable to load worklog. Close and reopen to retry.');
+                        return response.text();
+                    }).then(function (html) {
+                        if (content.isConnected) { content.innerHTML = html; content.dataset.loaded = 'true'; }
+                    }).catch(function (error) { content.textContent = error.message; })
+                      .finally(function () { delete content.dataset.loading; });
+                }
+            }
             return;
         }
         if (
@@ -185,27 +198,6 @@
         }
     });
 
-    // Cards 2/3 each have TWO side-by-side dropdowns (Category + Compare
-    // Weeks, both .date-filter inside one .graph-filters wrapper — see
-    // graph_cards.html). <details> has no built-in mutual exclusion, so
-    // without this opening the 2nd while the 1st is still open leaves both
-    // open, overlapping. Same fix as map-view.js's statusFilterDetails/
-    // ispFilterDetails pair. Delegated on `document` with capture:true (the
-    // 3rd argument) — 'toggle' doesn't bubble, but capture still sees it on
-    // the way down regardless — so this keeps working after graph_cards.js's
-    // own AJAX swap replaces the row with fresh <details> elements, no
-    // rebinding needed.
-    document.addEventListener(
-        'toggle',
-        function (e) {
-            const details = e.target;
-            if (!details.matches || !details.matches('.graph-row .date-filter') || !details.open) return;
-            const group = details.closest('.graph-filters');
-            if (!group) return;
-            group.querySelectorAll(':scope > details.date-filter').forEach((other) => {
-                if (other !== details) other.open = false;
-            });
-        },
-        true
-    );
+    // Filter mutual exclusion and outside-click closing live in filter-dropdowns.js.
+
 })();

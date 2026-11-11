@@ -67,6 +67,31 @@ def test_sync_writes_normalized_rows():
     ]
 
 
+def test_sync_dedupes_site_code_when_source_has_multiple_ne_rows():
+    # Real bug: mssql_site.sql's own SELECT DISTINCT only guarantees one
+    # row per SITE_CODE when every NE agrees on ALL selected columns, not
+    # just VENDOR (its own comment's stated assumption) — a site with 2+
+    # NE records whose BTS_ROOM/LINK_TYPE/LAT/LONG differ (confirmed live:
+    # site 8185, Indoor/MW NE + Outdoor/FO NE, same vendor) produces 2
+    # distinct rows for the same site_code, which collided on the cache
+    # table's UNIQUE constraint and failed the ENTIRE write, not just that
+    # one site — every sync attempt since, frozen on stale data.
+    source_rows = [
+        {"SITE_CODE": "8185", "SITE_NAME": "TB115", "BTS_ROOM": "Indoor", "VENDOR": "Nokia"},
+        {"SITE_CODE": "8185", "SITE_NAME": "TB115", "BTS_ROOM": "Outdoor", "VENDOR": "Nokia"},
+        {"SITE_CODE": "0001", "SITE_NAME": "MOBITEL", "BTS_ROOM": "Indoor", "VENDOR": "Huawei"},
+    ]
+    cache_repo = FakeCacheRepo()
+    svc = MssqlSiteOnairSyncService(FakeMssqlSiteOnairRepo(source_rows), cache_repo)
+
+    result = svc.sync()
+
+    assert result == 2
+    assert [r["site_code"] for r in cache_repo.written] == ["8185", "0001"]
+    # First-seen wins — the Indoor NE's own fields, not the Outdoor one's.
+    assert cache_repo.written[0]["bts_room"] == "Indoor"
+
+
 def test_sync_writes_empty_list_when_no_rows():
     cache_repo = FakeCacheRepo()
     svc = MssqlSiteOnairSyncService(FakeMssqlSiteOnairRepo([]), cache_repo)

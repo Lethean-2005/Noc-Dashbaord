@@ -1,6 +1,6 @@
 """Mentor Sites page routes."""
 
-from flask import Blueprint, Response, redirect, render_template, request, url_for
+from flask import jsonify, Blueprint, Response, redirect, render_template, request, url_for
 
 from app.services.mentor.mentor_site_service import MentorSiteService
 
@@ -27,7 +27,7 @@ def template():
     return Response(
         "site_code\n",
         mimetype="text/csv",
-        headers={"Content-Disposition": "attachment; filename=mentor_sites_template.csv"},
+        headers={"Content-Disposition": "attachment; filename=mentor_sites_template.csv", "Cache-Control": "no-store"},
     )
 
 
@@ -79,3 +79,17 @@ def remove(site_code):
 def clear():
     mentor_site_service.clear_all_sites()
     return redirect(url_for("mentor.index"))
+
+
+@mentor_bp.route("/validate", methods=["POST"])
+def validate_upload():
+    """Check the selected file without adding or updating configured sites."""
+    file = request.files.get("file")
+    if not file or not file.filename or not file.filename.lower().endswith(".csv"):
+        return jsonify(error="Please select a CSV file."), 400
+    added, duplicate, invalid, error = mentor_site_service.add_from_csv(file.stream, validate_only=True)
+    if error:
+        return jsonify(error=error), 400
+    if invalid:
+        return jsonify(error="Unknown site codes: " + ", ".join(invalid[:10])), 400
+    return jsonify(valid=True, ready=len(added), duplicate=len(duplicate))

@@ -51,6 +51,7 @@ def _seed_inc_wo_rows(app, count):
                 "support_level": "",
                 "responsible_team": "",
                 "fault_description": "",
+                "resolution": "",
                 "nms": "",
                 "hub_site": "",
                 "site_grade": "",
@@ -186,3 +187,29 @@ def test_dashboard_does_not_crash_when_only_one_week_selected_for_compare(client
     assert response.status_code == 200
 
 
+
+
+def test_compatible_security_headers_and_configurable_source_url(client, app):
+    app.config["STREAMLINE_BASE_URL"] = "https://source.example.test"
+    response = client.get("/")
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert "frame-ancestors 'self'" in response.headers["Content-Security-Policy"]
+    assert 'data-streamline-base="https://source.example.test"' in response.get_data(as_text=True)
+
+
+def test_invalid_worklog_bucket_is_not_found(client):
+    assert client.get("/dashboard/worklog/not-a-bucket").status_code == 404
+
+
+def test_empty_charts_use_shared_svg_instead_of_zero_plots(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert html.count('class="chart-empty-state"') >= 8
+    assert 'images/no-data-available.svg' in html
+    assert 'class="campaign-chart-row"' not in html
+    assert 'class="sales-chart-row"' not in html
+    congestion = client.get("/congestion")
+    assert congestion.status_code == 200
+    assert 'class="chart-empty-state"' in congestion.get_data(as_text=True)

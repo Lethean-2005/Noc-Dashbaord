@@ -19,11 +19,11 @@
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border-card);
-  border-radius: 16px;
+  border-radius: 3px;
   padding: 20px 22px;
   width: min(440px, calc(100vw - 40px));
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  font-family: 'Nunito', sans-serif;
+  box-shadow: none;
+  font-family: var(--font-ui);
 }
 
 .card-layout-header {
@@ -54,7 +54,7 @@
   line-height: 1;
   cursor: pointer;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 .card-layout-close:hover { background: var(--bg-search); }
@@ -85,7 +85,7 @@
   gap: 6px;
   width: auto;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: 3px;
   border: 1px solid var(--border-card);
   background: var(--bg-search);
   color: var(--text-primary);
@@ -118,7 +118,7 @@
   gap: 8px;
   padding: 10px;
   border: 2px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 3px;
   background: var(--bg-search);
   color: var(--text-primary);
   cursor: pointer;
@@ -133,7 +133,7 @@
   position: relative;
   width: 100%;
   height: 70px;
-  border-radius: 6px;
+  border-radius: 3px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   display: grid;
@@ -157,7 +157,7 @@
   background: var(--bg-card);
   border-radius: 50%;
   padding: 5px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .card-layout-option-text {
@@ -202,7 +202,7 @@
 .card-layout-save {
   border: none;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: 3px;
   padding: 8px 16px;
   font-size: 12.5px;
   font-weight: 700;
@@ -236,14 +236,14 @@
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border-card);
-  border-radius: 16px;
+  border-radius: 3px;
   padding: 20px 22px;
   width: min(920px, 100%);
   max-height: calc(100vh - 40px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-  font-family: 'Nunito', sans-serif;
+  box-shadow: none;
+  font-family: var(--font-ui);
 }
 
 .card-arrange-header {
@@ -282,7 +282,7 @@
 .card-arrange-item {
   grid-column: span 1;
   border: 2px solid var(--border-card);
-  border-radius: 10px;
+  border-radius: 3px;
   background: var(--bg-search);
   padding: 10px;
   cursor: grab;
@@ -336,7 +336,7 @@
 .card-arrange-skeleton span {
   display: block;
   height: 8px;
-  border-radius: 4px;
+  border-radius: 3px;
   background: linear-gradient(
     90deg,
     var(--border-table-row) 0%,

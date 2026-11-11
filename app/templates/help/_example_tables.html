@@ -1,0 +1,4 @@
+{% for example in example_tables %}
+<h3>{{ example.title }}</h3><p>{{ example.description }}</p>
+<div class="help-example-table-wrap"><table class="help-example-table"><thead><tr>{% for cell in example.rows[0] %}<th scope="col">{{ cell }}</th>{% endfor %}</tr></thead><tbody>{% for row in example.rows[1:] %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+{% endfor %}

@@ -1,0 +1,9 @@
+<button type="button" class="theme-option" data-congestion-exclude
+        data-id="{{ row.id }}" data-source="{{ source }}"
+        data-label="{{ row.device_name or row.ip_address }} / {{ row.interface or 'Interface unavailable' }}"
+        data-interface="{{ row.interface or '' }}">
+    <i class="ti ti-eye-off"></i> Exclude Congestion
+</button>
+<button type="button" class="theme-option" data-congestion-blacklist>
+    <i class="ti ti-list"></i> Blacklist
+</button>

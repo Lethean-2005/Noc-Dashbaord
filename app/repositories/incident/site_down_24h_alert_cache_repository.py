@@ -31,8 +31,8 @@ class SiteDown24hAlertCacheRepository:
 
     def mark_down_alerted(self, incident_id, site_code, incident_ref):
         """Stage 1 just sent the down-alert for this incident — insert
-        its ledger row. `incident_ref` (the incident's own stable
-        wo_id) is stored here specifically so Stage 2 can still send
+        its ledger row. `incident_ref` (the incident's own id) is
+        stored here specifically so Stage 2 can still send
         the SAME ref value later, even once this incident has dropped
         out of the active incident_site_down cache entirely. ON
         CONFLICT DO NOTHING since Stage 1 only ever calls this once per

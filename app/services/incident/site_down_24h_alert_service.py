@@ -23,6 +23,8 @@ corporate-firewall-safe TLS handling already proven working for every
 other Teams webhook in this app, not a second copy of that logic.
 """
 
+import base64
+from html import escape
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -35,10 +37,16 @@ from app.repositories.incident.incident_site_down_cache_repository import (
 from app.repositories.incident.site_down_24h_alert_cache_repository import (
     SiteDown24hAlertCacheRepository,
 )
+from app.repositories.site.mssql_site_onair_cache_repository import (
+    MssqlSiteOnairCacheRepository,
+)
+from app.repositories.site.site_ran_name_cache_repository import SiteRanNameCacheRepository
 from app.repositories.site.site_technology_cache_repository import (
     SiteTechnologyCacheRepository,
 )
+from app.services.postgres_sync_utils import to_local_seconds
 from app.repositories.vip.vip_site_cache_repository import VipSiteCacheRepository
+from app.services.telegram.telegram_alert import _HAS_OPENPYXL, _build_excel_bytes
 from app.utils.logger import get_logger
 from webhook.common import _id_link, _post_json
 
@@ -47,6 +55,30 @@ logger = get_logger(__name__)
 _SITE_DOWN_TABLE = "incident_site_down"
 _SITE_TECHNOLOGY_TABLE = "site_technology_cache"
 _VIP_SITE_TABLE = "vip_site_cache"
+_RAN_NAME_TABLE = "site_ran_name_cache"
+_ONAIR_TABLE = "mssql_site_onair"
+
+# Excel attachment columns for a multi-site incident — exact header names
+# and order the user specified (not uppercase for Longitude/Latitude,
+# matching their own reference sheet exactly). Built from `sites` rows
+# already read for the HTML message, plus 3 extra lookups
+# (_build_ran_name_lookup/_build_onair_lookup, alongside the existing
+# tech/vip ones) that only this attachment needs.
+_EXCEL_COLUMNS = (
+    ("№", "_row_number"),
+    ("SITE_NAME", "site_name"),
+    ("SITE_CODE", "site_code"),
+    ("RAN_NAME", "ran_name"),
+    ("TECH_SERVICES", "tech_services"),
+    ("AFFECTED_SERVICES", "affected_services"),
+    ("PROVINCE", "province"),
+    ("DISTRICT", "district"),
+    ("COMMUNE", "commune"),
+    ("SITE_GRADE", "site_grade"),
+    ("VIP", "vip"),
+    ("Longitude", "longitude"),
+    ("Latitude", "latitude"),
+)
 
 # Generation order for Services Impacted (e.g. "2G/4G", "2G/3G/4G/5G") —
 # fixed order, not alphabetical, so it always reads low-to-high.
@@ -93,6 +125,32 @@ def _format_duration_ddhhmm(hours_float):
     return f"{days:02d}:{hours:02d}:{minutes:02d}"
 
 
+def _root_cause_text(actual_root_cause, l1_investigation):
+    """Actual Root Cause (set by NOC once the real cause is confirmed) if
+    present, else L1 NOC Investigation Result (the initial finding, almost
+    always what's available for a still-open Stage 1 down-alert), else
+    "Pending investigation" — same fallback shape _action_recovery_text()
+    below uses for Resolution/Last Comments."""
+    actual = (actual_root_cause or "").strip()
+    if actual:
+        return actual
+    l1 = (l1_investigation or "").strip()
+    return l1 if l1 else "Pending investigation"
+
+
+def _action_recovery_text(resolution, last_comments):
+    """Resolution (the confirmed fix, set at formal resolution) if
+    present, else Last Comments (NOC's running notes — often the only
+    thing available, confirmed live: Resolution is blank on ~75% of
+    closed Site Down incidents even after resolution), else "Pending
+    investigation"."""
+    res = (resolution or "").strip()
+    if res:
+        return res
+    note = (last_comments or "").strip()
+    return note if note else "Pending investigation"
+
+
 def _format_services_impacted(site_code, tech_rows_by_site):
     """'2G/4G', '2G/3G/4G/5G', etc. — fixed generation order, not
     however site_technology_cache happens to list them. Empty string
@@ -104,12 +162,16 @@ def _format_services_impacted(site_code, tech_rows_by_site):
 
 
 def _format_areas_impacted(sites):
-    """'Svay Rieng Pro, Chantrea Dis, Chres Com' for one site, or every
-    impacted site's own areas joined with ' | ' for a multi-site
-    incident — deduped, so 5 sites sharing the same commune don't repeat
-    it 5 times. Matches the user's own real examples' Province/District/
-    Commune abbreviation suffixes exactly; any missing part for a given
-    site is simply left out of that site's own group, not shown blank."""
+    """Multi-site incidents show unique provinces; one site keeps full location."""
+    if len(sites) > 1:
+        provinces = []
+        seen_provinces = set()
+        for site in sites:
+            province = str(site.get("province") or "").strip()
+            if province and province.casefold() not in seen_provinces:
+                provinces.append(province)
+                seen_provinces.add(province.casefold())
+        return " / ".join(provinces)
     seen = []
     for s in sites:
         parts = []
@@ -158,17 +220,28 @@ def _build_vip_lookup():
     return {r.get("site_code"): r.get("site_strategic") for r in rows if r.get("site_code")}
 
 
+def _build_ran_name_lookup():
+    """{site_code: 'NSiKCH1002'} — the multi-site Excel attachment's own
+    RAN_NAME column (site_ran_name_cache, synced from MSSQL TBL_NE's
+    SRAN — see site_sync_service.py's sync_ran_name())."""
+    rows = SiteRanNameCacheRepository().fetch_all(_RAN_NAME_TABLE)
+    return {r.get("site_code"): r.get("ran_name") or "" for r in rows if r.get("site_code")}
+
+
+def _build_onair_lookup():
+    """{site_code: {'lat': ..., 'long': ...}} — the multi-site Excel
+    attachment's own Longitude/Latitude columns (mssql_site_onair, the
+    same MSSQL TBL_SITE cache the dashboard's Map page already reads)."""
+    rows = MssqlSiteOnairCacheRepository().fetch_all(_ONAIR_TABLE)
+    return {r.get("site_code"): r for r in rows if r.get("site_code")}
+
+
 def _format_vip_impacted(sites, vip_lookup):
-    """'SITE_A (1234) - VVIP, SITE_B (5678) - VIP' for every impacted
-    site that's actually VIP/VVIP, or '' if none of them are (field
-    omitted from the message entirely in that case, same convention as
-    Services/Areas Impacted)."""
-    parts = []
-    for s in sites:
-        tier = vip_lookup.get(s.get("site_code"))
-        if tier:
-            parts.append(f"{s.get('site_name')} ({s.get('site_code')}) - {tier}")
-    return ", ".join(dict.fromkeys(parts))
+    """Count of impacted sites that are VIP/VVIP, e.g. '1', '2' — matches
+    the user's own template (a plain number, not which sites/tiers) — or
+    '0' when none of the impacted sites are VIP/VVIP."""
+    codes = {s.get("site_code") for s in sites if vip_lookup.get(s.get("site_code"))}
+    return str(len(codes))
 
 
 def _group_by_incident(rows):
@@ -187,35 +260,18 @@ def _group_by_incident(rows):
         if incident_id not in groups:
             groups[incident_id] = []
             order.append(incident_id)
+        # A site may be repeated by joins; count and export it once.
+        code = str(r.get("site_code") or "").strip()
+        if code and any(str(site.get("site_code") or "").strip() == code
+                        for site in groups[incident_id]):
+            continue
         groups[incident_id].append(r)
     return [(incident_id, groups[incident_id]) for incident_id in order]
 
 
-def _first_nonempty(sites, key):
-    """First real (non-blank) value of `key` across every site row in
-    the group — NOT just sites[0], which is the exact bug this
-    replaces: incident_site_down has one row per (incident, site), and
-    a multi-site incident's OTHER fields (wo_id in particular) can be
-    set on one site's row and blank on another's. Picking sites[0]
-    alone meant a real INC-WO ref sitting on site #2 silently lost to
-    an empty value on site #1 (confirmed live: INC-0000262688's own
-    7253 row has no wo_id, but its sibling 7252 row has a real one)."""
-    for s in sites:
-        value = (s.get(key) or "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _first_row_with(sites, key):
-    """Same search as _first_nonempty(), but returns the whole row
-    instead of just the value — needed so the Streamline link below can
-    read wo_numeric_id off the SAME row its wo_id came from, not an
-    unrelated sibling site's row."""
-    for s in sites:
-        if (s.get(key) or "").strip():
-            return s
-    return None
+def _earliest_occurred(sites):
+    timestamps = [_parse_ts(site.get("occurred_at")) for site in sites]
+    return min((value for value in timestamps if value is not None), default=None)
 
 
 def _hub_site_groups(sites):
@@ -244,112 +300,150 @@ def _hub_site_groups(sites):
 
 
 def _build_down_alert_title(sites):
-    """'Site X (1234) down over 24 hrs' for one site; '4 Sites down over
-    24hrs hub site DAMBOUK_RUNG (1166,1234)' for a multi-site incident
-    that includes a hub (hub(s) called out by name/codes in addition to
-    the plain site count); '4 sites down over 24hrs' for a multi-site
-    incident with no hub. Each case's own exact wording/spacing matches
-    the user's own real examples, not a single unified template."""
+    """Keep multi-site titles short; individual site details stay in Excel."""
     if len(sites) == 1:
         s = sites[0]
         return f"Site {s.get('site_name')} ({s.get('site_code')}) down over 24 hrs"
-    hub_groups = _hub_site_groups(sites)
-    if not hub_groups:
-        return f"{len(sites)} sites down over 24hrs"
-    hub_desc = " ".join(f"hub site {name} ({','.join(codes)})" for name, codes in hub_groups)
-    return f"{len(sites)} Sites down over 24hrs {hub_desc}"
+    return f"{len(sites)} Sites down over 24hrs"
 
 
-def _build_down_alert_html(sites, services, areas, vip_impacted=""):
+def _count_hub_sites(sites):
+    return len({
+        str(site.get("site_code") or site.get("site_name") or "").strip()
+        for site in sites
+        if str(site.get("hub_site") or "").strip().lower() in _HUB_SITE_VALUES
+        and (site.get("site_code") or site.get("site_name"))
+    })
+
+
+def _build_multi_site_excel(sites, tech_lookup, vip_lookup, ran_name_lookup, onair_lookup):
+    """One row per impacted site, per the user's own reference column
+    list (№/SITE_NAME/SITE_CODE/RAN_NAME/TECH_SERVICES/
+    AFFECTED_SERVICES/PROVINCE/DISTRICT/COMMUNE/SITE_GRADE/VIP/
+    Longitude/Latitude) — only built for a multi-site incident (see
+    check_and_send_down_alerts()'s own `len(sites) > 1` check); a
+    single-site incident's one row is already fully readable in the
+    message text itself, no attachment needed.
+
+    TECH_SERVICES and AFFECTED_SERVICES both come from the same
+    per-site technology inventory (_format_services_impacted) — this
+    app has no per-site, per-technology "which generation actually went
+    down at THIS site" signal (only the whole-incident alarm feed), so
+    the two columns carry the same value, matching the shape of the
+    user's own reference sheet.
+
+    Reuses telegram_alert.py's own _build_excel_bytes (dark-navy header,
+    autosize, banded rows — already proven across 4 other alerts) rather
+    than a second styling implementation. Returns None if openpyxl isn't
+    installed."""
+    if not _HAS_OPENPYXL:
+        return None
+
+    rows = []
+    for i, s in enumerate(sites, start=1):
+        code = s.get("site_code")
+        onair = onair_lookup.get(code) or {}
+        tech_services = _format_services_impacted(code, tech_lookup)
+        rows.append({
+            "_row_number": i,
+            "site_name": s.get("site_name") or "",
+            "site_code": code or "",
+            "ran_name": ran_name_lookup.get(code) or "",
+            "tech_services": tech_services,
+            "affected_services": tech_services,
+            "province": s.get("province") or "",
+            "district": s.get("district") or "",
+            "commune": s.get("commune") or "",
+            "site_grade": s.get("site_grade") or "",
+            "vip": vip_lookup.get(code) or "",
+            "longitude": onair.get("long"),
+            "latitude": onair.get("lat"),
+        })
+
+    return _build_excel_bytes(
+        _EXCEL_COLUMNS, rows, "Incident Report - Impacted Sites",
+        font_name="Huawei Sans", border_style="thin",
+        auto_filter=False, wrap_headers=False, fit_single_line=True,
+        show_title=False, header_bold=False,
+        left_align={"SITE_NAME", "RAN_NAME", "PROVINCE", "DISTRICT", "COMMUNE"},
+    )
+
+
+def _build_down_alert_html(sites, services, areas, vip_impacted="0"):
     """`sites` is every site row for ONE incident (1 for a single-site
     incident, more for a multi-site one) — all fields below read off
     sites[0] except the ones that genuinely depend on the whole group
     (site names/codes, Number of Site Impact, services, areas, Source,
-    VIP/VVIP Impacted, and the INC-WO ref — see _first_nonempty()'s own
-    docstring for why that one specifically can't just use sites[0])."""
+    VIP/VVIP Impacted)."""
     first = sites[0]
-    occurred = min((_parse_ts(s.get("occurred_at")) for s in sites if s.get("occurred_at")), default=None)
+    occurred = _earliest_occurred(sites)
     site_names = ", ".join(dict.fromkeys(s.get("site_name") for s in sites if s.get("site_name")))
     site_codes = ", ".join(dict.fromkeys(s.get("site_code") for s in sites if s.get("site_code")))
 
-    # Ref text is whichever site's own wo_id is real (see
-    # _first_nonempty()'s own docstring); the Streamline LINK has to
-    # come from that SAME row's wo_numeric_id, not just any sibling
-    # site's, or the link could point at a different work order than
-    # the ref text actually names. Falls back to linking the Incident
-    # itself (not a WO) when no site in the group has a real wo_id at
-    # all — same two-tier link webhook/common.py's own drilldown tables
-    # already use for this exact "Incident ID or WO ID" cell.
-    wo_row = _first_row_with(sites, "wo_id")
-    if wo_row:
-        wo_ref = wo_row["wo_id"].strip()
-        link = _id_link(wo_row, "wo_id")
-    else:
-        wo_ref = first.get("incident_id")
-        link = _id_link(first, "incident_id")
-    ref_display = f'<a href="{link}">{wo_ref}</a>' if link else wo_ref
+    # Ref is always the Incident's own id, never a Work Order ref — the
+    # field is labeled "Incident/Work Order Ref" but always carries the
+    # Incident side of that now.
+    incident_ref = escape(str(first.get("incident_id") or ""))
+    link = _id_link(first, "incident_id")
+    ref_display = f'<a href="{escape(link, quote=True)}">{incident_ref}</a>' if link else incident_ref
 
-    items = [
-        f"Incident/Work Order Ref: {ref_display}",
-        f"Site Name: {site_names or '-'}",
-        f"Site Code: {site_codes or '-'}",
-        f"Number of Site Impact: {len(sites)}",
-    ]
+    items = [f"Incident/Work Order Ref: {ref_display}"]
+    if len(sites) == 1:
+        items.extend([
+            f"Site Name: {escape(site_names or '-')}",
+            f"Site Code: {escape(site_codes or '-')}",
+        ])
+    items.append(f"Number of Sites Impacted: {len(sites)}")
+    if len(sites) > 1:
+        items.append(f"Hub Sites Impacted: {_count_hub_sites(sites)}")
     if services:
-        items.append(f"Services Impacted: {services}")
+        items.append(f"Services Impacted: {escape(services)}")
     if areas:
-        items.append(f"Areas Impacted: {areas}")
-    if vip_impacted:
-        items.append(f"VIP/VVIP Impacted: {vip_impacted}")
+        items.append(f"Areas Impacted: {escape(areas)}")
+    items.append(f"VIP/VVIP Impacted: {escape(str(vip_impacted or '0'))}")
     source = ", ".join(dict.fromkeys(s.get("source") for s in sites if s.get("source")))
     if source:
-        items.append(f"Source: {source}")
-    items.append(f"Site Priority: {first.get('site_grade') or '-'}")
+        items.append(f"Source: {escape(source)}")
+    items.append(f"Site Priority: {escape(str(first.get('site_grade') or '-'))}")
     items.append(f"Incident/Outage Start: {_format_display_ts(occurred) if occurred else '-'}")
-    root_cause = (first.get("l1_noc_investigation_result") or "").strip()
-    items.append(f"Root Cause: {root_cause if root_cause else 'Pending investigation'}")
+    root_cause = _root_cause_text(first.get("actual_root_cause"), first.get("l1_noc_investigation_result"))
+    items.append(f"Root Cause: {escape(root_cause)}")
     note = (first.get("last_comments") or "").strip()
     if note:
-        items.append(f"Note: {note}")
+        items.append(f"Note: {escape(note)}")
 
     li = "".join(f"<li>{i}</li>" for i in items)
     return (
-        f"<b>⚠️ {_build_down_alert_title(sites)}</b><br><br>"
+        f"<b>{escape(_build_down_alert_title(sites))}</b><br><br>"
         "Dear All,<br>"
-        "Please be informed that the following site has been down for over 24 hours:"
+        f"Please be informed that the following {'sites have' if len(sites) > 1 else 'site has'} been down for over 24 hours:"
         f"<ul>{li}</ul>"
         "Best Regards,<br>Work Flow Sitedown-alert"
     )
 
 
-def _build_restore_alert_html(occurred, restored, root_cause, note=""):
-    """No bold title line here, deliberately — unlike the down-alert,
-    every one of the user's own real restore-confirmation examples
-    (Nisen EM's, the Workflows bot's) starts directly with "Dear All,",
-    no header. Action Recovery is `note` (last_comments at resolution
-    time) — same fallback convention as Root Cause ("Pending
-    investigation" when empty) rather than a fixed placeholder, since
-    last_comments is where NOC actually records what fixed it."""
-    down_hours = (restored - occurred).total_seconds() / 3600 if occurred and restored else None
+def _build_restore_alert_html(
+    incident_ref, occurred, restored, actual_root_cause, l1_investigation, resolution, last_comments
+):
+    """Reply body matching the user's restore example; routing ref stays in payload."""
     items = [
+        f"Incident/Work Order Ref: {escape(str(incident_ref or '-'))}",
         f"Incident/Outage Start: {_format_display_ts(occurred) if occurred else '-'}",
         f"Restored: {_format_display_ts(restored) if restored else '-'}",
     ]
-    if down_hours is not None:
-        items.append(f"Outage Duration(DD:HH:MM): {_format_duration_ddhhmm(down_hours)}")
-    items.append(f"Root Cause: {root_cause.strip() if root_cause and root_cause.strip() else 'Pending investigation'}")
-    items.append(f"Action Recovery: {note.strip() if note and note.strip() else 'Pending investigation'}")
-
-    li = "".join(f"<li>{i}</li>" for i in items)
+    if occurred and restored and restored >= occurred:
+        items.append(f"Outage Duration(DD:HH:MM): {_format_duration_ddhhmm((restored - occurred).total_seconds() / 3600)}")
+    items.append(f"Root Cause: {escape((actual_root_cause or '').strip() or 'Not recorded')}")
+    items.append(f"Action Recovery: {escape((resolution or '').strip() or 'Not recorded')}")
+    li = "".join(f"<li>{item}</li>" for item in items)
     return (
         "Dear All,<br>"
         "Please be informed that the incident report above has been restored."
-        f"<ul>{li}</ul>"
-        "Best Regards,<br>Work Flow Sitedown-alert"
+        f"<ul>{li}</ul>Best Regards,<br>Work Flow Sitedown-alert"
     )
 
 
-def _send(html, incident_ref, *, restore=False):
+def _send(html, incident_ref, *, restore=False, excel_bytes=None, excel_filename=None):
     """POSTs {text, incident_ref} to one of two separate Power Automate
     flows/URLs — the down-alert's own flow posts to Teams and saves the
     Message ID into a SharePoint list keyed by incident_ref; the
@@ -358,7 +452,16 @@ def _send(html, incident_ref, *, restore=False):
     flows rather than one flow with a branch (see
     SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL's own config comment for
     why) — `restore` just picks which URL to POST to, nothing else
-    differs between the two calls."""
+    differs between the two calls.
+
+    `excel_bytes` (down-alert only, multi-site incidents — see
+    _build_multi_site_excel()) is base64-encoded into the same payload
+    as `excel_base64`/`excel_filename`, not a second request — Power
+    Automate's own "Create file" action can take a base64 string
+    directly, same as it already reads `text`/`incident_ref` out of this
+    one POST body. The Flow itself still needs its own action added to
+    actually create/attach that file in Teams — this only gets the data
+    there; it can't configure the Flow on the Power Automate side."""
     config_key = (
         "SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL" if restore else "SITE_DOWN_24H_ALERT_WEBHOOK_URL"
     )
@@ -366,6 +469,9 @@ def _send(html, incident_ref, *, restore=False):
     if not url:
         return False, "no URL configured"
     payload = {"text": html, "incident_ref": incident_ref}
+    if excel_bytes:
+        payload["excel_base64"] = base64.b64encode(excel_bytes).decode("ascii")
+        payload["excel_filename"] = excel_filename or "site-down-24h-sites.xlsx"
     try:
         resp = _post_json(url, payload)
         ok = 200 <= resp.status < 300
@@ -385,13 +491,13 @@ def check_and_send_down_alerts():
     rows = IncidentSiteDownCacheRepository().fetch_all(_SITE_DOWN_TABLE)
     tech_lookup = _build_tech_lookup()
     vip_lookup = _build_vip_lookup()
+    ran_name_lookup = _build_ran_name_lookup()
+    onair_lookup = _build_onair_lookup()
     now = _now_local().replace(tzinfo=None)
 
     sent = 0
     for incident_id, sites in _group_by_incident(rows):
-        occurred = min(
-            (_parse_ts(s.get("occurred_at")) for s in sites if s.get("occurred_at")), default=None
-        )
+        occurred = _earliest_occurred(sites)
         if not occurred:
             continue
         hours_down = (now - occurred).total_seconds() / 3600
@@ -405,13 +511,29 @@ def check_and_send_down_alerts():
         areas = _format_areas_impacted(sites)
         vip_impacted = _format_vip_impacted(sites, vip_lookup)
         html = _build_down_alert_html(sites, services, areas, vip_impacted)
-        incident_ref = _first_nonempty(sites, "wo_id") or incident_id
-        ok, reason = _send(html, incident_ref)
+
+        # Only a multi-site incident gets the sheet — one site is already
+        # fully readable in the message text itself (see
+        # _build_multi_site_excel()'s own docstring).
+        excel_bytes = excel_filename = None
+        if len(sites) > 1:
+            try:
+                excel_bytes = _build_multi_site_excel(
+                    sites, tech_lookup, vip_lookup, ran_name_lookup, onair_lookup
+                )
+                if not excel_bytes:
+                    raise RuntimeError("Excel workbook could not be generated")
+            except Exception:
+                logger.exception("Site Down 24h: attachment failed for %s; will retry", incident_id)
+                continue
+            excel_filename = f"Incident Report {len(sites)} Sites Down - {incident_id}.xlsx"
+
+        ok, reason = _send(html, incident_id, excel_bytes=excel_bytes, excel_filename=excel_filename)
         if ok:
             # Multi-site incident -> one ledger row, first site's own
             # code (debugging/lookup convenience only — dedup is keyed
             # by incident_id, not site_code).
-            ledger.mark_down_alerted(incident_id, sites[0].get("site_code"), incident_ref)
+            ledger.mark_down_alerted(incident_id, sites[0].get("site_code"), incident_id)
             sent += 1
             logger.info(f"Site Down 24h: down-alert sent for {incident_id} ({len(sites)} site(s))")
         else:
@@ -441,18 +563,39 @@ def check_and_send_restore_alerts():
         r.get("incident_id"): _parse_ts(r.get("occurred_at")) for r in active_rows if r.get("incident_id")
     }
 
+    # fetch_site_down_restored_by_ids() queries Postgres live, straight
+    # from object_322 — unlike incident_site_down (active_rows above),
+    # it never goes through the sync pipeline's own to_local_seconds()
+    # conversion, so these come back as raw UTC datetimes straight off
+    # the connection (confirmed: to_local_seconds()'s own docstring —
+    # "Postgres hands these back as UTC, no session timezone is set").
+    # _parse_ts() only does a naive strptime with no tz math of its own,
+    # so without converting here first, "Restored" posted 7 hours early
+    # in EVERY restore-confirmation (confirmed live against a real sent
+    # message), and "Incident/Outage Start" did too whenever an incident
+    # had already cleared its alarm and dropped out of incident_site_down
+    # by the time this ran, falling through to this same raw-UTC source.
     resolved_rows = IncidentRepository().fetch_site_down_restored_by_ids(pending_ids)
     sent = 0
     for row in resolved_rows:
         incident_id = row.get("Incident ID")
-        restored = _parse_ts(row.get("Restored At"))
+        restored = _parse_ts(to_local_seconds(row.get("Restored At")))
         if not incident_id or not restored:
             continue
-        occurred = occurred_by_id.get(incident_id) or _parse_ts(row.get("Occurred At"))
-        root_cause = row.get("L1 NOC Investigation Result") or ""
-        note = row.get("Last Comments") or ""
-        html = _build_restore_alert_html(occurred, restored, root_cause, note)
+        occurred = _parse_ts(to_local_seconds(row.get("Occurred At"))) or occurred_by_id.get(incident_id)
+        if not occurred or restored < occurred:
+            logger.warning("Site Down 24h: invalid restore timestamps for %s; reply skipped", incident_id)
+            continue
         incident_ref = ref_by_id.get(incident_id) or incident_id
+        html = _build_restore_alert_html(
+            incident_ref,
+            occurred,
+            restored,
+            row.get("Actual Root Cause") or "",
+            row.get("L1 NOC Investigation Result") or "",
+            row.get("Resolution") or "",
+            row.get("Last Comments") or "",
+        )
         ok, reason = _send(html, incident_ref, restore=True)
         if ok:
             ledger.mark_restore_alerted(incident_id)

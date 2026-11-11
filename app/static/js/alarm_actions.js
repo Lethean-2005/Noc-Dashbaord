@@ -26,9 +26,14 @@ function toggleAlarmActionMenu(event, button) {
     if (isOpen) return;
 
     const rect = button.getBoundingClientRect();
-    menu.style.top = (rect.bottom + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
     menu.classList.add('open');
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    const below = window.innerHeight - rect.bottom - 4;
+    const top = height > below && rect.top > height + 4 ? rect.top - height - 4 : rect.bottom + 4;
+    menu.style.top = Math.max(8, Math.min(top, window.innerHeight - height - 8)) + 'px';
+    menu.style.left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)) + 'px';
+    menu.style.right = 'auto';
 }
 
 function closeAlarmActionMenus() {

@@ -53,10 +53,10 @@ _TELEGRAM_SEND_MESSAGE_URL = "https://api.telegram.org/bot{token}/sendMessage"
 _TELEGRAM_SEND_DOCUMENT_URL = "https://api.telegram.org/bot{token}/sendDocument"
 _EXCEL_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-# app/static/fonts/ (see base.html) — same Exo 2 family used across the
-# dashboard's own UI, so the alert image looks consistent with the app.
+# Use Huawei Sans Bold for Telegram image titles, headers and rows.
 _FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "fonts")
-_FONT_BOLD_PATH = os.path.join(_FONT_DIR, "Exo2-Bold.ttf")
+_FONT_PATH = os.path.join(_FONT_DIR, "HuaweiSans-Bold.ttf")
+_FONT_BOLD_PATH = os.path.join(_FONT_DIR, "HuaweiSans-Bold.ttf")
 
 # Excel styling — matches the PNG tables' own colors so the .xlsx
 # attachment reads as the same alert. Solid black border, larger font
@@ -151,7 +151,7 @@ def _render_table_image(rows, title):
     """Render `rows` as a "Site Down Alerts" table image, matching the
     dashboard's own dark-navy-header table style. Returns PNG bytes, or None
     if Pillow/the font isn't available (caller falls back to plain text)."""
-    if not _HAS_PIL or not os.path.exists(_FONT_BOLD_PATH):
+    if not _HAS_PIL or not os.path.exists(_FONT_PATH) or not os.path.exists(_FONT_BOLD_PATH):
         return None
 
     SCALE = 2  # render at 2x, so text stays sharp after Telegram displays it
@@ -169,7 +169,7 @@ def _render_table_image(rows, title):
     BG, HEADER_BG, HEADER_TEXT = "#FFFFFF", "#1A3A5C", "#FFFFFF"
     TEXT_COLOR, GRID_COLOR, TITLE_COLOR, FRAME_COLOR = "#000000", "#000000", "#1A2B3C", "#F0F2F5"
 
-    font = ImageFont.truetype(_FONT_BOLD_PATH, FONT_SIZE)
+    font = ImageFont.truetype(_FONT_PATH, FONT_SIZE)
     title_font = ImageFont.truetype(_FONT_BOLD_PATH, TITLE_SIZE)
     char_w = int(font.getlength("M"))
 
@@ -315,19 +315,18 @@ def _argb(hex_color):
 # Same incident/inc_wo record links the dashboard's own drilldown pages
 # build — every INC-WO cache table already carries
 # incident_numeric_id/wo_numeric_id.
-_INCIDENT_FORM_URL = "https://prd-web-mc.cellcard.com.kh/incident/form/{id}"
-_INC_WO_FORM_URL = "https://prd-web-mc.cellcard.com.kh/inc_wo/form/{id}"
+from app.utils.source_urls import source_url
 _EXCEL_LINK_ARGB = "FF0563C1"  # Excel's own default hyperlink blue
 
 
 def _incident_link(row):
     numeric_id = row.get("incident_numeric_id")
-    return _INCIDENT_FORM_URL.format(id=numeric_id) if numeric_id else None
+    return source_url(f"incident/form/{numeric_id}") if numeric_id else None
 
 
 def _inc_wo_link(row):
     numeric_id = row.get("wo_numeric_id")
-    return _INC_WO_FORM_URL.format(id=numeric_id) if numeric_id else None
+    return source_url(f"inc_wo/form/{numeric_id}") if numeric_id else None
 
 
 def _build_excel_bytes(
@@ -339,6 +338,13 @@ def _build_excel_bytes(
     priority_fn=None,
     hyperlinks=None,
     left_align=None,
+    font_name="Huawei Sans",
+    border_style="medium",
+    auto_filter=True,
+    wrap_headers=True,
+    fit_single_line=False,
+    show_title=True,
+    header_bold=True,
 ):
     """Builds a styled .xlsx workbook of `rows` — dark-navy header,
     frozen header row, autofilter, autosized columns, banded rows.
@@ -362,41 +368,57 @@ def _build_excel_bytes(
     # Solid black, not hairline-thin — a light-grey grid disappears at
     # normal zoom; black keeps every cell boundary visible without opening
     # the file and zooming in.
-    thick = Side(style="medium", color=_EXCEL_BORDER_ARGB)
+    thick = Side(style=border_style, color=_EXCEL_BORDER_ARGB)
     border = Border(left=thick, right=thick, top=thick, bottom=thick)
 
-    now_str = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).strftime("%Y-%m-%d %H:%M")
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(columns), 1))
-    title_cell = ws.cell(row=1, column=1, value=f"{title}  —  {now_str}")
-    title_cell.font = Font(bold=True, size=_EXCEL_TITLE_FONT_SIZE, color="FF1A2B3C")
-    ws.row_dimensions[1].height = 28
+    header_row = 1
+    if show_title:
+        now_str = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).strftime("%Y-%m-%d %H:%M")
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(columns), 1))
+        title_cell = ws.cell(row=1, column=1, value=f"{title}  —  {now_str}")
+        title_cell.font = Font(name=font_name, bold=True, size=_EXCEL_TITLE_FONT_SIZE, color="FF1A2B3C")
+        ws.row_dimensions[1].height = 28
+        header_row = 2
 
-    header_row = 2
     for ci, (header, _extractor) in enumerate(columns, start=1):
         cell = ws.cell(row=header_row, column=ci, value=header)
-        cell.font = Font(bold=True, size=_EXCEL_HEADER_FONT_SIZE, color="FFFFFFFF")
+        cell.font = Font(name=font_name, bold=header_bold, size=_EXCEL_HEADER_FONT_SIZE, color="FFFFFFFF")
         cell.fill = PatternFill("solid", fgColor=_EXCEL_HEADER_ARGB)
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=wrap_headers)
         cell.border = border
     ws.row_dimensions[header_row].height = 26
 
+    # Teams sheets use actual Huawei glyph widths to fit one-line text.
+    body_font = header_font = None
+    if fit_single_line and _HAS_PIL and font_name == "Huawei Sans":
+        try:
+            body_font = ImageFont.truetype(os.path.join(_FONT_DIR, "HuaweiSans.ttf"), round(_EXCEL_DATA_FONT_SIZE * 96 / 72))
+            header_font = ImageFont.truetype(os.path.join(_FONT_DIR, "HuaweiSans-Bold.ttf" if header_bold else "HuaweiSans.ttf"), round(_EXCEL_HEADER_FONT_SIZE * 96 / 72))
+        except OSError:
+            pass
+    def text_pixels(value, font):
+        text = str(value)
+        return font.getlength(text) if font is not None else len(text) * 9
+    max_pixels = [text_pixels(header, header_font) for header, _ in columns]
     max_len = [len(header) for header, _ in columns]
     for ri, row in enumerate(rows, start=header_row + 1):
         is_priority = bool(priority_fn(row)) if priority_fn else False
         band = (not is_priority) and (ri - header_row) % 2 == 0
         for ci, (header, extractor) in enumerate(columns, start=1):
             value = extractor(row) if callable(extractor) else (row.get(extractor) or "—")
+            if fit_single_line and isinstance(value, str):
+                value = " ".join(value.split())
             is_status = status_key and header == status_key and status_colors and value in status_colors
             link_url = hyperlinks[header](row) if hyperlinks and header in hyperlinks else None
             horizontal = "left" if left_align and header in left_align else "center"
             cell = ws.cell(row=ri, column=ci, value=value)
             cell.border = border
-            cell.alignment = Alignment(horizontal=horizontal, vertical="center")
+            cell.alignment = Alignment(horizontal=horizontal, vertical="center", wrap_text=False)
             if link_url:
                 cell.hyperlink = link_url
-                cell.font = Font(size=_EXCEL_DATA_FONT_SIZE, color=_EXCEL_LINK_ARGB)
+                cell.font = Font(name=font_name, size=_EXCEL_DATA_FONT_SIZE, color=_EXCEL_LINK_ARGB)
             else:
-                cell.font = Font(
+                cell.font = Font(name=font_name,
                     size=_EXCEL_DATA_FONT_SIZE,
                     bold=bool(is_status),
                     color=_argb(status_colors[value]) if is_status else "FF000000",
@@ -406,14 +428,18 @@ def _build_excel_bytes(
             elif band:
                 cell.fill = PatternFill("solid", fgColor=_EXCEL_ALT_ROW_ARGB)
             max_len[ci - 1] = max(max_len[ci - 1], len(str(value)))
+            if fit_single_line:
+                max_pixels[ci - 1] = max(max_pixels[ci - 1], text_pixels(value, body_font))
         ws.row_dimensions[ri].height = _EXCEL_DATA_ROW_HEIGHT
 
     for ci, length in enumerate(max_len, start=1):
-        ws.column_dimensions[get_column_letter(ci)].width = min(max(length + 4, 12), 60)
+        width = min(max((max_pixels[ci - 1] + 12) / 7, 12), 255) if fit_single_line else min(max(length + 4, 12), 60)
+        ws.column_dimensions[get_column_letter(ci)].width = round(width, 2)
 
     ws.freeze_panes = f"A{header_row + 1}"
-    if rows:
-        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(columns))}{header_row}"
+    if columns and auto_filter:
+        # Include the data rows: a header-only range cannot filter the sites.
+        ws.auto_filter.ref = f"A{header_row}:{get_column_letter(len(columns))}{ws.max_row}"
 
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -523,9 +549,19 @@ def send_site_down_alert(
     if excel:
         sent = _send_telegram_excel(token, chat_ids, excel, "site-down-alert.xlsx") and sent
 
-    logger.info(
-        f"Sent Telegram Site Down alert — {len(rows)} incident(s) to {len(chat_ids)} chat(s)"
-    )
+    # `sent` tracks every underlying send call's own success (photo/text AND
+    # excel) — logging "Sent" unconditionally here, regardless of that
+    # value, previously made a fully-failed send (e.g. "chat not found")
+    # look identical to a real success in the logs.
+    if sent:
+        logger.info(
+            f"Sent Telegram Site Down alert — {len(rows)} incident(s) to {len(chat_ids)} chat(s)"
+        )
+    else:
+        logger.error(
+            f"Telegram Site Down alert FAILED to send — {len(rows)} incident(s), "
+            f"{len(chat_ids)} chat(s) (see the send error(s) logged above)"
+        )
     return {"sent": sent, "count": len(rows)}
 
 

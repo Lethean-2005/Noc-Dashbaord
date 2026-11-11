@@ -11,6 +11,7 @@ from app.database.cache import get_cache_conn
 
 _COLUMNS = (
     "id",
+    "report_type",
     "document_title",
     "file_name",
     "incident_raised_by",
@@ -45,6 +46,15 @@ _COLUMNS = (
     "permanent_fixed_2",
     "improvement_plan_json",
     "picture_references_json",
+    "smart_report_month",
+    "smart_customer_name",
+    "smart_active_circuits_json",
+    "smart_monthly_outage_json",
+    "smart_fault_services_json",
+    "smart_services_outage_json",
+    "smart_failure_to_react_json",
+    "smart_credit_note_json",
+    "smart_credit_amounts_json",
     "status",
     "created_at",
     "updated_at",
@@ -135,4 +145,11 @@ class IncidentReportRepository:
         d["chronology_events"] = json.loads(d.get("chronology_events_json") or "[]")
         d["improvement_plan"] = json.loads(d.get("improvement_plan_json") or "[]")
         d["picture_references"] = json.loads(d.get("picture_references_json") or "[]")
+        d["smart_active_circuits"] = json.loads(d.get("smart_active_circuits_json") or "[]")
+        d["smart_monthly_outage"] = json.loads(d.get("smart_monthly_outage_json") or "[]")
+        d["smart_fault_services"] = json.loads(d.get("smart_monthly_outage_json") or "[]")
+        d["smart_services_outage"] = json.loads(d.get("smart_services_outage_json") or "[]")
+        d["smart_failure_to_react"] = json.loads(d.get("smart_failure_to_react_json") or "[]")
+        d["smart_credit_note"] = json.loads(d.get("smart_credit_note_json") or "[]")
+        d["smart_credit_amounts"] = json.loads(d.get("smart_credit_amounts_json") or "{}")
         return d

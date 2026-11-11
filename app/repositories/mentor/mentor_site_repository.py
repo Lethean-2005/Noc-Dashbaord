@@ -26,6 +26,20 @@ class MentorSiteRepository:
         finally:
             conn.close()
 
+    def add_many(self, codes, source):
+        """Save a validated batch atomically using one connection and commit."""
+        timestamp = datetime.now(ZoneInfo(current_app.config["TIMEZONE"])).isoformat(timespec="seconds")
+        conn = get_cache_conn()
+        try:
+            with conn:
+                conn.executemany(
+                    "INSERT INTO mentor_sites (site_code, added_at, source) VALUES (?, ?, ?) "
+                    "ON CONFLICT(site_code) DO NOTHING",
+                    [(code, timestamp, source) for code in codes],
+                )
+        finally:
+            conn.close()
+
     def fetch_all(self):
         conn = get_cache_conn()
         try:

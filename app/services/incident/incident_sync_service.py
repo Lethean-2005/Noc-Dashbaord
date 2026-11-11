@@ -222,13 +222,35 @@ class IncidentSyncService:
         )
 
     def _nms_by_site(self):
-        """site_code -> raw NMS vendor code. Read fresh from cache on
-        every call (both sources are tiny). Merge priority (confirmed
-        actual_ran_vendor codes > NE-based fallback) lives in
-        app/utils/nms.py's resolve_nms_code_by_site()."""
+        """site_code -> real vendor NAME (e.g. "ZTE"), read fresh from
+        cache on every call (all 3 sources are tiny). Same priority the
+        Map page already trusts (map_view_service.py's own On-Air
+        handling / this file's own _resolve_vendor_name()):
+
+        1. mssql_site_onair's own VENDOR column (real NE inventory,
+           authoritative for On-Air sites) — added here after a real
+           mismatch was reported: Map showed site 0511 as ZTE via this
+           column, but this dict used to resolve it as Huawei via tier 3
+           below for the SAME site. object_227's NE-configured-NMS can
+           simply be wrong/stale compared to the real on-air equipment.
+        2. actual_ran_vendor, confirmed-correct codes only (3-code
+           check, see ACTUAL_RAN_VENDOR_TO_NMS_CODE) — covers
+           Planned/Off-Air sites the on-air table doesn't have.
+        3. ne_nms_lookup_cache / object_227 (lowest confidence, can be
+           stale) — last-resort fallback so a site with neither of the
+           above still shows SOMETHING rather than going blank, the
+           same trade-off this always made before tier 1 existed here.
+        """
         ne_rows = self.ne_nms_lookup_cache_repository.fetch_all(_NE_NMS_LOOKUP_TABLE)
         vendor_rows = self.site_ran_vendor_cache_repository.fetch_all(_SITE_RAN_VENDOR_TABLE)
-        return resolve_nms_code_by_site(ne_rows, vendor_rows)
+        nms_code_by_site = resolve_nms_code_by_site(ne_rows, vendor_rows)
+        nms_by_site = {
+            site_code: NMS_NAMES.get(str(nms_code or "").strip(), "")
+            for site_code, nms_code in nms_code_by_site.items()
+        }
+        onair_vendor_by_site_code = self._onair_vendor_by_site_code()
+        nms_by_site.update({code: v for code, v in onair_vendor_by_site_code.items() if v})
+        return nms_by_site
 
     def _onair_vendor_by_site_code(self):
         """site_code -> real vendor name, straight from mssql_site_onair's
@@ -267,7 +289,7 @@ class IncidentSyncService:
         this guard one WO could wrongly attach to every siteless row of
         a multi-site incident. "Other Site" incidents (no Site Numeric
         ID) are matched by incident id alone instead, only when
-        unambiguous (confirmed against INC-0000122533/INC-0000118176)."""
+        unambiguous."""
         incident_ids = sorted(
             {r["Incident Numeric ID"] for r in rows if r.get("Incident Numeric ID") is not None}
         )
@@ -547,6 +569,21 @@ class IncidentSyncService:
         logger.info(f"Synced {len(normalized)} row(s) into {_INC_WO_RESOLVED_TABLE}")
         return len(normalized)
 
+    def sync_inc_wo_all_resolved(self):
+        """Atomically cache a source-verified all-siblings-resolved snapshot."""
+        from app.repositories.incwo.incwo_all_resolved_cache_repository import IncWoAllResolvedCacheRepository
+        rows = retry_fetch(self.incwo_repository.fetch_all_resolved_incidents, "INC-WO-all-resolved")
+        if rows is None:
+            return None
+        from app.repositories.site.site_cache_repository import SiteCacheRepository
+        from app.utils.incident_site_codes import incident_site_codes
+        known_codes = {r["standard_code"] for r in SiteCacheRepository().fetch_columns("site_cache", ("standard_code",)) if r.get("standard_code")}
+        normalized = [{**row, "site_code": incident_site_codes(row, known_codes),
+                        "occurred_at": to_local_seconds(row.get("occurred_at")),
+                        "resolved_at": to_local_seconds(row.get("resolved_at"))} for row in rows]
+        IncWoAllResolvedCacheRepository().replace_all("inc_wo_all_resolved", normalized)
+        return len(normalized)
+
     def sync_incident_site_down(self):
         """Refresh incident_site_down — reuses fetch_site_down(), same
         query the Telegram alert shares."""
@@ -580,17 +617,8 @@ class IncidentSyncService:
         Reads the numeric ids off incident_by_status (category ==
         "Site Down"), the SAME cache IncidentService.get_details()/
         get_incident_age_buckets() read — NOT incident_site_down_cache,
-        which this used before. Confirmed live these two tables are NOT
-        the same incident set (22 vs 18 Site Down rows on a real
-        snapshot): incident_site_down additionally requires
-        cleared_alarm_received == FALSE, a condition the age chart's own
-        source query doesn't apply — so an incident whose alarm already
-        cleared but is still "In Progress" showed up on the age chart
-        with no worklog ever cached for it (confirmed: INC-0000275910,
-        visibly in the 12-24h bucket, was in incident_by_status but
-        absent from incident_site_down entirely). Sourcing from the
-        same table the chart reads removes that whole class of mismatch
-        by construction, not just for this one incident.
+        because the age chart also includes incidents whose alarms have
+        cleared while the incident remains open. Keep both sources aligned.
 
         Still small and self-pruning the same way: once an incident
         resolves and drops out of incident_by_status, its worklog rows
@@ -1000,6 +1028,7 @@ class IncidentSyncService:
                     if r.get("resolution_sla_pct") is not None
                     else None
                 ),
+                "not_graded_count": r.get("not_graded_count"),
             }
             for r in rows
             if r.get("iso_week")
@@ -1056,6 +1085,8 @@ class IncidentSyncService:
                 "incident_id": r.get("incident_id"),
                 "incident_numeric_id": r.get("incident_numeric_id"),
                 "iso_week": r.get("iso_week"),
+                "response_iso_week": r.get("response_iso_week"),
+                "resolution_iso_week": r.get("resolution_iso_week"),
                 "category": r.get("category") or "Uncategorized",
                 "priority": r.get("priority") or "Unknown",
                 "support_level": r.get("support_level") or "",
@@ -1063,6 +1094,7 @@ class IncidentSyncService:
                 "occurred_at": to_local_seconds(r.get("occurred_at")),
                 "overdue_response": _bool_to_int(r.get("overdue_response")),
                 "overdue": _bool_to_int(r.get("overdue")),
+                "root_cause_category": r.get("root_cause_category") or "Not Assigned",
             }
             for r in deduped
         ]
@@ -1129,9 +1161,10 @@ class IncidentSyncService:
             "site_code": row.get("Site Code") or "",
             "occurred_at": to_local_seconds(row.get("Occurred At")),
             "l1_noc_investigation_result": row.get("L1 NOC Investigation Result") or "",
+            "actual_root_cause": row.get("Actual Root Cause") or "",
             "last_comments": row.get("Last Comments") or "",
             "source": row.get("Source") or "",
-            "nms": NMS_NAMES.get(str(nms_by_site.get(row.get("Site Code")) or "").strip(), ""),
+            "nms": nms_by_site.get(row.get("Site Code")) or "",
             "hub_site": row.get("Hub Site") or "",
             "site_grade": row.get("Site Grade") or "",
             "province": row.get("Province") or "",
@@ -1153,13 +1186,14 @@ class IncidentSyncService:
             "wo_created_at": to_local_seconds(row.get("INC-WO Created At")),
             "wo_status": row.get("INC-WO Status") or "",
             "resolved_at": to_local_seconds(row.get("Resolved At")),
+            "resolution": row.get("Resolution") or "",
             "responsible_team": row.get("Responsible Team") or "",
             "site_name": row.get("Site Name") or "",
             "site_code": row.get("Site Code") or "",
             "overdue": row.get("overdue") or "",
             "support_level": row.get("Support Level") or "",
             "fault_description": row.get("Fault Description") or "",
-            "nms": NMS_NAMES.get(str(nms_by_site.get(row.get("Site Code")) or "").strip(), ""),
+            "nms": nms_by_site.get(row.get("Site Code")) or "",
             "hub_site": row.get("Hub Site") or "",
             "site_grade": row.get("Site Grade") or "",
             "province": row.get("Province") or "",
@@ -1202,7 +1236,8 @@ class IncidentSyncService:
             "support_level": row.get("Support Level") or "",
             "responsible_team": row.get("Responsible Team") or "",
             "fault_description": row.get("Fault Description") or "",
-            "nms": NMS_NAMES.get(str(nms_by_site.get(row.get("Site Code")) or "").strip(), ""),
+            "resolution": row.get("Resolution") or "",
+            "nms": nms_by_site.get(row.get("Site Code")) or "",
             "hub_site": row.get("Hub Site") or "",
             "site_grade": row.get("Site Grade") or "",
             "province": row.get("Province") or "",
@@ -1232,7 +1267,7 @@ class IncidentSyncService:
             "overdue": row.get("overdue") or "",
             "category": row.get("category") or "",
             "l1_noc_investigation_result": row.get("L1 NOC Investigation Result") or "",
-            "nms": NMS_NAMES.get(str(nms_by_site.get(row.get("Site Code")) or "").strip(), ""),
+            "nms": nms_by_site.get(row.get("Site Code")) or "",
             "hub_site": row.get("Hub Site") or "",
             "site_grade": row.get("Site Grade") or "",
             "province": row.get("Province") or "",

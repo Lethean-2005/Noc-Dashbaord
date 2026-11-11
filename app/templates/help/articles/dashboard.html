@@ -1,0 +1,37 @@
+<section class="help-section" id="dashboard">
+            <h2><i class="ti ti-layout-dashboard"></i> Dashboard</h2>
+            <p>Each card's badge shows a live count. Click any badge to open its drilldown table.</p>
+            <ul>
+                <li><code>IP Ezecom</code> combines ISP POP badges (POP DOWN, POP POWER) with Ezecom's own
+                    alarm badges in one card; <code>IP Telcotech/Cellcard</code> is the same idea for TCT
+                    &mdash; both are MSSQL-sourced, alongside <code>VVIP Site</code> and <code>Mentor Site</code>.</li>
+                <li><code>RAN Status</code> has four independent badge groups side by side &mdash; Site
+                    Down, Main AC Alarm, DC Low/High, and Tech Down &mdash; each with its own View button and
+                    a Hub-Site/Diamond/Gold/Silver/Bronze grade breakdown.</li>
+                <li><code>Incident / INC-WO by Status</code> shows Incident and INC-WO badge groups side
+                    by side, each with its own View button.</li>
+                <li>Three chart cards summarize trend data: Incident Age, Incidents Closed, and Incident Volume.
+                    Every bar, dot, or segment on them is clickable the same way a badge is, and hovering
+                    shows an exact-value tooltip first.</li>
+                <li>The Incidents Closed and Incident Volume drilldowns support a <code>Filter by Category</code>
+                    checkbox control &mdash; only categories actually present in that table are listed. Checking
+                    more than one category shows rows matching any of them, and the export respects the same
+                    selection.</li>
+                <li><code>Incident Age &ndash; Open</code>'s own count still opens the usual drilldown table,
+                    but each bar also has its own worklog icon (<i class="ti ti-notes"></i>, next to the count) &mdash;
+                    click it to see every currently-open incident in that age bucket, each one expandable to
+                    its own real worklog history (comments and status/field changes pulled straight from the
+                    source system) without leaving the dashboard.</li>
+            </ul>
+            <p class="help-subhead">Badge colors</p>
+            <table class="help-color-table">
+                <tbody>
+                    <tr><td><span class="help-swatch" style="background:#10b981"></span></td><td>Green</td><td>Count is 0 &mdash; healthy</td></tr>
+                    <tr><td><span class="help-swatch" style="background:#ef4444"></span></td><td>Red</td><td>Count is above 0 &mdash; needs attention</td></tr>
+                </tbody>
+            </table>
+            <p>This zero/nonzero rule describes alarm-count badges, including the ISP POP badges inside
+               <code>IP Ezecom</code> and the alarm-count badges in <code>IP Telcotech/Cellcard</code>. Incident and WO status badges can use separate colors to identify their workflow states; their color alone is not a zero/nonzero health result. See the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-User-Demo-Guide.pdf') }}">User Demo Guide</a>
+               under Downloads for a full screenshot of the Dashboard and its chart interactivity.</p>
+        </section>

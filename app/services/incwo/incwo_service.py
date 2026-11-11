@@ -2,6 +2,7 @@
 "INC-WO Resolved" cards. Reads from local caches kept in sync by
 app/services/incident/incident_scheduler.py — never queries Postgres live."""
 
+from app.repositories.incwo.incwo_all_resolved_cache_repository import IncWoAllResolvedCacheRepository
 from app.repositories.incwo.incwo_resolved_cache_repository import IncWoResolvedCacheRepository
 from app.repositories.incwo.incwo_status_cache_repository import IncWoStatusCacheRepository
 from app.utils.ttl_cache import ttl_cache
@@ -103,9 +104,21 @@ def _resolved_sort_key(row):
 
 
 class IncWoService:
-    def __init__(self, status_cache_repository=None, resolved_cache_repository=None):
+    def __init__(self, status_cache_repository=None, resolved_cache_repository=None, all_resolved_cache_repository=None):
+        self.all_resolved_cache_repository = all_resolved_cache_repository or IncWoAllResolvedCacheRepository()
         self.status_cache_repository = status_cache_repository or IncWoStatusCacheRepository()
         self.resolved_cache_repository = resolved_cache_repository or IncWoResolvedCacheRepository()
+
+    def get_all_resolved_details(self):
+        """Source summary proves completeness; never infer it from filtered WO rows."""
+        rows = self.all_resolved_cache_repository.fetch_all("inc_wo_all_resolved")
+        return [r for r in rows if r.get("all_wo_is_resolved") == 1 and r.get("incident_numeric_id")
+                and (r.get("wo_count") or 0) > 0
+                and r.get("wo_count") == r.get("resolved_wo_count")
+                and (r.get("incident_status") or "").lower() != "closed"]
+
+    def get_all_resolved_count(self):
+        return len(self.get_all_resolved_details())
 
     @ttl_cache(15)
     def get_incwo_counts(self):

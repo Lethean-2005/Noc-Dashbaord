@@ -25,7 +25,8 @@ def start(app, interval_seconds):
         n3 = service.sync_ne_nms()
         n4 = service.sync_ran_vendor()
         n5 = service.sync_counterparty()
-        return (n1 or 0) + (n2 or 0) + (n3 or 0) + (n4 or 0) + (n5 or 0)
+        n6 = service.sync_ran_name()
+        return (n1 or 0) + (n2 or 0) + (n3 or 0) + (n4 or 0) + (n5 or 0) + (n6 or 0)
 
     # first_run_delay applies this same offset to the very first run too —
     # without it, a fresh app restart fires every job's first cycle

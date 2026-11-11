@@ -1,514 +1,202 @@
-/* ================================================================
-   help.css — Standalone Help page (app/templates/help/index.html)
-   Loaded only on layouts/bare.html, which has no sidebar/navbar.
-   Sidebar + content-column layout, styled independently of the rest
-   of the app (which uses Nunito) — this page uses Huawei Sans, matching
-   the PDF/Word documentation it links out to.
-   ================================================================ */
+/* Help center: compact landing page and searchable articles. */
+body:has(.help-center) { display: block; width: 100%; margin: 0; background: var(--bg-card, #fff); }
+.help-center, .help-center input { font-family: var(--font-ui); }
+.help-center { width: 100%; min-height: 100vh; color: var(--text-primary); font-size: 14px; line-height: 1.6; }
+.help-center *, .help-center *::before, .help-center *::after { box-sizing: border-box; }
+.help-container { width: calc(100% - 80px); margin-inline: auto; }
+.help-center a { color: inherit; text-decoration: none; }
+.help-center a:hover { color: var(--help-accent); }
+.help-center { --help-accent: #6543dc; --help-tint: #f4f1ff; }
+[data-theme="dark"] .help-center { --help-accent: #b6a5ff; --help-tint: #242133; }
+.help-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 78px; }
+.help-brand { font-size: 17px; font-weight: 700; white-space: nowrap; }
+.help-brand span { margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--border-card); color: var(--text-muted); font-size: 13px; font-weight: 400; }
+.help-header nav { display: flex; gap: 24px; align-items: center; font-size: 12px; }
+.help-back { border: 1px solid var(--border-card); border-radius: 3px; padding: 7px 12px; }
+.help-hero { text-align: center; background: var(--help-tint); border-block: 1px solid var(--border-card); padding: 42px 0 24px; }
+.help-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 1.3px; }
+.help-center h1 { font-size: clamp(28px, 4vw, 38px); line-height: 1.2; margin: 10px 0 12px; letter-spacing: -.7px; }
+.help-hero p { color: var(--text-muted); margin: 0 auto 20px; max-width: 480px; font-size: 13px; }
+.help-search { display: flex; align-items: center; gap: 12px; width: min(480px, 100%); margin: auto; border: 1px solid var(--border-card); border-radius: 3px; background: var(--bg-card, #fff); padding: 11px 14px; text-align: left; }
+.help-search:focus-within { outline: 2px solid var(--help-accent); outline-offset: 2px; }
+.help-search i { font-size: 18px; color: var(--text-muted); }
+.help-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--text-primary); font-size: 13px; box-shadow: none; }
+.help-hero .help-search-status { min-height: 18px; margin: 8px auto 0; font-size: 11px; }
+.help-main { padding-top: 32px; }
+.help-center h2 { font-size: 16px; margin: 0 0 18px; font-weight: 600; }
+.help-popular-grid, .help-topics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.help-popular { margin-bottom: 34px; }
+.help-popular-card { display: flex; align-items: flex-start; gap: 12px; padding: 2px 0 8px; }
+.help-popular-card > i { color: var(--help-accent); font-size: 18px; margin-top: 2px; }
+.help-popular-card h3 { margin: 0 0 5px; font-size: 13px; font-weight: 600; }
+.help-popular-card p { color: var(--text-muted); font-size: 12px; margin: 0 0 7px; }
+.help-popular-card div > span { color: var(--help-accent); font-size: 12px; }
+.help-topic-card { border: 1px solid var(--border-card); border-radius: 3px; overflow: hidden; }
+.help-topic-card h3 { display: flex; align-items: center; gap: 9px; margin: 0; padding: 12px 14px; font-size: 13px; font-weight: 600; color: var(--help-accent); background: var(--help-tint); border-bottom: 1px solid var(--border-card); }
+.help-topic-card ul { list-style: none; padding: 8px 14px; margin: 0; }
+.help-topic-card li a { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; font-size: 12px; }
+.help-topic-card li a span { color: var(--text-muted); }
+.help-articles { margin-top: 36px; scroll-margin-top: 20px; }
+.help-article { border: 1px solid var(--border-card); border-radius: 3px; margin-bottom: 8px; scroll-margin-top: 20px; }
+.help-article summary { display: flex; justify-content: space-between; gap: 16px; align-items: center; list-style: none; cursor: pointer; padding: 13px 16px; font-size: 13px; font-weight: 600; }
+.help-article summary::-webkit-details-marker { display: none; }
+.help-article[open] summary { border-bottom: 1px solid var(--border-card); }
+.help-article[open] summary i { transform: rotate(180deg); }
+.help-article p { color: var(--text-secondary, var(--text-muted)); font-size: 13px; margin: 0; padding: 14px 16px; max-width: 900px; }
+.help-footer { display: flex; gap: 24px; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-card); margin-top: 36px; padding: 24px 0 32px; }
+.help-footer h2 { margin-bottom: 5px; }
+.help-footer p { font-size: 12px; color: var(--text-muted); margin: 0; }
+.help-footer > a { white-space: nowrap; font-size: 12px; color: var(--help-accent); }
+.help-no-results { color: var(--text-muted); font-size: 13px; padding: 18px 0; }
+.help-center [hidden] { display: none !important; }
+.help-center a:focus-visible, .help-center summary:focus-visible { outline: 2px solid var(--help-accent); outline-offset: 3px; }
+@media(max-width: 800px) { .help-popular-grid, .help-topics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } .help-header nav > a:not(.help-back) { display: none; } }
+@media(max-width: 520px) { .help-container { width: calc(100% - 32px); } .help-header { gap: 10px; min-height: 68px; } .help-brand { font-size: 14px; } .help-brand span { display: block; margin: 0; padding: 0; border: 0; font-size: 11px; } .help-back { font-size: 11px; padding: 6px 8px; } .help-hero { padding-top: 32px; } .help-popular-grid, .help-topics-grid { grid-template-columns: 1fr; gap: 16px; } .help-footer { align-items: flex-start; flex-direction: column; gap: 12px; } }
 
-@font-face {
-  font-family: 'Huawei Sans';
-  src: url('../../fonts/HuaweiSans.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* Original Help text and PDF links remain intact inside the new layout. */
+.help-article summary h2 { margin: 0; font-size: 13px; }
+.help-section { padding: 16px; overflow-wrap: anywhere; }
+.help-section > h2 { display: none; }
+.help-section p { padding: 0; margin: 0 0 12px; max-width: none; }
+.help-section h3 { font-size: 14px; margin: 18px 0 8px; }
+.help-section ul, .help-section ol { padding-left: 22px; margin: 8px 0 16px; }
+.help-section a, .help-downloads a { color: var(--help-accent); }
+.help-section table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+.help-section td, .help-section th { border: 1px solid var(--border-card); padding: 8px; text-align: left; }
+.help-section code { font-size: 12px; overflow-wrap: anywhere; }
+.help-section pre { overflow: auto; padding: 12px; border: 1px solid var(--border-card); border-radius: 3px; }
+.help-top { margin-bottom: 22px; }
+.help-top h1 { font-size: 20px; }
+.help-lede { font-size: 13px; color: var(--text-muted); }
+.help-downloads { margin: 32px 0; scroll-margin-top: 20px; }
+.help-downloads-desc { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+.help-downloads-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.help-doc-card { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border-card); border-radius: 3px; padding: 16px; font-size: 13px; }
+.help-doc-icon { font-size: 24px; }
+.help-doc-download { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+@media(max-width: 520px) { .help-downloads-grid { grid-template-columns: 1fr; } }
 
-@font-face {
-  font-family: 'Huawei Sans';
-  src: url('../../fonts/HuaweiSans-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
+/* Separate article pages keep the landing page easy to scan. */
+.help-article-directory { margin-top: 36px; }
+.help-guide-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 28px; }
+.help-guide-link { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border-card); font-size: 13px; }
+.help-guide-link i { color: var(--text-muted); }
+.help-reading-page .help-header { border-bottom: 1px solid var(--border-card); }
+.help-reading { width: calc(100% - 80px); margin: 0 auto; padding: 32px 0 60px; }
+.help-breadcrumb { display: flex; flex-wrap: wrap; gap: 10px; color: var(--text-muted); font-size: 12px; margin-bottom: 24px; }
+.help-breadcrumb a { color: var(--help-accent); }
+.help-reading-heading { padding-bottom: 0; margin-bottom: 24px; }
+.help-reading-heading h1 { font-size: clamp(25px, 3vw, 32px); line-height: 1.3; margin: 0; }
+.help-reading-content { font-size: 14px; line-height: 1.85; }
+.help-reading-content .help-section { padding: 0; overflow-x: auto; }
+.help-reading-content .help-section p, .help-reading-content .help-lede { color: var(--text-secondary, var(--text-primary)); font-size: 14px; line-height: 1.85; margin-bottom: 18px; }
+.help-reading-content .help-top h1 { display: none; }
+.help-reading-content h3 { margin: 28px 0 10px; font-size: 16px; }
+.help-reading-content li { margin-bottom: 8px; }
+.help-reading-content .help-section table { min-width: 540px; }
+.help-reading-footer { border-top: 1px solid var(--border-card); margin-top: 36px; padding-top: 20px; color: var(--help-accent); font-size: 13px; }
+@media(max-width: 800px) { .help-guide-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media(max-width: 520px) { .help-guide-grid { grid-template-columns: 1fr; } .help-reading { width: calc(100% - 32px); padding-top: 24px; } }
 
-body:has(.help-shell) {
-  font-family: 'Huawei Sans', 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.help-shell {
-  display: flex;
-  align-items: flex-start;
-  min-height: 100vh;
-  max-width: 1360px;
-  margin: 0 auto;
-}
-
-/* ── Left sidebar — flat nav + search, active link tracked live via
-   scroll-spy (see index.html's inline script) ──────────────────── */
-.help-sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  padding: 24px 16px;
-  border-right: 1px solid var(--border-card);
-}
-
-.help-back-link {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-  padding: 6px 10px;
-  margin-bottom: 16px;
-  border-radius: 6px;
-  border: 1px solid var(--border-card);
-  transition: all 0.15s ease;
-  width: fit-content;
-}
-
-.help-back-link:hover {
-  color: var(--text-primary);
-  background: var(--nav-hover-bg);
-}
-
-.help-search {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  margin-bottom: 18px;
-  border-radius: 7px;
-  background: var(--bg-search);
-}
-
-.help-search i {
-  font-size: 15px;
-  color: var(--text-muted);
-}
-
-.help-search input {
-  border: none;
-  background: transparent;
-  outline: none;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text-primary);
-  width: 100%;
-}
-
-.help-search input::placeholder {
-  color: var(--text-search-placeholder);
-}
-
-.help-nav,
-.help-toc-nav {
-  display: flex;
-  flex-direction: column;
-}
-
-.help-nav a,
-.help-toc-nav a {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-decoration: none;
-  padding: 7px 10px;
-  border-left: 2px solid transparent;
-  line-height: 1.4;
-  transition: all 0.12s ease;
-}
-
-.help-nav a:hover,
-.help-toc-nav a:hover {
-  color: var(--text-primary);
-}
-
-.help-nav a.active,
-.help-toc-nav a.active {
-  color: #ef4444;
-  border-left-color: #ef4444;
-  background: var(--nav-hover-bg);
-}
-
-/* ── Right sidebar — "On this page" ─────────────────────────── */
-.help-toc {
-  width: 200px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-  padding: 24px 16px;
-  border-left: 1px solid var(--border-card);
-}
-
-.help-toc-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  padding: 0 10px;
-  margin-bottom: 10px;
-}
-
-.help-toc-nav a {
-  font-size: 12.5px;
-  font-weight: 500;
-  padding: 5px 10px;
-}
-
-/* ── Main content column ─────────────────────────────────── */
-.help-main {
-  flex: 1;
-  min-width: 0;
-  padding: 32px 40px 80px;
-}
-
-.help-top h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 10px;
-}
-
-.help-lede {
+/* One flowing article, with consistent text typography including code labels. */
+.help-reading-content :where(p, li, a, span, strong, b, em, code, pre, th, td, h2, h3, h4, h5, h6) {
+  font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.65;
-  color: var(--text-secondary);
-  max-width: 640px;
+  line-height: 1.85;
 }
+.help-reading-content :where(h2, h3, h4, h5, h6, strong, b) { font-weight: 700; }
+.help-reading-content :where(.help-section, .help-top) { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.help-reading-content pre { border: 0; background: transparent; padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.help-reading-content code { background: transparent; color: inherit; padding: 0; }
+.help-reading-content mark { font-family: var(--font-ui); font-size: inherit; }
 
-.help-start-here,
-.help-categories {
-  margin-top: 32px;
-}
+/* Card documentation stays in the same flowing Huawei Sans reading style. */
+.help-card-directory { margin-top: 36px; scroll-margin-top: 20px; }
+.help-directory-intro { font-size: 13px; color: var(--text-muted); margin: -6px 0 22px; }
+.help-guide-group-title { font-size: 14px; margin: 24px 0 4px; font-weight: 700; }
+.help-card-guide-link { align-items: flex-start; }
+.help-card-guide-link strong { font-weight: 600; }
+.help-card-guide-link small { display: block; font-size: 12px; line-height: 1.6; color: var(--text-muted); margin-top: 6px; }
+.help-reading-content.help-card-guide p { margin-bottom: 18px; }
+.help-reading-content.help-card-guide h3 { font-size: 14px; margin: 28px 0 10px; }
+.help-source-list { padding-left: 20px; overflow-wrap: anywhere; }
+.help-reading-content.help-card-guide .help-example-note { font-size: 14px; color: var(--text-muted); margin-top: 20px; }
 
-.help-start-here h2,
-.help-categories h2 {
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  margin-bottom: 4px;
-}
+/* Long descriptions flow naturally, without numbered or boxed subsections. */
+.help-reading-content > p { margin: 0 0 18px; color: var(--text-secondary, var(--text-primary)); }
+.help-reading-content > h3 { font-family: var(--font-ui); font-size: 14px; font-weight: 700; line-height: 1.85; margin: 28px 0 10px; }
 
-.help-start-here > p {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 12px;
-}
-
-.help-quicklink {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 4px;
-  border: none;
-  border-bottom: 1px solid var(--border-table-row);
-  text-decoration: none;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: background 0.15s ease;
-}
-
-.help-quicklink:last-of-type {
-  border-bottom: none;
-}
-
-.help-quicklink:hover {
-  background: var(--nav-hover-bg);
-}
-
-.help-quicklink i {
-  font-size: 15px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.help-categories-grid {
-  display: flex;
-  flex-direction: column;
-  margin-top: 8px;
-}
-
-.help-cat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 4px;
-  border: none;
-  border-bottom: 1px solid var(--border-table-row);
-  text-decoration: none;
-  transition: background 0.15s ease;
-}
-
-.help-cat-card:last-child {
-  border-bottom: none;
-}
-
-.help-cat-card:hover {
-  background: var(--nav-hover-bg);
-}
-
-.help-cat-card > i {
-  font-size: 19px;
-  color: var(--icon-chip-color);
-  flex-shrink: 0;
-  width: 24px;
-  text-align: center;
-}
-
-.help-cat-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-right: 8px;
-}
-
-.help-cat-desc {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-muted);
-}
-
-/* Downloads — the 4 companion PDF manuals, one row each. */
-.help-downloads {
-  margin-top: 32px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-table-row);
-  scroll-margin-top: 24px;
-}
-
-.help-downloads-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.help-downloads-title i {
-  font-size: 17px;
-  color: var(--icon-chip-color);
-}
-
-.help-downloads-desc {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin-bottom: 14px;
-}
-
-.help-downloads-grid {
-  display: flex;
-  flex-direction: column;
-  margin-top: 8px;
-}
-
-.help-doc-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 4px;
-  border: none;
-  border-bottom: 1px solid var(--border-table-row);
-  text-decoration: none;
-  transition: background 0.15s ease;
-}
-
-.help-doc-card:last-child {
-  border-bottom: none;
-}
-
-.help-doc-card:hover {
-  background: var(--nav-hover-bg);
-}
-
-.help-doc-icon {
-  font-size: 22px;
-  color: #ef4444;
-  flex-shrink: 0;
-}
-
-.help-doc-name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.35;
-}
-
-.help-doc-download {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--input-focus-border);
-  white-space: nowrap;
-}
-
-.help-doc-download svg {
-  width: 15px;
-  height: 15px;
-}
-
-/* Feature sections — plain numbered headings + flowing text, book-style,
-   no card/box treatment (matches a Tufte/kaobook-style content page). */
-.help-main {
-  counter-reset: help-section;
-}
-
-.help-section {
-  counter-increment: help-section;
-  max-width: 640px;
-  margin-top: 40px;
-  scroll-margin-top: 24px;
-}
-
-.help-section h2 {
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 12px;
-}
-
-.help-section h2::before {
-  content: counter(help-section) ".  ";
-}
-
-.help-section h2 i {
-  display: none;
-}
-
-.help-section p {
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-}
-
-.help-section ul {
-  margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.help-section li {
-  font-size: 14px;
-  line-height: 1.65;
-  color: var(--text-secondary);
-}
-
-.help-section p a,
-.help-section li a {
-  color: var(--input-focus-border);
-  text-decoration: underline;
-}
-
-.help-section p a:hover,
-.help-section li a:hover {
-  color: var(--text-primary);
-}
-
-.help-subhead {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  margin: 14px 0 8px;
-}
-
-.help-color-table {
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.help-color-table td {
-  padding: 4px 8px 4px 0;
-  color: var(--text-secondary);
+/* Preserve visible color examples in the original dashboard and map guides. */
+.help-reading-content .help-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border: 1px solid rgba(0, 0, 0, .12);
+  border-radius: 3px;
   vertical-align: middle;
 }
+.help-reading-content .help-color-table { min-width: 0; }
+.help-reading-content .help-color-table td:first-child { width: 40px; text-align: center; }
+.help-reading-content .help-color-table td:nth-child(2) { width: 100px; }
 
-.help-swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
+/* Help landing page: one grouped directory, no repeated long article lists. */
+.help-home .help-header { min-height: 68px; }
+.help-home .help-hero { padding: 30px 0 16px; }
+.help-home .help-main { padding-top: 28px; }
+.help-home .help-popular { margin-bottom: 28px; }
+.help-home .help-popular-grid { gap: 24px; }
+.help-home .help-popular-card { padding: 0 0 14px; border-bottom: 1px solid var(--border-card); }
+.help-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
+.help-section-heading h2 { margin-bottom: 3px; }
+.help-section-heading p { font-size: 12px; color: var(--text-muted); margin: 0; }
+#helpGuideCount { font-size: 11px; white-space: nowrap; color: var(--text-muted); }
+.help-home-topics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; align-items: stretch; grid-auto-rows: 1fr; }
+.help-home-topic { display: flex; flex-direction: column; height: 100%; border: 1px solid var(--border-card); border-radius: 3px; min-width: 0; overflow: hidden; background: var(--bg-card); }
+.help-home-topic > header { display: flex; align-items: flex-start; gap: 12px; min-height: 94px; flex-shrink: 0; padding: 22px 20px 16px; background: var(--bg-card); border-bottom: 0; }
+.help-home-topic > header > i { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex-shrink: 0; font-size: 20px; color: var(--text-primary); background: transparent; border: 0; margin-top: 1px; }
+.help-home-topic h3 { font-size: 14px; line-height: 1.4; margin: 0 0 4px; font-weight: 700; }
+.help-home-topic header p { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin: 0; }
+.help-home-topic ul { list-style: none; margin: 0 20px; padding: 8px 0 18px; flex: 1; border-top: 1px solid var(--border-card); }
+.help-home-topic .help-guide-link { border-bottom: 0; min-height: 36px; margin-inline: -8px; padding: 8px; font-size: 12px; line-height: 1.5; border-radius: 3px; }
+.help-home-topic li:last-child .help-guide-link { border-bottom: 0; }
+.help-home-topic .help-guide-link span { min-width: 0; }
+.help-home-topic .help-guide-link i { flex-shrink: 0; color: var(--text-muted); font-size: 13px; }
+.help-home-topic .help-guide-link:hover { color: var(--text-primary); background: var(--nav-hover-bg, #f5f5f6); }
+.help-home-topic .help-guide-link:hover i { color: var(--text-primary); }
+.help-home .help-downloads { margin: 28px 0 0; }
+.help-home .help-downloads-grid { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.help-home .help-doc-card { gap: 9px; padding: 13px; align-items: center; }
+.help-home .help-doc-name { min-width: 0; line-height: 1.5; font-size: 12px; }
+.help-home .help-doc-download { font-size: 0; }
+.help-home .help-footer { margin-top: 28px; }
+.help-home-empty { border: 1px solid var(--border-card); border-radius: 3px; padding: 30px 20px; text-align: center; }
+.help-home-empty > i { color: var(--text-muted); font-size: 24px; }
+.help-home-empty h3 { margin: 10px 0 5px; font-size: 14px; }
+.help-home-empty p { color: var(--text-muted); font-size: 12px; }
+.help-home-empty button { margin-top: 14px; border: 1px solid var(--border-card); border-radius: 3px; background: var(--bg-card); color: var(--text-primary); font-size: 12px; padding: 7px 12px; box-shadow: none; cursor: pointer; }
+@media(max-width: 1000px) { .help-home-topics { grid-template-columns: repeat(2,minmax(0,1fr)); } .help-home .help-downloads-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width: 600px) { .help-home-topics { grid-template-columns: 1fr; gap: 16px; grid-auto-rows: auto; } .help-home .help-downloads-grid { grid-template-columns: 1fr; } .help-home .help-doc-download { font-size: 11px; } }
 
-.help-table {
-  width: 100%;
-  max-width: 640px;
-  border-collapse: collapse;
-  font-size: 13px;
-  margin: 10px 0 16px;
-}
+/* Reference-style help cards: soft background, simple lists, aligned footers. */
+.help-home #topics { padding: 0; background: transparent; border-radius: 0; }
+[data-theme="dark"] .help-home #topics { background: transparent; }
+.help-home-topics { grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 1fr; gap: 22px; align-items: stretch; }
+.help-home-topic { display: flex; flex-direction: column; height: 100%; min-height: 250px; padding: 22px; border: 1px solid var(--border-card); border-radius: 3px; background: transparent; }
+.help-home-topic > header { display: flex; align-items: center; gap: 9px; min-height: 0; padding: 0; background: transparent; border: 0; margin-bottom: 12px; }
+.help-home-topic > header > i { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; font-size: 19px; color: var(--text-primary); background: transparent; border: 0; margin: 0; }
+.help-home-topic h3 { margin: 0; font-size: 17px; line-height: 1.4; font-weight: 400; }
+.help-home-topic ul { display: block; list-style: disc; margin: 0 0 20px; padding: 0 0 0 15px; border: 0; flex: 1; }
+.help-home-topic li { margin: 0 0 5px; padding: 0; color: var(--text-primary); font-size: 12px; line-height: 1.5; }
+.help-home-topic .help-guide-link, .help-home-topic li:last-child .help-guide-link { display: inline; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; font-size: 12px; line-height: 1.5; color: #3267d6; }
+.help-home-topic .help-guide-link:hover { color: #2450b4; background: transparent; text-decoration: underline; }
+.help-topic-all { align-self: flex-start; margin-top: auto; font-size: 12px; line-height: 1.5; color: var(--text-primary); }
+.help-topic-all span { margin-left: 3px; }
+[data-theme="dark"] .help-home-topic .help-guide-link { color: #9bbcff; }
+.help-topic-documents h3 a { color: var(--help-accent); }
+@media(max-width: 1000px) { .help-home-topics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width: 600px) { .help-home #topics { padding: 0; } .help-home-topics { grid-template-columns: minmax(0,1fr); grid-auto-rows: auto; gap: 16px; } .help-home-topic { min-height: 0; padding: 20px; } }
 
-.help-table th {
-  text-align: left;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--text-muted);
-  padding: 6px 10px 6px 0;
-  border-bottom: 1px solid var(--border-table-row);
-}
+.help-home-topic > header > .help-topic-icon { display: block; width: 20px; height: 20px; flex-shrink: 0; color: var(--text-primary); }
 
-.help-table td {
-  padding: 8px 10px 8px 0;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  border-bottom: 1px solid var(--border-table-row);
-  vertical-align: top;
-}
-
-.help-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-/* Inline UI-control names (Refresh, Card Layout, Add Partner, ...) shown
-   as small red code chips, matching the reference doc-site style. */
-.help-section code {
-  font-family: inherit;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.14);
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-@media (max-width: 1100px) {
-  .help-toc {
-    display: none;
-  }
-}
-
-@media (max-width: 900px) {
-  .help-shell {
-    flex-direction: column;
-  }
-
-  .help-sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border-card);
-  }
-
-  .help-main {
-    padding: 24px 20px 60px;
-  }
-}
+.help-popular-icon { display: block; width: 20px; height: 20px; flex-shrink: 0; color: var(--help-accent); margin-top: 1px; }

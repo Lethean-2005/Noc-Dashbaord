@@ -3,12 +3,15 @@
 // No data fetching lives here — pages load their own data server-side.
 
 (function () {
+    const clockFormat = new Intl.DateTimeFormat('en-US', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        timeZone: document.body.dataset.timezone || 'Asia/Phnom_Penh'
+    });
     function updateClock() {
         const el = document.getElementById('clock');
         if (!el) return;
         const now = new Date();
-        const opts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-        el.textContent = new Intl.DateTimeFormat('en-US', opts).format(now);
+        el.textContent = clockFormat.format(now);
     }
     updateClock();
     setInterval(updateClock, 1000);

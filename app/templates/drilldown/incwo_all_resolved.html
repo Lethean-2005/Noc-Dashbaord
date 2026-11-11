@@ -1,0 +1,22 @@
+{% extends "layouts/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="alarm-header">
+  <button type="button" class="btn-export alarm-subtitle-btn">All WO is Resolved = {{ rows|length }} incidents</button>
+  <div class="alarm-actions"><span class="alarm-row-count">{{ rows|length }} incidents</span>
+    <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope='INC-WO All Resolved', type='all_resolved') }}"><i class="ti ti-download"></i> Export</a>
+  </div>
+</div>
+<div class="alarm-table-wrap drilldown-table-wrap" id="incwoAllResolvedTable" data-refresh-seconds="{{ config.INCIDENT_SYNC_INTERVAL_SECONDS }}"><table class="alarm-table">
+  <thead><tr><th>Incident ID</th><th>Incident Status</th><th>Category</th><th>Site Codes</th><th>Occurred At</th><th>Total WOs</th><th>Resolved WOs</th><th>Latest WO Resolved At</th></tr></thead>
+  <tbody>{% for row in rows %}<tr>
+    <td><a href="{{ config.STREAMLINE_BASE_URL }}/incident/form/{{ row.incident_numeric_id }}" target="_blank" rel="noopener">{{ row.incident_id }}</a></td>
+    <td>{{ row.incident_status }}</td><td>{{ row.incident_category }}</td><td>{{ row.site_code | site_code_display }}</td><td>{{ row.occurred_at }}</td>
+    <td>{{ row.wo_count }}</td><td>{{ row.resolved_wo_count }}</td><td>{{ row.resolved_at }}</td>
+  </tr>{% else %}<tr class="empty-row"><td colspan="8">{% include "layouts/table_empty_state.html" %}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ versioned_static('js/incwo-all-resolved.js') }}"></script>
+{% endblock %}

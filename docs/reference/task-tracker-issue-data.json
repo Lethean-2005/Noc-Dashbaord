@@ -1,0 +1,188 @@
+[
+  {
+    "name": "Alarm-source restoration used the wrong end timestamp",
+    "remark": "Changed alarm restoration from Resolved At to Cleared Alarm Received At, with nonnegative timestamp validation; manual/NOC remains Created At to Closed At.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Restoration cause/recovery could use misleading source fields",
+    "remark": "Root Cause now reads Actual Root Cause only; Action Recovery reads Resolution only. Suspected cause and initial notes are not recovery-field fallbacks.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "VM Telegram test script path no longer existed",
+    "remark": "Updated shipped launchers to the retained scripts entry point; verified dry-run startup without a live send.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Multiple filter dropdowns stayed open or ignored outside clicks",
+    "remark": "Shared single-open handling, outside click/Escape close and contained dropdown scrolling verified.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Root-cause percentages unreadable in light mode",
+    "remark": "Adjusted text/legend contrast; tooltip borders and theme visibility corrected.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Mentor import feedback and site-code input styling were inconsistent",
+    "remark": "Immediate validation, progress/completion/failure state, readable font, compact cards and consistent border styling added.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Congestion exclusion hid an entire device instead of one interface",
+    "remark": "Rule identity narrowed to owner + device + interface; other ports and other alarm types remain visible. Legacy portless rules are inactive.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Congestion exclusion dialog fields/buttons overlapped",
+    "remark": "Adjusted dialog heading, subtitle, remark field, footer spacing and small-screen layout.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Blacklist popup could show stale responses after another request",
+    "remark": "Abort previous fetch, ignore stale results and cancel pending request when the modal closes.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Resolved WO badge could imply all sibling WOs finished",
+    "remark": "Added separate strict All WO is Resolved incident result, preserving distinction from individual resolved-WO status badges.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Source all-WO flag disagrees with actual sibling WO statuses",
+    "remark": "Read-only comparison found true flags while a linked WO remained In Progress. Dashboard checks actual siblings; upstream source-flag reconciliation remains outstanding.",
+    "priority": "High",
+    "status": "In Progress"
+  },
+  {
+    "name": "Missing site codes displayed question marks",
+    "remark": "Presentation filter uses underscore for blank/question-only values while preserving valid leading-zero and alphanumeric codes.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Active Customer Complaint records included unwanted parent statuses",
+    "remark": "Applicable active queries now require In Progress for that category only. Other categories and historical reports keep their own scopes.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "SLA root-cause view included met/ungraded records in the old total",
+    "remark": "Changed to independent Response Not Met and Resolution Not Met counts, with matching drilldowns and exports; shared failures correctly appear in both.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Response/Resolution cutoff did not match Cambodia reporting weeks",
+    "remark": "Aligned weekly cutoffs and detail cohorts with the relevant Cambodia-time date rules.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Circuit rename silently reassigned dependent outage data",
+    "remark": "Stable circuit identity retains associations through rename/blank edits; deleting a circuit affects its related rows rather than selecting another.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Deleting report rows did not trigger unsaved-change protection",
+    "remark": "Structural row insert/delete and user-selection events now mark the document dirty.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Weekday popup treated HTTP failures as successfully loaded content",
+    "remark": "Response status validated; failure shown as retryable and successful content alone becomes cached.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Source-provided root-cause text was inserted as HTML",
+    "remark": "Use escaped/safe text insertion for labels and notes.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Required browser security headers absent",
+    "remark": "Added nosniff, framing protection and a scoped CSP without adding a login requirement.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Badge-count processing repeatedly loaded full alarm payloads",
+    "remark": "Projected the needed columns and measured a local reduction with identical results. VM load testing remains separate.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Help redesign removed descriptions/PDF links from the visible page",
+    "remark": "Restored original articles/introduction and PDF downloads, then added detailed pages without deleting the original documents.",
+    "priority": "High",
+    "status": "Completed"
+  },
+  {
+    "name": "Help page left unused screen width",
+    "remark": "Corrected inherited flex layout and verified full-width/responsive behavior.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Help color swatches invisible and unknown POP legend incorrect",
+    "remark": "Restored swatch dimensions; corrected unknown/blank/unrecognized POP owner to grey and distinguished site-status grey.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Help inline labels used smaller text than the surrounding content",
+    "remark": "Inline labels inherit Huawei Sans and surrounding size; subtle highlight used instead of a different font.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "Help topic cards had unequal heights and repeated directories",
+    "remark": "Replaced repeated lists with grouped topic cards, equal desktop heights and working category links/search.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "PDF-only examples and feature instructions were absent from Help",
+    "remark": "Added shared worked tables, glossary/checklist, eight feature guides and nine screenshot demonstrations. Split detailed and feature PDFs.",
+    "priority": "Medium",
+    "status": "Completed"
+  },
+  {
+    "name": "POP/PON alarms missing required POP inventory linkage",
+    "remark": "The POP query excludes missing name/code joins. Source device/POP inventory reconciliation has not been completed; this is not fixed by changing a badge alone.",
+    "priority": "High",
+    "status": "Not Started"
+  },
+  {
+    "name": "Teams webhook accepted requests without downstream delivery confirmation",
+    "remark": "HTTP success is not proof the Teams message/SharePoint steps finished. Completion callback or verified Power Automate run history remains required.",
+    "priority": "High",
+    "status": "Not Started"
+  },
+  {
+    "name": "Frame 9 design remained unfinished after tool quota blocked completion",
+    "remark": "Frame 8 design delivered; Frame 9 full editable import/completion is still outstanding. Local SVG/PNG fallback exists.",
+    "priority": "Medium",
+    "status": "In Progress"
+  },
+  {
+    "name": "Latest Help and PDF changes are not in the Nov-10 V51 ZIP",
+    "remark": "Existing V51 is verified for its build date only. A newer deployment ZIP containing later Help/PDF work has not been requested/built.",
+    "priority": "Medium",
+    "status": "Not Started"
+  }
+]

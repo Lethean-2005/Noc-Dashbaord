@@ -13,6 +13,7 @@
     </h1>
   </div>
   <div class="alarm-actions ir-toolbar">
+    {% include "incident_report/_type_picker.html" %}
     {# Custom dropdown (not a native <select>) so the option list can be
        capped to ~10 visible rows with the rest reachable by scrolling
        (.ir-report-picker-options below) — a native select's own popup
@@ -173,7 +174,13 @@
         <div class="ir-grid">
           {% set field_name, field_label, field_value, field_placeholder = "incident_date", "Incident Date", report.get('incident_date', ''), "e.g. 11-Sep-2026" %}
           {% include "incident_report/_date_field.html" with context %}
-          <div class="ir-field"><label>Report Time</label><input type="text" name="report_time" value="{{ report.get('report_time', '') }}" placeholder="e.g. 16:37" required></div>
+          <div class="ir-field">
+            <select class="ir-field-label-select" id="irReportTimeTitle">
+              <option value="Report Time" selected>Report Time</option>
+              <option value="Occurred Time">Occurred Time</option>
+            </select>
+            <input type="text" name="report_time" value="{{ report.get('report_time', '') }}" placeholder="e.g. 16:37" required>
+          </div>
           <div class="ir-field"><label>Incident Number</label><input type="text" name="incident_number" class="ir-incident-number" value="{{ report.get('incident_number', 'TCT#') }}" placeholder="e.g. TCT#1968379" required></div>
           <div class="ir-field"><label>Incident Category</label><input type="text" name="incident_category" value="{{ report.get('incident_category', '') }}" placeholder="e.g. SLA" required></div>
           <div class="ir-field"><label>Customers Impacted</label><input type="text" name="customers_impacted" value="{{ report.get('customers_impacted', '') }}" placeholder="e.g. SMART" required></div>
@@ -196,7 +203,7 @@
              edit that either gets silently overwritten by the next
              auto-fill or, worse, desyncs this field from its own
              sources with no way back short of re-triggering them. #}
-          <div class="ir-field"><label>Report Time</label><input type="text" name="raise_time" value="{{ report.get('raise_time', '') }}" placeholder="fills in from Reported Date + Report Time" readonly></div>
+          <div class="ir-field"><label id="irDescReportTimeTitle">Report Time</label><input type="text" name="raise_time" value="{{ report.get('raise_time', '') }}" placeholder="fills in from Reported Date + Report Time" readonly></div>
           {% set field_name, field_label, field_value, field_placeholder = "restored_time", "Restored Time", report.get('restored_time', ''), "e.g. 11-Sep-2026 17:03" %}
           {% include "incident_report/_datetime_field.html" with context %}
           <div class="ir-field"><label>Duration</label><input type="text" id="irDescDuration" value="{{ report.get('duration_of_interruption', '') }}" placeholder="fills in from Report Time + Restored Time" readonly></div>

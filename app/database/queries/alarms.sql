@@ -146,7 +146,7 @@ WHERE AlarmName = 'IT_NODE' AND (Status = 1 OR RestoredTime IS NULL);
 -- just this one row into the local cache directly instead of re-fetching
 -- the whole table from MSSQL only to refresh the single row this write
 -- already touched.
-DECLARE @Now datetime2 = GETDATE();
+DECLARE @Now datetime2 = DATEADD(hour, 7, SYSUTCDATETIME());
 
 UPDATE noc.TBL_PPD
 SET NOTE = %s,
@@ -174,9 +174,10 @@ SELECT NOTE, ACK, AB, MD, MB FROM noc.TBL_PPD WHERE ID = %s;
 -- gets overwritten (same "0 rows affected" convention as
 -- acknowledge_note above). Matched by ID (the real uniqueidentifier
 -- primary key), NOT RTID — same reasoning as acknowledge_note.
+DECLARE @Now datetime2 = DATEADD(hour, 7, SYSUTCDATETIME());
 UPDATE noc.TBL_PPD
 SET Status = 0,
-    RestoredTime = GETDATE(),
-    MD = GETDATE(),
+    RestoredTime = @Now,
+    MD = @Now,
     MB = %s
 WHERE ID = %s AND RestoredTime IS NULL;

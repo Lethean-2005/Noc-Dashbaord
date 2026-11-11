@@ -1,0 +1,17 @@
+<div class="modal" id="congestionExcludeModal" role="dialog" aria-modal="true" aria-labelledby="congestionExcludeTitle">
+  <div class="modal-content congestion-exclude-dialog">
+    <div class="modal-header"><div class="congestion-exclude-heading"><h2 id="congestionExcludeTitle">Exclude Congestion</h2><p id="congestionExcludeLabel" class="congestion-exclude-subtitle"></p></div><button type="button" class="congestion-modal-close" data-congestion-close aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+    <form method="post" action="{{ url_for('congestion_blacklist.exclude') }}" id="congestionExcludeForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="id"><input type="hidden" name="source"><input type="hidden" name="return_to">
+      <div class="modal-body"><p id="congestionExcludeExplanation"></p><label for="congestionExcludeRemark">Remark <small>(optional)</small></label><textarea id="congestionExcludeRemark" name="remark" rows="3" maxlength="1000" placeholder="Reason for excluding this interface"></textarea></div>
+      <div class="modal-footer"><button type="button" class="btn-export" data-congestion-close>Cancel</button><button type="submit" class="btn-export">Exclude Congestion</button></div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="congestionBlacklistModal" role="dialog" aria-modal="true" aria-labelledby="congestionBlacklistTitle">
+  <div class="modal-content congestion-blacklist-dialog">
+    <div class="modal-header"><div class="congestion-blacklist-heading"><h2 id="congestionBlacklistTitle">Congestion Blacklist</h2><p class="congestion-blacklist-description">Excluded interfaces stay hidden until you click Restore.</p></div><button type="button" class="congestion-modal-close" data-congestion-close aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
+    <div class="modal-body"><div id="congestionBlacklistBody" aria-live="polite"></div></div>
+  </div>
+</div>

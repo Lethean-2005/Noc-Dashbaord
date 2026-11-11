@@ -1,8 +1,7 @@
-"""Tests for SiteSyncService.sync_technology() and sync_ne_nms() — both
-read object_227 (per-site technology inventory, and site -> NMS vendor
-code respectively), confirmed prone to "conflict with recovery" (see
-incident_sync_service.py's module docstring), so both go through
-retry_fetch() same as every other object_227-touching sync.
+"""Tests for SiteSyncService.sync_technology() (MSSQL TBL_NE) and
+sync_ne_nms() (Postgres object_227, confirmed prone to "conflict with
+recovery" — see incident_sync_service.py's module docstring — so that
+one still goes through retry_fetch()).
 """
 
 from unittest.mock import patch
@@ -11,6 +10,14 @@ from app.services.site.site_sync_service import SiteSyncService
 
 
 class FakeSiteTechnologyRepo:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def fetch_all(self):
+        return self._rows
+
+
+class FakeSiteRanNameRepo:
     def __init__(self, rows):
         self._rows = rows
 
@@ -59,10 +66,10 @@ def test_sync_technology_writes_empty_list_when_no_rows():
     assert cache_repo.written == []
 
 
-def test_sync_technology_skips_cache_write_when_query_fails_every_retry():
+def test_sync_technology_skips_cache_write_when_query_fails():
     class FailingRepo:
         def fetch_all(self):
-            raise RuntimeError("conflict with recovery")
+            raise RuntimeError("MSSQL connection failed")
 
     cache_repo = FakeCacheRepo()
     svc = SiteSyncService(
@@ -70,8 +77,54 @@ def test_sync_technology_skips_cache_write_when_query_fails_every_retry():
         site_technology_cache_repository=cache_repo,
     )
 
-    with patch("app.services.postgres_sync_utils.time.sleep"):
-        svc.sync_technology()
+    svc.sync_technology()
+
+    assert cache_repo.written is None
+
+
+def test_sync_ran_name_normalizes_quoted_column_aliases():
+    source_rows = [{"Site Code": "AB1111", "RAN Name": "NSiKCH1002"}]
+    cache_repo = FakeCacheRepo()
+    svc = SiteSyncService(
+        site_ran_name_repository=FakeSiteRanNameRepo(source_rows),
+        site_ran_name_cache_repository=cache_repo,
+    )
+
+    svc.sync_ran_name()
+
+    assert cache_repo.written == [{"site_code": "AB1111", "ran_name": "NSiKCH1002"}]
+
+
+def test_sync_ran_name_keeps_first_seen_row_per_site_code():
+    # A site can have >1 NE row with a different SRAN value (confirmed
+    # live: 15 of ~3772 sites) — first one wins, not an error, not both.
+    source_rows = [
+        {"Site Code": "AB1111", "RAN Name": "NSiKCH1002"},
+        {"Site Code": "AB1111", "RAN Name": "NSoKCH1002-2"},
+    ]
+    cache_repo = FakeCacheRepo()
+    svc = SiteSyncService(
+        site_ran_name_repository=FakeSiteRanNameRepo(source_rows),
+        site_ran_name_cache_repository=cache_repo,
+    )
+
+    svc.sync_ran_name()
+
+    assert cache_repo.written == [{"site_code": "AB1111", "ran_name": "NSiKCH1002"}]
+
+
+def test_sync_ran_name_skips_cache_write_when_query_fails():
+    class FailingRepo:
+        def fetch_all(self):
+            raise RuntimeError("MSSQL connection failed")
+
+    cache_repo = FakeCacheRepo()
+    svc = SiteSyncService(
+        site_ran_name_repository=FailingRepo(),
+        site_ran_name_cache_repository=cache_repo,
+    )
+
+    svc.sync_ran_name()
 
     assert cache_repo.written is None
 

@@ -17,6 +17,7 @@
         <i class="ti ti-dots-vertical"></i>
     </button>
     <div class="theme-dropdown alarm-action-menu">
+        {% if source != 'congestion_history' %}
         <button type="button" class="theme-option" data-id="{{ row.id }}" data-note="{{ row.note }}"
                 onclick="closeAlarmActionMenus(); openAckModal(this)">
             <i class="ti {{ 'ti-edit' if row.note else 'ti-note' }}"></i>
@@ -27,5 +28,9 @@
             <i class="ti ti-circle-check"></i>
             Clear Alarm
         </button>
+        {% endif %}
+        {% if source == 'congestion_history' or (source in ('eze', 'tct') and row.alarm|lower in ('bandwidth', 'congestion')) %}
+        {% include "drilldown/_congestion_action_options.html" %}
+        {% endif %}
     </div>
 </div>

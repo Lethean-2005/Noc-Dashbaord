@@ -1,0 +1,21 @@
+<section class="help-section" id="tech-stack">
+            <h2><i class="ti ti-stack-2"></i> Technology Stack</h2>
+            <p class="help-subhead">Backend</p>
+            <ul>
+                <li><code>Flask</code> web framework, <code>Jinja2</code> templates.</li>
+                <li><code>SQLAlchemy</code> + <code>psycopg2</code> for PostgreSQL, <code>pymssql</code> for MSSQL.</li>
+                <li><code>SQLite</code> (WAL mode) local cache, <code>Waitress</code> production server.</li>
+            </ul>
+            <p class="help-subhead">Frontend</p>
+            <ul>
+                <li><code>Leaflet</code> for map rendering, <code>Tabler Icons</code> throughout.</li>
+                <li>Vanilla JavaScript &mdash; no frontend framework.</li>
+            </ul>
+            <p class="help-subhead">Export & Alerting</p>
+            <ul>
+                <li><code>openpyxl</code> for spreadsheet export, <code>Pillow</code> for alert table images.</li>
+                <li>Telegram Bot API and Teams incoming webhooks, both plain HTTP.</li>
+            </ul>
+            <p>See the <a href="{{ url_for('help.download', filename='Noc-Dashboard-Feature-Report.pdf') }}">Feature Report</a>
+               PDF under Downloads for the full architecture behind this stack.</p>
+        </section>

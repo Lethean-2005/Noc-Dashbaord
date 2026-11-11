@@ -1,10 +1,10 @@
-"""Builds a lean deploy_zips/Noc_Dashboard-<date>_V<n>.zip containing only
+"""Builds a lean deploy_zips/Noc_Dashboard-v<version>.zip containing only
 what's needed to run the app — no caches, logs, secrets, docs, or scratch
 files. Run from the repo root: python scripts/build_deploy_zip.py
 """
 
 import zipfile
-from datetime import date
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,7 +17,6 @@ ZIP_ROOT_NAME = "Noc-Dashboard"
 # app, so it's left out rather than copied in and excluded after.
 INCLUDE_PATHS = [
     "app",
-    "postgres",
     "scripts",
     "webhook",
     "configurator.py",
@@ -25,6 +24,7 @@ INCLUDE_PATHS = [
     "requirements.txt",
     "pyproject.toml",
     "README.md",
+    "vm_setup.md",
     ".env.example",
     ".gitignore",
 ]
@@ -32,12 +32,17 @@ INCLUDE_PATHS = [
 # Still skipped even inside an included path — generated/local-only, never
 # something to ship (cache dirs, .env with real secrets, DB files, IDE/lint
 # caches, and instance/ if it ever ends up nested under an included path).
+# "diagnostics" is scripts/diagnostics/ — one-off dev scripts (run manually
+# against live Postgres/MSSQL for ad-hoc debugging), not anything the app
+# itself needs to run; would otherwise get swept in since "scripts" as a
+# whole is an included path.
 EXCLUDE_NAMES = {
     "__pycache__",
     ".pytest_cache",
     ".ruff_cache",
     "instance",
     ".env",
+    "diagnostics",
 }
 EXCLUDE_SUFFIXES = {".pyc", ".db"}
 
@@ -56,25 +61,18 @@ def _iter_files(path: Path):
         yield p
 
 
-def _next_version(existing):
-    versions = []
-    for f in existing:
-        stem = f.stem
-        if "_V" in stem:
-            try:
-                versions.append(int(stem.rsplit("_V", 1)[1]))
-            except ValueError:
-                pass
-    return max(versions, default=0) + 1
+def _release_version():
+    with (ROOT / "pyproject.toml").open("rb") as metadata:
+        return tomllib.load(metadata)["project"]["version"]
 
 
 def main():
     DEPLOY_DIR.mkdir(exist_ok=True)
-    version = _next_version(DEPLOY_DIR.glob("Noc_Dashboard-*_V*.zip"))
-    out_path = DEPLOY_DIR / f"Noc_Dashboard-{date.today().isoformat()}_V{version}.zip"
+    version = _release_version()
+    out_path = DEPLOY_DIR / f"Noc_Dashboard-v{version}.zip"
 
     count = 0
-    with zipfile.ZipFile(out_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(out_path, "x", zipfile.ZIP_DEFLATED) as zf:
         for rel in INCLUDE_PATHS:
             src = ROOT / rel
             if not src.exists():

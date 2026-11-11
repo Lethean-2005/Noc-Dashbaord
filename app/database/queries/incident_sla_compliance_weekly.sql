@@ -44,10 +44,23 @@
 --     Created At + Overdue (Response) filter matched the created_at-
 --     anchored count, not the issue_occurred_at-anchored one.
 --
--- response_stats and resolution_stats are combined with a FULL OUTER
--- JOIN (not a plain JOIN) on (iso_week, category, priority) so a
--- bucket that only has response-side or only resolution-side activity
--- in a given week still gets a row instead of silently disappearing.
+-- not_graded_stats is a THIRD, separate count — NOT incident_count minus
+-- resolution_known_count. Those two are anchored to different weeks
+-- (created_at vs closed_at — see above), so subtracting them mixes two
+-- different cohorts of incidents and produces a number that doesn't
+-- correspond to any real, specific set of incidents (confirmed live:
+-- for one real week this produced "1", while the incidents actually
+-- behind it — same category/priority, issue_occurred_at in that week,
+-- overdue IS NULL — numbered 27). not_graded_stats instead counts
+-- directly, anchored on issue_occurred_at — the SAME anchor
+-- incident_sla_compliance_details.sql's own per-incident rows use (what
+-- the popup's "Not Graded" link drills down into) — so the number shown
+-- here always matches exactly what clicking it reveals.
+--
+-- response_stats, resolution_stats, and not_graded_stats are combined
+-- with a FULL OUTER JOIN (not a plain JOIN) on (iso_week, category,
+-- priority) so a bucket that only has activity in one of the three
+-- still gets a row instead of silently disappearing.
 --
 -- Local-time shift (AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Phnom_Penh')
 -- applies to EACH anchor the same way issue_occurred_at's own shift
@@ -75,7 +88,7 @@ WITH response_stats AS (
       COUNT(*) FILTER (WHERE overdue_response = false) * 100.0 / COUNT(*)
     ) AS response_sla_pct
   FROM object_322
-  WHERE created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '21 days'
+  WHERE created_at >= ((date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Phnom_Penh') - INTERVAL '21 days') AT TIME ZONE 'Asia/Phnom_Penh' AT TIME ZONE 'UTC')
   GROUP BY 1, 2, 3
 ),
 resolution_stats AS (
@@ -98,20 +111,44 @@ resolution_stats AS (
       / NULLIF(COUNT(*) FILTER (WHERE overdue IS NOT NULL), 0)
     ) AS resolution_sla_pct
   FROM object_322
-  WHERE closed_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '21 days'
+  WHERE closed_at >= ((date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Phnom_Penh') - INTERVAL '21 days') AT TIME ZONE 'Asia/Phnom_Penh' AT TIME ZONE 'UTC')
+  GROUP BY 1, 2, 3
+),
+not_graded_stats AS (
+  SELECT
+    TO_CHAR(issue_occurred_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Phnom_Penh', 'IYYY-"W"IW') AS iso_week,
+    CASE incident_category
+      WHEN 'bss_hardware' THEN 'BSS Hardware'
+      WHEN 'bss_software' THEN 'BSS Software'
+      WHEN 'oss_platform' THEN 'OSS Platform'
+      WHEN 'ip_core' THEN 'IP Core'
+      WHEN 'cs_core' THEN 'CS Core'
+      WHEN 'ps_core' THEN 'PS Core'
+      ELSE INITCAP(REPLACE(incident_category, '_', ' '))
+    END AS category,
+    INITCAP(COALESCE(priority, 'Unknown')) AS priority,
+    COUNT(*) AS not_graded_count
+  FROM object_322
+  WHERE issue_occurred_at >= ((date_trunc('week', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Phnom_Penh') - INTERVAL '21 days') AT TIME ZONE 'Asia/Phnom_Penh' AT TIME ZONE 'UTC')
+    AND overdue IS NULL
   GROUP BY 1, 2, 3
 )
 SELECT
-  COALESCE(r.iso_week, s.iso_week) AS iso_week,
-  COALESCE(r.category, s.category) AS category,
-  COALESCE(r.priority, s.priority) AS priority,
+  COALESCE(r.iso_week, s.iso_week, n.iso_week) AS iso_week,
+  COALESCE(r.category, s.category, n.category) AS category,
+  COALESCE(r.priority, s.priority, n.priority) AS priority,
   COALESCE(r.incident_count, 0) AS incident_count,
   COALESCE(r.response_met_count, 0) AS response_met_count,
   r.response_sla_pct AS response_sla_pct,
   COALESCE(s.resolution_known_count, 0) AS resolution_known_count,
   COALESCE(s.resolution_met_count, 0) AS resolution_met_count,
-  s.resolution_sla_pct AS resolution_sla_pct
+  s.resolution_sla_pct AS resolution_sla_pct,
+  COALESCE(n.not_graded_count, 0) AS not_graded_count
 FROM response_stats r
 FULL OUTER JOIN resolution_stats s
   ON r.iso_week = s.iso_week AND r.category = s.category AND r.priority = s.priority
+FULL OUTER JOIN not_graded_stats n
+  ON COALESCE(r.iso_week, s.iso_week) = n.iso_week
+  AND COALESCE(r.category, s.category) = n.category
+  AND COALESCE(r.priority, s.priority) = n.priority
 ORDER BY 1;

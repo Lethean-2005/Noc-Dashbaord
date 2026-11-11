@@ -1,0 +1,119 @@
+<section class="help-section" id="notifications">
+            <h2><i class="ti ti-brand-telegram"></i> Notifications & Alerting</h2>
+            <p>Background alert jobs watch the same local cache every page reads from &mdash; nothing here
+               puts extra load on MSSQL or PostgreSQL. Bot tokens and chat/group IDs live in the app's
+               environment file; the destinations below are illustrative labels for the role each one plays.</p>
+            <p class="help-subhead">Telegram Alerts</p>
+            <p>Four independent bots run on their own schedules, each posting to its own chat as a table
+               image with a styled .xlsx attachment, falling back to plain text if image rendering isn't
+               available.</p>
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Alert</th>
+                        <th>Watches</th>
+                        <th>Illustrative Destination</th>
+                        <th>Default Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>Site Down</code></td>
+                        <td>Incident Site Down, past a configurable outage threshold</td>
+                        <td>NOC &ndash; Site Down Alerts</td>
+                        <td>Every 4 hours</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Site Down</code></td>
+                        <td>Open INC-WO Site Down rows, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO Site Down</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Category Power</code></td>
+                        <td>Open INC-WO Power rows, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO Power</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO General</code></td>
+                        <td>Every other open INC-WO category, L2 On-Site only</td>
+                        <td>NOC &ndash; INC-WO General</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="help-subhead">Teams Webhook Alerts</p>
+            <p>A separate scheduler posts the same class of active-alarm summaries to a Microsoft Teams
+               channel via incoming webhook, on a single shared interval. Each card's webhook URL is
+               configured independently, so an individual card can be silenced without affecting the others.</p>
+            <table class="help-table">
+                <thead>
+                    <tr>
+                        <th>Alert</th>
+                        <th>Watches</th>
+                        <th>Default Schedule</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>EZE Active Alarms</code></td>
+                        <td>Ezecom device alarms</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>TCT Active Alarms</code></td>
+                        <td>Telcotech/Cellcard device alarms</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>POP/PON Down</code></td>
+                        <td>ISP POP sites with an active POP/PON Down alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>POP/PON Power Failure</code></td>
+                        <td>ISP POP sites with an active POP/PON Power alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Alarm Main Failure</code></td>
+                        <td>Sites with an active Main AC Failure alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Current Site Down Alarms</code></td>
+                        <td>Sites currently in Alarm Site Down</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>CSO Sub-Con</code></td>
+                        <td>Same Current Site Down alarms, routed to the CSO Sub-Con channel</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Current Sites Outage</code></td>
+                        <td>Same Current Site Down alarms, routed to the Current Sites Outage channel</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Alarm DG On</code></td>
+                        <td>Sites with an active DG-On alarm</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>INC-WO Site Down</code></td>
+                        <td>Open INC-WO Site Down rows</td>
+                        <td>Every 15 minutes</td>
+                    </tr>
+                    <tr>
+                        <td><code>Site Down 24h</code></td>
+                        <td>Any Site Down incident still down past a configurable hour threshold (down-alert), then its own restore-confirmation card once that same incident clears, in the same channel thread</td>
+                        <td>Down-check: daily; Restore-check: every 15 minutes</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p>Full detail on every alert job is in the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-Feature-Report.pdf') }}">Feature Report</a>
+               PDF under Downloads.</p>
+        </section>

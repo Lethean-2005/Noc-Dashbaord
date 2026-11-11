@@ -1,0 +1,20 @@
+<section class="help-section" id="data-sources">
+            <h2><i class="ti ti-database"></i> Where the Data Comes From</h2>
+            <p>Every page reads from a local cache &mdash; never live from MSSQL or PostgreSQL directly &mdash;
+               so pages load instantly and the two source databases only ever see a small, steady stream
+               of background sync queries.</p>
+            <ul>
+                <li><code>MSSQL</code> is the source for ISP POP / EZE / TCT / IT NODE alarms, On-Air
+                    site master data, POP data, VIP/VVIP sites, and Partner Contact.</li>
+                <li><code>PostgreSQL</code> (Streamline) is the source for Incidents, INC-WOs, the
+                    broader alarm feed, and Planned/Other site master data.</li>
+                <li>On-Air site status comes from MSSQL specifically because it reflects real network
+                    inventory more directly and updates sooner than Streamline's own status field &mdash;
+                    the two sources are kept independent rather than merged, so if they ever disagree about
+                    a site, the Map shows both instead of silently picking one.</li>
+                <li>Full technical detail &mdash; every query, every cache table, and the Cambodia
+                    Province/District/Commune/Village hierarchy &mdash; is in the
+                    <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+                    PDF under Downloads.</li>
+            </ul>
+        </section>

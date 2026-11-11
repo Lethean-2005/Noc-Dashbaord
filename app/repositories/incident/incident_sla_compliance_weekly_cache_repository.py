@@ -18,5 +18,6 @@ class IncidentSlaComplianceWeeklyCacheRepository(BaseCacheRepository):
         "resolution_known_count",
         "resolution_met_count",
         "resolution_sla_pct",
+        "not_graded_count",
     )
     order_by = "iso_week"

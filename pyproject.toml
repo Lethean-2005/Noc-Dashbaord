@@ -1,6 +1,6 @@
 [project]
 name = "noc-dashboard"
-version = "0.1.0"
+version = "19.3.8"
 description = "NOC dashboard, reporting, and mentor tracking application"
 requires-python = ">=3.11"
 dependencies = [
@@ -20,7 +20,7 @@ dependencies = [
     "PySide6>=6.10",
     "tzdata>=2024.1",
     "Pillow>=13.0.0",
-    "pillow-heif>=1.8",
+    "pillow-heif>=1.8.1",
     "openpyxl>=3.1",
     "pywin32>=312",
 ]
@@ -30,8 +30,7 @@ dev = ["pytest>=9.0.3", "black>=24.0", "ruff>=0.6"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-# tests/manual/ holds scripts that send REAL Telegram alerts when run
-# directly (see tests/manual/README.md) — must never be auto-collected.
+# Keep any future manual alert senders out of automatic test collection.
 norecursedirs = ["manual"]
 
 [tool.black]

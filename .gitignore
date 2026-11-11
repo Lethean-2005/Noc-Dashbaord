@@ -16,3 +16,18 @@ deploy_zips/
 data/geo-sources/*.geojson
 data/geo-sources/*.csv
 data/geo-sources/*.pbf
+
+# Local planning files and generated review/deployment outputs
+/docs/previews/
+/docs/reference/backups/
+/docs/reference/NOC-DASHBORD.xlsx
+/docs/reference/incident.csv
+/design_exports/
+/vm_updates/
+
+# Local environment variants and editor state
+.env.*
+!.env.example
+.vscode/
+.claude/
+~$*

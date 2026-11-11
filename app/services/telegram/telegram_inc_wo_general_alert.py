@@ -179,10 +179,21 @@ def send_inc_wo_general_alert(threshold_min=None, status_cache_repository=None, 
     if excel:
         sent = _send_telegram_excel(token, chat_ids, excel, "Inc-wo-alert.xlsx") and sent
 
-    logger.info(
-        f"Sent Telegram INC-WO General alert — {len(rows)} row(s) in {len(chunks)} "
-        f"image(s) to {len(chat_ids)} chat(s)"
-    )
+    # `sent` tracks every underlying send call's own success (every chunk's
+    # image/text AND the excel) — logging "Sent" unconditionally here,
+    # regardless of that value, previously made a fully-failed send (e.g.
+    # "chat not found") look identical to a real success in the logs.
+    if sent:
+        logger.info(
+            f"Sent Telegram INC-WO General alert — {len(rows)} row(s) in {len(chunks)} "
+            f"image(s) to {len(chat_ids)} chat(s)"
+        )
+    else:
+        logger.error(
+            f"Telegram INC-WO General alert FAILED to send — {len(rows)} row(s) in "
+            f"{len(chunks)} image(s), {len(chat_ids)} chat(s) (see the send error(s) "
+            f"logged above)"
+        )
     return {"sent": sent, "count": len(rows)}
 
 

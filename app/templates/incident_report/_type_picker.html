@@ -1,0 +1,33 @@
+{# Report TYPE dropdown — switches between the two kinds of report this
+   page can show (see app/routes/incident_report.py's index()). Always
+   navigates to a brand-new, unsaved report of the picked type (same "+
+   New Report" semantics as the report picker next to it) — an EXISTING
+   saved report's own type never changes via this dropdown, since
+   converting a saved report from one type to the other has no sensible
+   meaning (the two types don't share a field set). Expects `report_type`
+   in context ("incident" or "smart_network") to mark which option is
+   currently selected. #}
+<div class="pc-field-with-dropdown ir-type-picker">
+  <button type="button" class="btn-export" id="irTypePickerToggle">
+    <span id="irTypePickerLabel">
+      {%- if report_type == "smart_network" -%}
+        Smart Network Report
+      {%- else -%}
+        Official Incident Report
+      {%- endif -%}
+    </span>
+    <i class="ti ti-chevron-down"></i>
+  </button>
+  <div class="pc-field-dropdown-card ir-type-picker-card" id="irTypePickerCard" style="display:none;">
+    <div class="pc-field-dropdown-options" id="irTypePickerOptions">
+      <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if report_type != 'smart_network' else '' }}" data-href="{{ url_for('incident_report.index', type='incident') }}">
+        <span class="pc-field-dropdown-option-label">Official Incident Report</span>
+        <i class="ti ti-check pc-field-dropdown-option-check"></i>
+      </button>
+      <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if report_type == 'smart_network' else '' }}" data-href="{{ url_for('incident_report.index', type='smart_network') }}">
+        <span class="pc-field-dropdown-option-label">Smart Network Report</span>
+        <i class="ti ti-check pc-field-dropdown-option-check"></i>
+      </button>
+    </div>
+  </div>
+</div>

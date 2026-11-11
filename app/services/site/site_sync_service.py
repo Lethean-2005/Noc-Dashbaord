@@ -8,12 +8,14 @@ from app.repositories.site.counterparty_cache_repository import CounterpartyCach
 from app.repositories.site.counterparty_repository import CounterpartyRepository
 from app.repositories.site.ne_nms_lookup_cache_repository import NeNmsLookupCacheRepository
 from app.repositories.site.ne_nms_lookup_repository import NeNmsLookupRepository
+from app.repositories.site.mssql_site_ran_name_repository import MssqlSiteRanNameRepository
+from app.repositories.site.mssql_site_technology_repository import MssqlSiteTechnologyRepository
 from app.repositories.site.site_cache_repository import SiteCacheRepository
+from app.repositories.site.site_ran_name_cache_repository import SiteRanNameCacheRepository
 from app.repositories.site.site_ran_vendor_cache_repository import SiteRanVendorCacheRepository
 from app.repositories.site.site_ran_vendor_repository import SiteRanVendorRepository
 from app.repositories.site.site_repository import SiteRepository
 from app.repositories.site.site_technology_cache_repository import SiteTechnologyCacheRepository
-from app.repositories.site.site_technology_repository import SiteTechnologyRepository
 from app.services.postgres_sync_utils import retry_fetch
 from app.utils.logger import get_logger
 
@@ -23,6 +25,7 @@ _TABLE = "site_cache"
 _TECHNOLOGY_TABLE = "site_technology_cache"
 _NE_NMS_LOOKUP_TABLE = "ne_nms_lookup_cache"
 _SITE_RAN_VENDOR_TABLE = "site_ran_vendor_cache"
+_RAN_NAME_TABLE = "site_ran_name_cache"
 _COUNTERPARTY_TABLE = "counterparty_cache"
 
 
@@ -37,12 +40,16 @@ class SiteSyncService:
         ne_nms_lookup_cache_repository=None,
         site_ran_vendor_repository=None,
         site_ran_vendor_cache_repository=None,
+        site_ran_name_repository=None,
+        site_ran_name_cache_repository=None,
         counterparty_repository=None,
         counterparty_cache_repository=None,
     ):
         self.site_repository = site_repository or SiteRepository()
         self.cache_repository = cache_repository or SiteCacheRepository()
-        self.site_technology_repository = site_technology_repository or SiteTechnologyRepository()
+        self.site_technology_repository = (
+            site_technology_repository or MssqlSiteTechnologyRepository()
+        )
         self.site_technology_cache_repository = (
             site_technology_cache_repository or SiteTechnologyCacheRepository()
         )
@@ -53,6 +60,10 @@ class SiteSyncService:
         self.site_ran_vendor_repository = site_ran_vendor_repository or SiteRanVendorRepository()
         self.site_ran_vendor_cache_repository = (
             site_ran_vendor_cache_repository or SiteRanVendorCacheRepository()
+        )
+        self.site_ran_name_repository = site_ran_name_repository or MssqlSiteRanNameRepository()
+        self.site_ran_name_cache_repository = (
+            site_ran_name_cache_repository or SiteRanNameCacheRepository()
         )
         self.counterparty_repository = counterparty_repository or CounterpartyRepository()
         self.counterparty_cache_repository = (
@@ -84,13 +95,12 @@ class SiteSyncService:
         return len(normalized)
 
     def sync_technology(self):
-        """Refresh the local site technology inventory cache from
-        object_227 — confirmed prone to "conflict with recovery" (see
-        incident_sync_service.py's module docstring), so this goes through
-        retry_fetch() same as every other object_227-touching sync. Returns
-        the row count synced, or None on failure."""
-        rows = retry_fetch(self.site_technology_repository.fetch_all, "Site-technology")
-        if rows is None:
+        """Refresh the local site technology inventory cache from MSSQL
+        (TBL_NE). Returns the row count synced, or None on failure."""
+        try:
+            rows = self.site_technology_repository.fetch_all()
+        except Exception as e:
+            logger.error(f"MSSQL Site-technology sync failed: {e}")
             return None
 
         normalized = [
@@ -102,6 +112,37 @@ class SiteSyncService:
             logger.error(f"Site-technology cache write failed: {e}")
             return None
         logger.info(f"Synced {len(normalized)} row(s) into {_TECHNOLOGY_TABLE}")
+        return len(normalized)
+
+    def sync_ran_name(self):
+        """Refresh the local site -> RAN/SRAN baseband name cache from
+        MSSQL (TBL_NE) — "RAN_NAME" on the Site Down 24h alert's
+        multi-site Excel attachment. A site can have >1 NE row; first-seen
+        per site_code wins (15 of ~3772 sites, confirmed live, carry 2
+        distinct SRAN values for their NEs) — same dedup convention
+        mssql_site_onair_sync_service.py's own sync() already uses for its
+        own multi-NE-per-site edge case. Returns the row count synced, or
+        None on failure."""
+        try:
+            rows = self.site_ran_name_repository.fetch_all()
+        except Exception as e:
+            logger.error(f"MSSQL Site-RAN-name sync failed: {e}")
+            return None
+
+        seen_site_codes = set()
+        normalized = []
+        for row in rows:
+            code = row.get("Site Code")
+            if not code or code in seen_site_codes:
+                continue
+            seen_site_codes.add(code)
+            normalized.append({"site_code": code, "ran_name": row.get("RAN Name") or ""})
+        try:
+            self.site_ran_name_cache_repository.replace_all(_RAN_NAME_TABLE, normalized)
+        except Exception as e:
+            logger.error(f"Site-RAN-name cache write failed: {e}")
+            return None
+        logger.info(f"Synced {len(normalized)} row(s) into {_RAN_NAME_TABLE}")
         return len(normalized)
 
     def sync_ne_nms(self):

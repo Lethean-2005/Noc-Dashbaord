@@ -13,6 +13,9 @@
     <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ display_count }}</button>
     <div class="alarm-actions">
         <span class="alarm-row-count">{{ display_count }} records</span>
+        {% if source in ('eze', 'tct', 'congestion_history') %}
+        <button type="button" class="btn-export" data-congestion-blacklist><i class="ti ti-list"></i> Congestion Blacklist</button>
+        {% endif %}
         {% if not congestion_interface_summary %}
         <details class="date-filter">
             <summary class="btn-export">
@@ -116,7 +119,7 @@
 {% if row_cap_notice %}
 <div class="row-cap-notice">{{ row_cap_notice }} Export still downloads every row.</div>
 {% endif %}
-<div class="alarm-table-wrap">
+<div class="alarm-table-wrap drilldown-table-wrap">
     <table class="alarm-table{{ ' alarm-table-congestion' if congestion_interface_summary else '' }}">
         <thead>
             <tr>
@@ -157,7 +160,9 @@
                 <th>Interface</th>
                 <th>Province</th>
                 <th>Additional Info</th>
+                <th>Latest Occurrence</th>
                 <th class="right">Total</th>
+                <th>Action</th>
                 {% elif source == 'it_node' %}
                 <th>TT/INC-WOID</th>
                 <th>Device</th>
@@ -229,7 +234,9 @@
                 <td class="ellipsis">{{ row.interface }}</td>
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.additional_info }}</td>
+                <td>{{ row.latest_occurred_at }}</td>
                 <td class="right">{{ row.total_count }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% elif source == 'it_node' %}
                 <td>{{ row.rtid }}</td>
                 <td>{{ row.device_name }}</td>
@@ -261,8 +268,8 @@
                 {% endif %}
             </tr>
             {% else %}
-            {% set _colspan_by_source = {'eze': 13, 'tct': 13, 'congestion_history': 9, 'it_node': 12} %}
-            <tr class="empty-row"><td colspan="{{ _colspan_by_source.get(source, 14) }}">No active alarms for {{ scope }}</td></tr>
+            {% set _colspan_by_source = {'eze': 13, 'tct': 13, 'congestion_history': 11, 'it_node': 12} %}
+            <tr class="empty-row"><td colspan="{{ _colspan_by_source.get(source, 14) }}">{% with %}{% set empty_message %}No active alarms for {{ scope }}{% endset %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -333,6 +340,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ versioned_static('js/alarm_actions.js') }}"></script>
 <script src="{{ versioned_static('js/date-picker.js') }}"></script>
 {% if source in ('eze', 'tct', 'isp_pop', 'it_node') %}
 {# Fallback default for the Ack popup's "Your Name" field on a browser
@@ -343,6 +351,6 @@
    has any value (cached or this default) — editable only while empty. #}
 <script>window.NOC_DEFAULT_ACK_USERNAME = {{ default_ack_username|tojson }};</script>
 <script src="{{ versioned_static('js/acknowledge.js') }}"></script>
-<script src="{{ versioned_static('js/alarm_actions.js') }}"></script>
+
 {% endif %}
 {% endblock %}

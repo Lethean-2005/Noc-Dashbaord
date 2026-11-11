@@ -1,0 +1,9 @@
+{% extends "help/documentation.html" %}
+{% block article_body %}
+    {% include article_template %}
+    {% for heading, paragraphs in article_details %}
+    <h3>{{ heading }}</h3>
+    {% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+    {% endfor %}
+{% include "help/_example_tables.html" %}
+{% endblock %}

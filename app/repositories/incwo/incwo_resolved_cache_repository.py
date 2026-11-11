@@ -17,6 +17,7 @@ class IncWoResolvedCacheRepository(BaseCacheRepository):
         "wo_created_at",
         "wo_status",
         "resolved_at",
+        "resolution",
         "site_name",
         "site_code",
         "overdue",

@@ -956,3 +956,11 @@ def test_filter_rows_by_categories_excludes_customer_complaint_by_default():
         "POWER",
         "CC",
     ]
+
+
+def test_site_down_duration_axis_uses_500_steps_and_extends_without_clipping():
+    from app.services.incident.incident_service import _site_down_duration_ticks, _format_tick
+    assert [_format_tick(v) for v in _site_down_duration_ticks(1700)] == ["0", "500", "1K", "1.5K", "2K", "2.5K", "3K"]
+    assert _site_down_duration_ticks(0) == [0, 500, 1000, 1500, 2000, 2500, 3000]
+    ticks = _site_down_duration_ticks(3501)
+    assert ticks[-1] == 4000 and all(b - a == 500 for a, b in zip(ticks, ticks[1:]))

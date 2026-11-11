@@ -1,0 +1,5 @@
+<div class="table-empty-state" role="status">
+  <img class="table-empty-state-reference" src="{{ versioned_static('images/no-data-available.svg') }}" width="400" height="220" alt="" aria-hidden="true">
+  <p class="table-empty-state-message">{{ empty_heading|default('No data available in the system', true) }}</p>
+  <span class="table-empty-state-context">{{ empty_message|default('No results found', true) }}</span>
+</div>

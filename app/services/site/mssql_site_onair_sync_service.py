@@ -37,7 +37,28 @@ class MssqlSiteOnairSyncService:
             logger.error(f"MSSQL Site On-Air sync failed: {e}")
             return None
 
-        normalized = [self._normalize(r) for r in rows]
+        # mssql_site.sql's own SELECT DISTINCT is meant to guarantee one row
+        # per SITE_CODE (documented there: "every real site's NEs agree on
+        # one VENDOR... so this stays one row per site") — but that only
+        # covers VENDOR; a site with 2+ NE records whose OTHER fields differ
+        # (confirmed live: site 8185 has an Indoor/MW NE and a separate
+        # Outdoor/FO NE, same vendor, different BTS_ROOM/LINK_TYPE/LAT/LONG)
+        # still produces 2 distinct rows, which then collided on
+        # site_code's UNIQUE constraint and failed the ENTIRE cache write —
+        # not just that one site, every sync attempt since. Deduping here
+        # (first-seen per site_code, same "keep going despite one bad site"
+        # stance as the rest of this file) keeps one row per site
+        # regardless of how many NE records it has.
+        seen_site_codes = set()
+        deduped = []
+        for r in rows:
+            code = r.get("SITE_CODE")
+            if code in seen_site_codes:
+                continue
+            seen_site_codes.add(code)
+            deduped.append(r)
+
+        normalized = [self._normalize(r) for r in deduped]
         try:
             self.cache_repository.replace_all(_TABLE, normalized)
         except Exception as e:

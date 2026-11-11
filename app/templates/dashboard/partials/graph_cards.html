@@ -112,6 +112,7 @@
            bar, or the count all open the drilldown table for that age
            bucket via IncidentService.get_details(), scope "Incident",
            type e.g. "age_lt4" (see _AGE_BUCKET_RANGES). #}
+        {% if incident_age_chart.segments|sum(attribute='count') %}
         <div class="expenses-rows">
           {% for seg in incident_age_chart.segments %}
           <div class="expenses-row badge-item">
@@ -161,6 +162,9 @@
           </div>
           <span class="expenses-axis-spacer expenses-axis-spacer-end"></span>
         </div>
+        {% else %}
+        {% with empty_message='No open Site Down incidents.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
+        {% endif %}
       </div>
     </div>
 
@@ -177,7 +181,7 @@
        (see the icon's own {% if %} above), so this is never reachable
        empty. #}
     {% for seg in incident_age_chart.segments %}
-    {% set incidents = incident_age_worklog_by_bucket.get(seg.badge_type, []) %}
+    {% set incidents = incident_age_worklog_by_bucket.get(seg.badge_type, False) %}
     {% if incidents %}
     <div class="modal" id="incidentAgeWorklogModal_{{ seg.badge_type }}">
         <div class="modal-content" style="width:680px;max-width:90vw;">
@@ -188,37 +192,7 @@
                 <span class="close-modal duration-popup-close">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="volume-category-table-wrap" style="overflow-x:auto;">
-                <table class="alarm-table volume-category-table" style="width:100%;">
-                    <thead>
-                        <tr>
-                            <th>Incident ID</th>
-                            <th class="right">Entries</th>
-                        </tr>
-                    </thead>
-                    {% for incident in incidents %}
-                    <tbody>
-                        <tr class="volume-category-row">
-                            <td>
-                                <span class="volume-category-caret"><i class="ti ti-chevron-right"></i></span>
-                                {{ incident.incident_id }}
-                            </td>
-                            <td class="right">{{ incident.entries|length }}</td>
-                        </tr>
-                    </tbody>
-                    <tbody class="volume-duration-panel">
-                        {% for entry in incident.entries %}
-                        <tr class="volume-duration-row">
-                            <td colspan="2">
-                                <div style="color:var(--text-muted);font-size:11.5px;">{{ entry.created_at }} {{ entry.created_by }}</div>
-                                <div style="color:var(--text-primary);font-size:13px;">{{ entry.entry_text }}</div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                    {% endfor %}
-                </table>
-                </div>
+                <div data-worklog-content data-url="{{ url_for('dashboard.age_worklog_fragment', badge_type=seg.badge_type) }}">Open to load worklog entries.</div>
             </div>
         </div>
     </div>
@@ -340,6 +314,7 @@
            server-side; each day gets a real dot per series (not just
            today) and its own hover card (CSS-only, :hover-triggered — no
            JS) instead of one fixed always-visible tooltip. #}
+        {% if incident_volume_trend.week_totals|sum(attribute='total') %}
         <div class="campaign-top-row">
           <p class="campaign-subtitle">Incidents Created</p>
           <div class="series-legend">
@@ -395,6 +370,9 @@
           <button type="button" class="campaign-x-axis-btn" data-day-modal="volumeDayCategoryModal_{{ loop.index0 }}" title="By Category — {{ d.day }}">{{ d.day }}</button>
           {% endfor %}
         </div>
+        {% else %}
+        {% with empty_message='No incidents in the selected period.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
+        {% endif %}
       </div>
     </div>
 
@@ -533,6 +511,7 @@
            bar series per checked week in the "Compare Weeks" dropdown —
            see week_totals for the legend, days[].series for each
            weekday's per-week bar. #}
+        {% if incident_closed_trend.week_totals|sum(attribute='total') %}
         <div class="sales-top-row">
           <p class="sales-subtitle">Incidents Closed</p>
           <div class="series-legend">
@@ -579,6 +558,9 @@
           <span>{{ d.day }}</span>
           {% endfor %}
         </div>
+        {% else %}
+        {% with empty_message='No closed incidents in the selected period.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
+        {% endif %}
       </div>
     </div>
 
@@ -648,7 +630,7 @@
                             <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
                         </tr>
                         {% else %}
-                        <tr class="empty-row"><td colspan="{{ volume_category_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        <tr class="empty-row"><td colspan="{{ volume_category_breakdown.week_labels|length + 2 }}">{% with empty_message='No incidents in the active weeks' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -703,7 +685,7 @@
                             <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
                         </tr>
                         {% else %}
-                        <tr class="empty-row"><td colspan="{{ volume_severity_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        <tr class="empty-row"><td colspan="{{ volume_severity_breakdown.week_labels|length + 2 }}">{% with empty_message='No incidents in the active weeks' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -750,7 +732,7 @@
                             <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
                         </tr>
                         {% else %}
-                        <tr class="empty-row"><td colspan="{{ volume_province_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        <tr class="empty-row"><td colspan="{{ volume_province_breakdown.week_labels|length + 2 }}">{% with empty_message='No incidents in the active weeks' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -797,7 +779,7 @@
                             <td class="right volume-tooltip-delta {{ 'up' if row.delta >= 0 else 'down' }}" style="display:table-cell;">{{ '+' if row.delta >= 0 }}{{ row.delta }}</td>
                         </tr>
                         {% else %}
-                        <tr class="empty-row"><td colspan="{{ volume_vendor_breakdown.week_labels|length + 2 }}">No incidents in the active weeks</td></tr>
+                        <tr class="empty-row"><td colspan="{{ volume_vendor_breakdown.week_labels|length + 2 }}">{% with empty_message='No incidents in the active weeks' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

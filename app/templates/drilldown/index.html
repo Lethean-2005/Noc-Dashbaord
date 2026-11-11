@@ -10,7 +10,7 @@
         <button class="btn-export" disabled><i class="ti ti-download"></i> Export</button>
     </div>
 </div>
-<div class="alarm-table-wrap">
+<div class="alarm-table-wrap drilldown-table-wrap">
     <table class="alarm-table">
         <thead>
             <tr>
@@ -40,7 +40,7 @@
                 <td>{{ row.inc_wo_status }}</td>
                 <td>{{ row.resolved_at }}</td>
                 <td>{{ row.site_name }}</td>
-                <td>{{ row.site_code }}</td>
+                <td>{{ row.site_code | site_code_display }}</td>
                 <td>{{ row.occurred_at }}</td>
                 <td>{{ row.outage_min }}</td>
                 <td>{{ row.event_name }}</td>
@@ -51,7 +51,7 @@
                 <td>{{ row.province }}</td>
             </tr>
             {% else %}
-            <tr class="empty-row"><td colspan="15">No alarms found for {{ scope }}</td></tr>
+            <tr class="empty-row"><td colspan="15">{% with %}{% set empty_message %}No alarms found for {{ scope }}{% endset %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
             {% endfor %}
         </tbody>
     </table>

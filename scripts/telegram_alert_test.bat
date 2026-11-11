@@ -1,21 +1,14 @@
 @echo off
-REM ============================================================
-REM  Manually trigger the Telegram Site Down alert once, for testing.
-REM  Sends a REAL message to whatever TELEGRAM_CHAT_IDS is set in .env
-REM  (currently the -5532478916 group) if anything is over threshold.
-REM  Run it twice in a row to see that there's no duplicate-send guard -
-REM  see telegram_alert_test.py's header for why.
-REM  Lives in scripts\ - always runs from the project root.
-REM ============================================================
+REM Sends one REAL configured Telegram alert. Uses the deployable runner;
+REM no tests folder is required and no background schedulers are started.
 cd /d "%~dp0.."
-
 if not exist ".venv\Scripts\python.exe" (
     echo Virtual environment not found at .venv\Scripts\python.exe
     pause
     exit /b 1
 )
-
-".venv\Scripts\python.exe" tests\manual\telegram_alert_test.py
-
+".venv\Scripts\python.exe" scripts\send_telegram_test.py site-down
+set "alert_result=%errorlevel%"
 echo.
 pause
+exit /b %alert_result%

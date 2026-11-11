@@ -26,3 +26,6 @@ class IncWoRepository:
         work orders not yet resolved/closed — see
         app/database/queries/inc_wo_category_power.sql."""
         return run_query("inc_wo_category_power", "inc_wo_category_power")
+
+    def fetch_all_resolved_incidents(self):
+        return run_query("inc_wo_all_resolved", "inc_wo_all_resolved")

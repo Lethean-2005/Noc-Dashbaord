@@ -47,16 +47,14 @@ def _wo_row(**overrides):
     return row
 
 
-def test_normalize_incident_site_down_row_translates_known_nms_code():
+def test_normalize_incident_site_down_row_carries_resolved_nms_name():
+    # _nms_by_site() now resolves straight to a vendor NAME (onair VENDOR
+    # column / confirmed actual_ran_vendor / NE-lookup, in that priority
+    # order — see its own docstring) — the normalize function just reads
+    # that dict, it doesn't translate a raw code itself anymore.
     row = _site_down_source_row()
-    normalized = IncidentSyncService._normalize_incident_site_down_row(row, {"S1": 7}, {})
+    normalized = IncidentSyncService._normalize_incident_site_down_row(row, {"S1": "Nokia"}, {})
     assert normalized["nms"] == "Nokia"
-
-
-def test_normalize_incident_site_down_row_blanks_unknown_nms_code():
-    row = _site_down_source_row()
-    normalized = IncidentSyncService._normalize_incident_site_down_row(row, {"S1": 999}, {})
-    assert normalized["nms"] == ""
 
 
 def test_normalize_incident_site_down_row_blanks_nms_code_when_site_has_no_ne():
@@ -75,6 +73,18 @@ def test_normalize_incident_site_down_row_defaults_blank_last_comments_to_empty_
     row = _site_down_source_row(**{"Last Comments": None})
     normalized = IncidentSyncService._normalize_incident_site_down_row(row, {}, {})
     assert normalized["last_comments"] == ""
+
+
+def test_normalize_incident_site_down_row_carries_actual_root_cause():
+    row = _site_down_source_row(**{"Actual Root Cause": "EDC grid outage"})
+    normalized = IncidentSyncService._normalize_incident_site_down_row(row, {}, {})
+    assert normalized["actual_root_cause"] == "EDC grid outage"
+
+
+def test_normalize_incident_site_down_row_defaults_blank_actual_root_cause_to_empty_string():
+    row = _site_down_source_row(**{"Actual Root Cause": None})
+    normalized = IncidentSyncService._normalize_incident_site_down_row(row, {}, {})
+    assert normalized["actual_root_cause"] == ""
 
 
 def test_normalize_incident_site_down_row_fills_wo_fields_from_wo_by_key():
@@ -183,11 +193,12 @@ def test_nms_by_site_reads_local_cache_keyed_by_site_code():
     svc = IncidentSyncService(
         ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
         site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo([]),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo([]),
     )
 
     result = svc._nms_by_site()
-    assert result["S1"] == "7"
-    assert result["S2"] == "3"
+    assert result["S1"] == "Nokia"
+    assert result["S2"] == "ZTE"
 
 
 def test_nms_by_site_prefers_confirmed_actual_ran_vendor_code_over_ne_lookup():
@@ -201,9 +212,10 @@ def test_nms_by_site_prefers_confirmed_actual_ran_vendor_code_over_ne_lookup():
     svc = IncidentSyncService(
         ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
         site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo([]),
     )
 
-    assert svc._nms_by_site()["S1"] == "5"
+    assert svc._nms_by_site()["S1"] == "Huawei"
 
 
 def test_nms_by_site_leaves_out_same_named_but_unconfirmed_huawei_codes():
@@ -224,11 +236,12 @@ def test_nms_by_site_leaves_out_same_named_but_unconfirmed_huawei_codes():
     svc = IncidentSyncService(
         ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
         site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo([]),
     )
 
     result = svc._nms_by_site()
-    assert result["S21"] == "5"
-    assert result["S22"] == "3"
+    assert result["S21"] == "Huawei"
+    assert result["S22"] == "ZTE"
 
 
 def test_nms_by_site_ignores_unconfirmed_actual_ran_vendor_codes():
@@ -239,9 +252,10 @@ def test_nms_by_site_ignores_unconfirmed_actual_ran_vendor_codes():
     svc = IncidentSyncService(
         ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
         site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo([]),
     )
 
-    assert svc._nms_by_site()["S1"] == "7"
+    assert svc._nms_by_site()["S1"] == "Nokia"
 
 
 def test_nms_by_site_uses_confirmed_actual_ran_vendor_even_with_no_ne_row():
@@ -250,9 +264,27 @@ def test_nms_by_site_uses_confirmed_actual_ran_vendor_even_with_no_ne_row():
     svc = IncidentSyncService(
         ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo(ne_rows),
         site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo([]),
     )
 
-    assert svc._nms_by_site()["S1"] == "3"
+    assert svc._nms_by_site()["S1"] == "ZTE"
+
+
+def test_nms_by_site_prefers_onair_vendor_column_over_confirmed_actual_ran_vendor():
+    # The real bug this was fixed for: site 0511 had a confirmed
+    # actual_ran_vendor code resolving to "Huawei", but the Map page (and
+    # the real on-air equipment) says "ZTE" via mssql_site_onair's own
+    # VENDOR column — that column is real NE inventory data and must win
+    # over both other tiers whenever a site is on it.
+    vendor_rows = [{"site_code": "S1", "actual_ran_vendor": 20}]  # confirmed -> Huawei
+    onair_rows = [{"site_code": "S1", "vendor": "ZTE"}]
+    svc = IncidentSyncService(
+        ne_nms_lookup_cache_repository=FakeNeNmsLookupCacheRepo([]),
+        site_ran_vendor_cache_repository=FakeSiteRanVendorCacheRepo(vendor_rows),
+        mssql_site_onair_cache_repository=FakeMssqlSiteOnairCacheRepo(onair_rows),
+    )
+
+    assert svc._nms_by_site()["S1"] == "ZTE"
 
 
 class FakeMssqlSiteOnairCacheRepo:

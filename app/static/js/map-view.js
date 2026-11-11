@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // incident ID link goes straight to the real record there instead of
   // this app's own drilldown page.
   const STREAMLINE_INCIDENT_URL = (numericId) =>
-    `https://prd-web-mc.cellcard.com.kh/incident/form/${numericId}`;
+    `${document.body.dataset.streamlineBase}/incident/form/${numericId}`;
   // POP's pro_owner (TBL_POP.PRO_OWNER) badge color — falls back to gray
   // for any value not in this map instead of hiding the badge entirely.
   const OWNER_BADGE_COLORS = { Telcotech: "#eab308", Ezecom: "#a855f7" };
@@ -109,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Same owner colors as the popup badge (OWNER_BADGE_COLORS) — falls
-  // back to POP_COLOR (violet) for a blank/unknown pro_owner.
+  // back to POP_COLOR (grey) for a blank/unknown pro_owner.
   function popDotColor(pop) {
     return OWNER_BADGE_COLORS[pop.pro_owner] || POP_COLOR;
   }
@@ -118,6 +118,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const div = document.createElement("div");
     div.textContent = value == null ? "" : String(value);
     return div.innerHTML;
+  }
+
+  function coordinateDisplay(value) {
+    if (value === null || value === undefined || String(value).trim() === "") return "_";
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(6) : "_";
   }
 
   function popupHtml(site) {
@@ -130,6 +136,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ["Commune", site.commune],
       ["Village", site.village],
       ["Hub Site", site.hub_site],
+      ["Latitude", coordinateDisplay(site.lat)],
+      ["Longitude", coordinateDisplay(site.lon)],
     ]
       .filter(([, value]) => value)
       .map(
@@ -174,6 +182,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ["Province", pop.province],
       ["District", pop.district],
       ["Commune", pop.commune],
+      ["Latitude", coordinateDisplay(pop.lat)],
+      ["Longitude", coordinateDisplay(pop.lon)],
     ]
       .filter(([, value]) => value)
       .map(

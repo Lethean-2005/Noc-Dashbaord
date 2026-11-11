@@ -1,0 +1,29 @@
+<div class="alarm-table-wrap drilldown-table-wrap congestion-blacklist-table">
+<table class="alarm-table">
+  <thead><tr><th>Owner</th><th>Site / Device</th><th>IP Address</th><th>Interface</th><th>Additional Info</th><th>Note</th><th>Remark</th><th>Excluded by</th><th>Added (Cambodia time)</th><th>Action</th></tr></thead>
+  <tbody>
+  {% for rule in rules %}
+  <tr>
+    <td>{{ 'Ezecom' if rule.source == 'eze' else 'Telcotech' }}</td>
+    <td>{{ rule.pop_name or rule.device_name or rule.ip_address }}{% if rule.pop_code %} ({{ rule.pop_code }}){% endif %}{% if not rule.interface %}<br><small>Inactive: interface not recorded</small>{% endif %}</td>
+    <td>{{ rule.ip_address or '-' }}</td>
+    <td>{{ rule.interface or '-' }}</td><td>{{ rule.additional_info or '-' }}</td>
+    <td>{{ rule.note or '-' }}</td>
+    <td>{{ rule.remark or '-' }}</td>
+    <td>{{ rule.created_by or '-' }}</td><td>{{ rule.created_at }}</td>
+    <td><form method="post" action="{{ url_for('congestion_blacklist.restore', rule_id=rule.id) }}" data-blacklist-restore-form>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="return_to" value="/congestion">
+      <button type="submit" class="btn-export">Restore</button>
+    </form></td>
+  </tr>
+  {% else %}
+  <tr class="empty-row"><td colspan="10">
+    {% with empty_heading='No data excluded congestion', empty_message='No data excluded congestion' %}
+    {% include "layouts/table_empty_state.html" %}
+    {% endwith %}
+  </td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>

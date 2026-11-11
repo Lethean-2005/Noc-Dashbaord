@@ -20,6 +20,7 @@ class IncidentSiteDownCacheRepository(BaseCacheRepository):
         "site_code",
         "occurred_at",
         "l1_noc_investigation_result",
+        "actual_root_cause",
         "last_comments",
         "source",
         "nms",

@@ -499,3 +499,76 @@ def test_get_alarm_details_includes_category_and_resolved_at_from_incident():
 
     assert row["category"] == "Power"
     assert row["resolved_at"] == "2026-01-02 00:00:00"
+
+
+def test_csv_duplicate_lines_are_counted_once():
+    service = _svc(site_rows=_KNOWN_SITES)
+    added, duplicate, invalid, error = service.add_from_csv(io.BytesIO(b"site_code\nS1\nS1\ns1\nS2\n"))
+    assert added == ["S1", "S2"]
+    assert duplicate == ["S1", "S1"]
+    assert invalid == []
+    assert error is None
+
+
+def test_mentor_csv_rejects_status_column_before_adding_sites():
+    service = _svc(site_rows=_KNOWN_SITES)
+    added, duplicate, invalid, error = service.add_from_csv(io.BytesIO(b"site_code,status\nS1,OK\n"))
+    assert added == duplicate == invalid == []
+    assert 'only the site_code column' in error
+    assert service.mentor_site_repository.fetch_all() == []
+
+
+def test_mentor_csv_header_without_sites_has_clear_error():
+    service = _svc(site_rows=_KNOWN_SITES)
+    added, duplicate, invalid, error = service.add_from_csv(io.BytesIO(b"site_code\n\n"))
+    assert added == duplicate == invalid == []
+    assert 'No site codes found' in error
+
+
+def test_incident_only_site_down_matches_badge_and_drilldown():
+    svc = _svc(mentor_rows=[{"site_code": "0460"}], site_rows=[{"standard_code": "0460"}],
+               incident_rows=[{"site_code": "0460", "category": "Site Down", "incident_id": "INC-test"}])
+    assert svc.get_configured_sites()[0]["status"] == "Site Down"
+    assert svc.get_counts()["Site Down"] == 1
+    assert svc.get_alarm_details("Site Down")[0]["incident_id"] == "INC-test"
+
+
+def test_removal_immediately_updates_counts():
+    svc = _svc(mentor_rows=[{"site_code": "0460"}], alarm_rows=[_alarm_row("0460")])
+    assert svc.get_counts()["Door Alarm"] == 1
+    svc.remove_site("0460")
+    assert svc.get_counts()["Door Alarm"] == 0
+
+
+def test_malformed_csv_never_partially_imports():
+    svc = _svc(site_rows=[{"standard_code": "0460"}])
+    added, duplicate, invalid, error = svc.add_from_csv(io.BytesIO(b"site_code\n0460\n" + b"9" * 140000 + b"\n"))
+    assert error
+    assert added == []
+    assert svc.mentor_site_repository.fetch_all() == []
+
+
+def test_csv_validation_does_not_save_sites():
+    svc = _svc(site_rows=[{"standard_code": "0460"}])
+    added, duplicate, invalid, error = svc.add_from_csv(io.BytesIO(b"site_code\n0460\n"), validate_only=True)
+    assert added == ["0460"]
+    assert error is None
+    assert svc.mentor_site_repository.fetch_all() == []
+
+
+
+def test_alphanumeric_site_database_code_can_be_typed_and_imported():
+    svc = _svc(site_rows=[{"standard_code": "A0143"}])
+    added, duplicate, invalid = svc.add_site_codes("a0143")
+    assert added == ["A0143"] and invalid == []
+    svc = _svc(site_rows=[{"standard_code": "A0143"}])
+    added, duplicate, invalid, error = svc.add_from_csv(io.BytesIO(b"site_code\nA0143\n"))
+    assert added == ["A0143"] and error is None
+
+
+def test_pop_only_code_is_not_accepted_by_mentor():
+    svc = _svc(site_rows=[{"standard_code": "0460"}])
+    assert svc.add_site_codes("I0143")[2] == ["I0143"]
+    added, _, invalid, _ = svc.add_from_csv(io.BytesIO(b"site_code\nI0143\n"), validate_only=True)
+    assert not added and invalid == ["I0143"]
+    assert svc.mentor_site_repository.fetch_all() == []

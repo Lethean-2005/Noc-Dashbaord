@@ -1,0 +1,5 @@
+<div class="chart-empty-state">
+  {% with empty_heading='No data available', empty_message=empty_message|default('No records match the selected period.', true) %}
+  {% include "layouts/table_empty_state.html" %}
+  {% endwith %}
+</div>

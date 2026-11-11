@@ -1,0 +1,6 @@
+{% extends "help/documentation.html" %}
+{% block article_body %}
+<p>{{ reference.intro }}</p>
+{% for heading, description in reference.entries %}<h3>{{ heading }}</h3><p>{{ description }}</p>{% endfor %}
+{% if reference.example %}<h3>Worked example</h3><p>{{ reference.example }}</p>{% endif %}
+{% endblock %}

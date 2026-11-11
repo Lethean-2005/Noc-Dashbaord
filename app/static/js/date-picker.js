@@ -99,8 +99,8 @@
         popup.hidden = true;
         field.appendChild(popup);
 
-        const now = new Date();
-        const today = { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
+        const now = window.NocTime.parts();
+        const today = { year: now.year, month: now.month - 1, day: now.day };
         const parts = hidden.value ? hidden.value.split('-').map(Number) : null;
         const state = {
             year: parts ? parts[0] : today.year,

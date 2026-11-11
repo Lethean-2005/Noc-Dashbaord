@@ -540,6 +540,12 @@ def _nice_ticks(max_value, intervals=5):
     return [round(step * i) for i in range(intervals + 1)]
 
 
+
+def _site_down_duration_ticks(max_count):
+    """Stable 500-count steps, with room for all plotted values."""
+    maximum = max(3000, math.ceil(max_count / 500) * 500)
+    return list(range(0, maximum + 1, 500))
+
 def _smooth_path(points):
     """SVG path `d` string tracing `points` as a Catmull-Rom spline
     (tension 1/6) converted to cubic Bezier — passes exactly through
@@ -1508,7 +1514,7 @@ class IncidentService:
         active_x_positions = tuple(round(i * 700 / (n - 1), 1) if n > 1 else 0.0 for i in range(n))
 
         all_counts = [counts[m][i] for m in mondays for i in active_indices]
-        tick_values = _nice_ticks(max(all_counts, default=0), intervals=3)
+        tick_values = _site_down_duration_ticks(max(all_counts, default=0))
         axis_max = tick_values[-1] or 1
 
         def value_to_y(value):
@@ -1559,6 +1565,8 @@ class IncidentService:
             "grid_x": active_x_positions,
             "week_totals": [{"label": s["label"], "color": s["color"], "total": s["total"]} for s in series],
             "tick_labels": [_format_tick(v) for v in reversed(tick_values)],
+            "ticks": [{"label": _format_tick(v), "top_pct": round(value_to_y(v) / 180 * 100, 3)}
+                      for v in reversed(tick_values)],
         }
 
     @staticmethod
@@ -2802,7 +2810,15 @@ class IncidentService:
                 grouped.setdefault(numeric_id, []).append(r)
         return grouped
 
-    def get_worklog_by_age_bucket(self):
+    def get_worklog_age_availability(self):
+        """Only identities are needed before a popup is opened."""
+        repo = self.worklog_cache_repository
+        rows = repo.fetch_columns("incident_worklog", ("incident_numeric_id",)) if hasattr(repo, "fetch_columns") else repo.fetch_all("incident_worklog")
+        ids = {r.get("incident_numeric_id") for r in rows}
+        return {bucket: any(r.get("incident_numeric_id") in ids for r in (self.get_details(bucket) or []))
+                for bucket in _AGE_BUCKET_BADGE_TYPES.values()}
+
+    def get_worklog_by_age_bucket(self, badge_type=None):
         """Every currently-open Site Down incident's worklog, grouped
         by which "Incident Age – Open" bucket badge_type it's in right
         now (_AGE_BUCKET_BADGE_TYPES) — behind that bar chart's own
@@ -2818,7 +2834,10 @@ class IncidentService:
         each incident's own entries newest first, incidents themselves
         ordered by their own newest entry first."""
         result = {}
-        for badge_type in _AGE_BUCKET_BADGE_TYPES.values():
+        buckets = _AGE_BUCKET_BADGE_TYPES.values() if badge_type is None else [badge_type]
+        for badge_type in buckets:
+            if badge_type not in _AGE_BUCKET_BADGE_TYPES.values():
+                continue
             bucket_rows = self.get_details(badge_type) or []
             numeric_ids = {r.get("incident_numeric_id") for r in bucket_rows if r.get("incident_numeric_id")}
             worklog_by_id = self.get_worklog_by_incident_ids(numeric_ids)

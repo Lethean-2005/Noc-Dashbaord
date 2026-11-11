@@ -29,3 +29,9 @@ def status_badge_class(status):
     to "status-assigned" (gray) for any value not in _STATUS_BADGE_CLASSES,
     same default every template used before this was consolidated."""
     return _STATUS_BADGE_CLASSES.get(status, "status-assigned")
+
+
+def site_code_display(value):
+    """Display missing site codes without changing stored identifiers."""
+    value = str(value).strip() if value is not None else ""
+    return "_" if not value or set(value) == {"?"} else value

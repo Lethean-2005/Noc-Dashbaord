@@ -24,6 +24,7 @@ import ssl
 import sys
 from dataclasses import dataclass
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Callable
 
@@ -48,7 +49,7 @@ _TEAMS_CARD_LIMIT = 24000
 # hardcodes for its Incident/INC-WO links (see e.g.
 # app/templates/drilldown/alarm_site_down.html) — reused here so a card's
 # Incident ID / INC-WO ID cells link straight to the same record.
-_STREAMLINE_HOST = "prd-web-mc.cellcard.com.kh"
+from app.utils.source_urls import source_url
 
 
 def _esc(text) -> str:
@@ -117,7 +118,7 @@ def _id_link(row, key):
     num = row.get(numeric_key)
     if not num:
         return None
-    return f"https://{_STREAMLINE_HOST}/{path}/form/{num}"
+    return source_url(f"{path}/form/{num}")
 
 
 # ── Alert specification ──────────────────────────────────────────────
@@ -222,7 +223,7 @@ def build_connector_card(spec: "AlertSpec", rows, total, max_rows=None) -> dict:
     max_rows = spec.max_rows if max_rows is None else max_rows
     base = (os.getenv("DASHBOARD_URL") or "").rstrip("/")
     shown = min(total, max_rows, len(rows))
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now = datetime.now(ZoneInfo("Asia/Phnom_Penh")).strftime("%Y-%m-%d %H:%M")
 
     if rows:
         subtitle = f"{shown} of {total} active · {now}"

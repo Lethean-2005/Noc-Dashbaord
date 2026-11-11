@@ -35,6 +35,7 @@ SELECT
   END AS "Support Level",
   team.name AS "Responsible Team",
   wo.fault_description AS "Fault Description",
+  wo.resolution AS "Resolution",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",
@@ -53,5 +54,5 @@ LEFT JOIN object_166 commune
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE wo.status != 'closed'
 AND inc.status != 'closed'
-AND NOT (inc.status = 'resolved' AND inc.incident_category = 'customer_complaint')
+AND (inc.incident_category IS DISTINCT FROM 'customer_complaint' OR inc.status = 'in_progress')
 ORDER BY wo.created_at DESC NULLS FIRST;

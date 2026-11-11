@@ -1,0 +1,11 @@
+<section class="help-section" id="troubleshooting">
+            <h2><i class="ti ti-info-circle"></i> Troubleshooting</h2>
+            <p>For questions about a specific card's logic, data source, or an unexpected count, check the
+               relevant drilldown's date filter and export first. Most apparent discrepancies trace back to
+               a sync-timing window (every background job refreshes every few minutes, not instantly) rather
+               than a data error.</p>
+            <p>Still stuck? The <a href="{{ url_for('help.download', filename='Noc-Dashboard-Query-Data-Reference.pdf') }}">Query &amp; Data Reference</a>
+               PDF under Downloads explains exactly which query and cache table feeds each card, and the
+               <a href="{{ url_for('help.download', filename='Noc-Dashboard-Virtual-Machine-Setup.pdf') }}">Virtual Machine Setup Guide</a>
+               covers dependency and startup issues.</p>
+        </section>

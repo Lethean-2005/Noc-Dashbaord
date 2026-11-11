@@ -14,6 +14,8 @@ class IncidentSlaComplianceDetailsCacheRepository(BaseCacheRepository):
         "incident_id",
         "incident_numeric_id",
         "iso_week",
+        "response_iso_week",
+        "resolution_iso_week",
         "category",
         "priority",
         "support_level",
@@ -21,6 +23,7 @@ class IncidentSlaComplianceDetailsCacheRepository(BaseCacheRepository):
         "occurred_at",
         "overdue_response",
         "overdue",
+        "root_cause_category",
     )
     order_by = "occurred_at DESC"
 

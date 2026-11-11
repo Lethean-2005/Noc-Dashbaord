@@ -21,6 +21,9 @@ class FakeCacheRepo:
     def fetch_all(self, table):
         return self._rows
 
+    def fetch_where(self, table, where, params):
+        return self._rows
+
 
 def test_get_isp_pop_counts_counts_distinct_sites_not_alarm_rows():
     rows = [
@@ -96,6 +99,30 @@ def test_get_eze_counts_counts_raw_records_when_no_pop_link():
     assert counts["PORT"] == 4
 
 
+def test_get_eze_counts_merges_congestion_into_bandwidth():
+    # Real bug: EZE_TYPES never listed 'CONGESTION' at all, so a real
+    # EZE_CONGESTION alarm (confirmed live, the same EZE_<type> naming
+    # TCT's own bandwidth/congestion pair already uses) was silently
+    # excluded from _typed_counts()'s returned dict entirely — never
+    # shown on the Congestion badge or counted toward it. Mirrors
+    # test_get_tct_counts_merges_bandwidth_into_congestion().
+    rows = [
+        {"alarm": "BANDWIDTH", "device_name": "SW-A", "pop_name": "", "pop_code": ""},
+        {"alarm": "BANDWIDTH", "device_name": "SW-B", "pop_name": "", "pop_code": ""},
+        {"alarm": "CONGESTION", "device_name": "SW-C", "pop_name": "", "pop_code": ""},
+    ]
+    svc = AlarmService(FakeCacheRepo(rows))
+
+    counts = svc.get_eze_counts()
+
+    assert counts["BANDWIDTH"] == 3
+    assert "CONGESTION" not in counts
+    # Every other EZE type still comes back as 0, not missing — same
+    # invariant test_get_eze_counts_dedupes_by_pop_site_when_pop_linked()
+    # already checks for the no-merge case.
+    assert set(counts.keys()) == set(EZE_TYPES)
+
+
 def test_get_tct_counts_matches_case_insensitively_and_dedupes_by_pop_site():
     rows = [
         {"alarm": "bgp", "device_name": "RTR-A", "pop_name": "SITE-A", "pop_code": "1001"},
@@ -139,6 +166,34 @@ def test_get_tct_counts_merges_bandwidth_into_congestion():
 
     assert counts["congestion"] == 3
     assert "bandwidth" not in counts
+
+
+def test_congestion_device_interface_summary_includes_latest_occurrence():
+    # Requested live: "Can I have one column about latest occur" — the
+    # summary already picks each interface's MOST RECENT row (to use its
+    # POP/Owner/IP/Province/Additional Info as the representative
+    # snapshot) but was throwing away that row's own down_time instead
+    # of surfacing it. Rows must be down_time DESC, same order
+    # AlarmCacheRepository's own order_by already guarantees live.
+    rows = [
+        {
+            "device_name": "RTR-A", "interface": "Gi0/1", "down_time": "2026-11-03 09:00:00",
+            "pop_name": "SITE-A", "pop_code": "1001", "pro_owner": "Telcotech",
+            "ip_address": "10.0.0.1", "province": "Phnom Penh", "additional_info": "",
+        },
+        {
+            "device_name": "RTR-A", "interface": "Gi0/1", "down_time": "2026-11-01 09:00:00",
+            "pop_name": "SITE-A", "pop_code": "1001", "pro_owner": "Telcotech",
+            "ip_address": "10.0.0.1", "province": "Phnom Penh", "additional_info": "",
+        },
+    ]
+    svc = AlarmService(FakeCacheRepo(rows))
+
+    summary = svc.get_congestion_device_interface_summary("RTR-A")
+
+    assert len(summary) == 1
+    assert summary[0]["latest_occurred_at"] == "2026-11-03 09:00:00"
+    assert summary[0]["total_count"] == 2
 
 
 def test_congestion_tct_types_is_subset_of_tct_types():

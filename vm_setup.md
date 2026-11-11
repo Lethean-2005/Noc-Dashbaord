@@ -1,165 +1,295 @@
 # VM Setup
 
-Commands to get the dashboard running on a fresh VM, in order. Run each
-command one at a time — don't chain them with `&`.
+Commands to get the dashboard running on this VM, in order. Run each
+command one at a time — don't chain them with `&`. See **Troubleshooting**
+at the bottom if any step doesn't behave as described.
 
-## 1. Unzip
+## Updating an existing VM installation
+
+1. Stop the old dashboard before copying files or its SQLite database.
+2. Extract the new ZIP into a new folder.
+3. Copy the old `.env` file and the entire old `instance/` folder into the new
+   `Noc-Dashboard/` folder, next to `run.py`. Both are required; neither is in the ZIP.
+4. Create the virtual environment and install `requirements.txt` using the setup
+   steps below. Virtual environments should be recreated when changing folders.
+5. Start only the new dashboard. Wait for its next successful cache sync and
+   refresh the browser with Ctrl+F5.
+
+Keep the old folder as a backup. Do not run both versions together: both could
+send alerts. Existing saved data and alert history are retained through `instance/`;
+normal incident/alarm caches continue refreshing from the source systems.
+
+## Step 1 — Unzip
 
 Extract the deploy zip anywhere on the VM (e.g. `E:\Noc-Dashboard`).
 
-## 2. Create the virtual environment
+For an upgrade, keep the VM's existing `.env` and entire `instance/` folder.
+They contain connection settings, alert history, congestion exclusions, Mentor
+sites, and saved reports/uploads. The ZIP excludes them. Extract the application
+files into the existing project folder; do not replace it with an empty folder.
+Back up `.env` and `instance/` before upgrading, then restart the application.
+
+## Step 2 — Stop the dashboard
+
+If a `start_dashboard.bat` window is already running from a previous
+install, close it (or stop `run.py` however it's running). Skip this on a
+brand-new VM with nothing running yet.
+
+## Step 3 — Confirm Python 3.14
+
+```
+python --version
+```
+
+Should print `Python 3.14.10`. `requirements.txt` needs Python 3.11+. If
+this prints an older version or fails, install Python 3.14 first — no
+admin rights needed, via `uv` (see **Troubleshooting**) — then come back
+to this step.
+
+## Step 4 — Back up the old `.venv` (only if one exists)
+
+Check first:
+
+**CMD/PowerShell:**
+```
+dir .venv
+```
+
+**MobaXterm bash:**
+```bash
+ls
+```
+
+**No `.venv` listed** (fresh extraction, nothing built here yet) — skip
+straight to Step 5, nothing to back up.
+
+**`.venv` listed** — back it up before overwriting it:
+
+**CMD/PowerShell:**
+```
+move .venv .venv_py39_backup
+```
+
+**MobaXterm bash:**
+```bash
+mv .venv .venv_py39_backup
+```
+
+## Step 5 — Create the virtual environment
 
 ```
 python -m venv .venv
 ```
 
-If this fails with a path error, check that `python` on PATH is a real
-Python install (not a Windows Store alias) and that the account running it
-has write access to the folder.
+## Step 6 — Upgrade pip
 
-## 3. Activate it
-
-**Command Prompt:**
+**CMD/PowerShell:**
 ```
-.venv\Scripts\activate
+.venv\Scripts\python.exe -m pip install --upgrade pip
 ```
 
-**Git Bash:** the generated `activate` script can have CRLF line endings
-that break `source` in bash (`$'\r': command not found`). Either fix it
-once —
+**MobaXterm bash** (backslashes don't work as path separators in bash —
+always use forward slashes there):
 ```bash
-sed -i 's/\r$//' .venv/Scripts/activate
-source .venv/Scripts/activate
-```
-— or skip activation entirely and call the venv's Python directly by path
-for every command below (`.venv/Scripts/python.exe ...`), which sidesteps
-the issue completely and is what `scripts/start_dashboard.bat` does
-internally anyway.
-
-## 4. Upgrade pip first
-
-The VM's default pip is often old enough (e.g. 21.1.3) that it fails to
-pick a prebuilt wheel for some packages and tries to compile from source
-instead — which then fails with `Microsoft Visual C++ 14.0 or greater is
-required` if no compiler is installed. Upgrading pip first avoids this:
-
-```
 .venv/Scripts/python.exe -m pip install --upgrade pip
 ```
 
-## 5. Install dependencies
+## Step 7 — Install dependencies
 
+**CMD/PowerShell:**
 ```
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+**MobaXterm bash:**
+```bash
 .venv/Scripts/python.exe -m pip install -r requirements.txt
 ```
 
-### If a package fails with "Could not find a version that satisfies ..."
+## Step 8 — Smoke-test the install
 
-The VM's package index doesn't have that exact pinned version (this
-happened with `requests==2.34.2` and `PySide6==6.11.1` — both too new for
-this VM's mirror). The error lists every version the VM's index actually
-has, e.g.:
-
+**CMD/PowerShell:**
 ```
-ERROR: Could not find a version that satisfies the requirement requests==2.34.2
-(from versions: ..., 2.32.5, 2.32.4, 2.32.3, ...)
+.venv\Scripts\python.exe -c "import flask, PIL, pillow_heif, requests, dotenv; print('Imports OK')"
 ```
 
-Pick a version from that list, update `requirements.txt` (and
-`pyproject.toml`'s matching `>=` line), then re-run the install.
-
-### If a package fails trying to compile (e.g. `greenlet`)
-
-First check whether a prebuilt wheel exists at all, without touching the
-version pin:
-
-```
-.venv/Scripts/python.exe -m pip install --only-binary=:all: -r requirements.txt
+**MobaXterm bash:**
+```bash
+.venv/Scripts/python.exe -c "import flask, PIL, pillow_heif, requests, dotenv; print('Imports OK')"
 ```
 
-- If that **succeeds**, the problem was pip's resolver, not a missing
-  wheel — make sure step 4 (pip upgrade) actually ran, then retry the full
-  `pip install -r requirements.txt`.
-- If that **fails too**, pin the package to a specific version confirmed
-  to have a wheel (same approach as the previous section), or as a last
-  resort install "Microsoft C++ Build Tools" from the URL in the error.
+Should print `Imports OK`.
 
-## 6. Start the dashboard
+## Step 9 — Start the dashboard
 
+**CMD/PowerShell:**
 ```
 scripts\start_dashboard.bat
 ```
 
-Run this from Command Prompt (it's a `.bat` file — Git Bash can run it too,
-but double-clicking it in Explorer is simplest). It opens
-`http://localhost:<PORT>/` in the browser automatically after a few
-seconds.
-
-## 7. Optional: desktop shortcuts
-
+**MobaXterm bash:**
+```bash
+scripts/start_dashboard.bat
 ```
+
+Opens `http://localhost:<PORT>/` in the browser automatically after a few
+seconds. Confirm the pages you use load correctly — including a photo
+upload on the Incident Report page, to confirm HEIC still decodes.
+
+## Step 10 — Clean up the backup
+
+**CMD/PowerShell:**
+```
+rmdir /s /q .venv_py39_backup
+```
+
+**MobaXterm bash:**
+```bash
+rm -rf .venv_py39_backup
+```
+
+Only once you're confident the dashboard is stable. Reclaims disk space.
+
+## Step 11 — Optional: desktop shortcuts
+
+**CMD/PowerShell:**
+```
+scripts\create_shortcuts.bat
+```
+
+**MobaXterm bash:**
+```bash
 scripts/create_shortcuts.bat
 ```
 
 Adds two Desktop icons: **Noc Dashboard** (starts it) and **Dashboard
 Settings** (opens `configurator.py`).
 
-## 8. Configuration
+## Step 12 — Optional: configuration
 
-`scripts\configure.bat` opens a settings window (`configurator.py`) to
-toggle which dashboard cards are shown and edit sync/alert intervals —
-saves back to `.env`.
+**CMD/PowerShell:**
+```
+scripts\configure.bat
+```
 
-- **Card visibility** (`FEATURE_*` flags) applies live, on the next page
-  load — no restart needed.
-- **Sync intervals and alert settings** need the dashboard restarted
-  (close the window, run `scripts\start_dashboard.bat` again) to take
-  effect, since those control background threads that only read `.env`
-  once at startup.
+**MobaXterm bash:**
+```bash
+scripts/configure.bat
+```
 
-`.env` already has this deployment's real database credentials — no
-changes needed unless this VM should point at different databases.
+Opens a settings window to toggle dashboard cards and edit sync/alert
+intervals — saves back to `.env`. Card visibility applies live; sync/alert
+changes need the dashboard restarted.
 
-## 9. Optional: auto-start on VM boot/reboot
+## Step 13 — Optional: auto-start on VM boot
 
-By default the dashboard only starts when someone double-clicks the
-**Noc Dashboard** shortcut. If the VM reboots (Windows update, host
-restart, power loss) and nobody logs in and starts it manually, the
-dashboard — and all its background sync jobs — stay down until someone
-does. Pick one of the two options below to fix that.
-
-### Option A — Task Scheduler (needs admin rights, recommended)
-
-Starts the dashboard automatically at boot, even if nobody logs in.
-
-1. Open **Task Scheduler** (`taskschd.msc`)
-2. **Create Task** (not "Create Basic Task")
-3. **General** tab:
-   - Name: `Noc Dashboard`
-   - Check **"Run whether user is logged on or not"**
-   - Check **"Run with highest privileges"**
-4. **Triggers** tab → **New** → Begin the task: **"At startup"**
-5. **Actions** tab → **New** → Start a program:
-   - Program/script: full path to `scripts\start_dashboard.bat`
-     (e.g. `E:\Noc-Dashboard\scripts\start_dashboard.bat`)
-   - Start in: the project root folder (e.g. `E:\Noc-Dashboard`) —
-     required, otherwise the `.bat` can't find the venv/app
-6. Save — enter the VM account's password when prompted
-7. Test: right-click the task → **Run**, confirm the dashboard starts
-
-Equivalent one-line version (run from an elevated Command Prompt):
+**With admin rights** (recommended — works even if nobody logs in):
 ```
 schtasks /create /tn "Noc Dashboard" /tr "E:\Noc-Dashboard\scripts\start_dashboard.bat" /sc onstart /ru SYSTEM
 ```
 (adjust the path to wherever this VM's copy actually lives)
 
-### Option B — Startup folder shortcut (no admin needed)
+**Without admin rights** (only starts when this account logs in):
+Press `Win + R`, type `shell:startup`, press Enter, and copy the **Noc
+Dashboard** desktop shortcut (from Step 11) into that folder.
 
-Simpler, but only starts the dashboard when that specific Windows
-account logs in — not on an unattended reboot.
+---
 
-1. Press `Win + R`, type `shell:startup`, press Enter — this opens the
-   Startup folder for the current user
-2. Copy the **Noc Dashboard** desktop shortcut (created by
-   `scripts/create_shortcuts.bat` in step 7) into that folder
-3. Done — it now starts automatically the next time this account logs in
+## Troubleshooting
+
+### Installing Python 3.14 (no admin rights needed)
+
+The official python.org installer needs Administrator rights and is
+blocked by this VM's Group Policy. Install per-user via `uv` instead, from
+MobaXterm bash:
+
+```bash
+export PATH="/drives/c/Users/svc_nocremote/.local/bin:$PATH"
+uv python install 3.14 --default
+echo 'export PATH="/drives/c/Users/svc_nocremote/.local/bin:$PATH"' >> ~/.bashrc
+```
+
+Then open a **new** CMD/PowerShell window and re-run Step 3. If plain
+`python` ever shows the old 3.9 instead of 3.14, use `python3.14`
+explicitly, or the full path
+`C:\Users\svc_nocremote\.local\bin\python3.14.exe` — that always works
+regardless of PATH ordering. The old Python 3.9 is never removed; 3.14
+installs alongside it.
+
+### "This installation is forbidden by system policy" (error `0x80070659`)
+
+That's the Group Policy block mentioned above — use the `uv` steps instead
+of the official installer.
+
+### Step 5 fails, or mixes old and new packages
+
+Don't skip Step 4 and create `.venv` directly over an existing one —
+Python's `venv` module doesn't fully wipe the target directory by default,
+so you'd get the new 3.14 interpreter mixed with old 3.9-compiled packages
+(breaks with ABI/import errors). If you don't want to keep a backup copy,
+use `python -m venv .venv --clear` instead of Steps 4+5 — `--clear` forces
+a real wipe with no rollback copy.
+
+### "Could not rename .venv - is the dashboard still running?"
+
+Something still has a file inside `.venv` open — go back to Step 2 and
+confirm every `python.exe run.py` process is actually stopped (check Task
+Manager if closing the window didn't seem to work).
+
+### A previous `.venv_py39_backup` already exists
+
+Rename or delete the old one first if you're sure it's no longer needed,
+then retry Step 4.
+
+### Step 7 fails with "Could not find a version that satisfies ..."
+
+The VM's package index doesn't have that exact pinned version. The error
+lists every version it actually has — pick one, update `requirements.txt`
+(and `pyproject.toml`'s matching `>=` line), then re-run Step 7.
+
+### Step 7 fails trying to compile a package (e.g. `greenlet`)
+
+Check whether a prebuilt wheel exists at all, without touching the pin
+(CMD/PowerShell shown — in bash, use `.venv/Scripts/python.exe` instead):
+```
+.venv\Scripts\python.exe -m pip install --only-binary=:all: -r requirements.txt
+```
+Succeeds → the problem was pip's resolver, make sure Step 6 actually ran,
+then retry Step 7 normally. Fails too → pin the package to a version
+confirmed to have a wheel, or install "Microsoft C++ Build Tools" from the
+URL in the error.
+
+### Run the Step 4–8 rebuild as one script instead
+
+`scripts\upgrade_python_vm.bat` automates Steps 4–8, pausing for a Y/N
+confirmation before each change. No admin rights needed. It checks for
+`python3.14` specifically (not plain `python`), so it works correctly even
+on a window where PATH ordering differs.
+
+### Activating `.venv` instead of calling `python.exe` directly
+
+Every command above calls `.venv\Scripts\python.exe` directly rather than
+activating first — works the same either way. To activate instead:
+Command Prompt: `.venv\Scripts\activate`. Git Bash: the generated
+`activate` script can have CRLF issues (`$'\r': command not found`) — fix
+with `sed -i 's/\r$//' .venv/Scripts/activate` first, or just keep calling
+`.venv/Scripts/python.exe` directly, which is what
+`scripts\start_dashboard.bat` does internally anyway.
+
+
+Source-system links use `STREAMLINE_BASE_URL` (default: the existing Streamline
+address). Keep this setting in the VM environment when changing code. Dashboard,
+exports and alerts share it. Application/display time is fixed to
+`Asia/Phnom_Penh` (UTC+7), independent of the browser/PC timezone.
+
+
+Telegram manual test buttons run scripts/send_telegram_test.py, which ships in
+the deployment ZIP. They do not require tests/manual and do not start background
+schedulers. The Site Down Alert (Over 4Hours) uses TELEGRAM_BOT_TOKEN and
+TELEGRAM_CHAT_IDS; ALERT_THRESHOLD_MIN=240 selects four hours. Adding a member
+to the existing Telegram group does not change these settings.
+
+To check the runner without sending: .venv\Scripts\python.exe
+scripts\send_telegram_test.py site-down --dry-run. Normal launchers send real
+alerts using the existing synced cache. Start the dashboard and complete its
+first sync before testing on a fresh VM.

@@ -1,115 +1,213 @@
-// Mentor Sites composer cards. Both cards are real <form> elements
-// (app/templates/mentor/index.html) posting to app/routes/mentor.py;
-// this script only handles the client-side preview (file chip, code
-// chips) and triggers the actual form submit on Upload/Add.
+// File selection, real upload progress, and accessible site-code chips.
 (function () {
-    // ── Card 1: import file (dropzone + file row + Upload) ─────
     const uploadCard = document.getElementById('uploadCard');
     if (uploadCard) {
         const fi = document.getElementById('fileInput');
         const fileBtn = document.getElementById('fileBtn');
-        const fileChip = document.getElementById('fileChip');
-        const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
-        const fileClear = document.getElementById('fileClear');
-        const uploadBtn = document.getElementById('uploadBtn');
-
-        function reflectFile() {
-            if (fi.files.length) {
-                const f = fi.files[0];
-                fileName.textContent = f.name;
-                fileSize.textContent = f.size >= 1048576
-                    ? (f.size / 1048576).toFixed(1) + ' MB'
-                    : Math.max(1, Math.round(f.size / 1024)) + ' KB';
-                fileChip.hidden = false;
-            } else {
-                fileChip.hidden = true;
+        const chip = document.getElementById('fileChip');
+        const clear = document.getElementById('fileClear');
+        const submit = document.getElementById('uploadBtn');
+        const status = document.getElementById('mentorFileStatus');
+        const error = document.getElementById('mentorFileError');
+        const progress = document.getElementById('mentorUploadProgress');
+        const percent = document.getElementById('mentorFilePercent');
+        const complete = document.getElementById('mentorFileComplete');
+        const receiptKey = 'mentor-import-completed';
+        let busy = false, dragDepth = 0, validationVersion = 0, validated = false;
+        try {
+            const receipt = JSON.parse(sessionStorage.getItem(receiptKey) || 'null');
+            sessionStorage.removeItem(receiptKey);
+            if (receipt && Date.now() - receipt.time < 60000 && ['added', 'duplicate', 'invalid'].some(function (key) { return new URLSearchParams(location.search).has(key); })) {
+                document.getElementById('fileName').textContent = receipt.name;
+                document.getElementById('fileSize').textContent = receipt.size;
+                status.textContent = receipt.status;
+                progress.hidden = false; progress.value = 100;
+                percent.hidden = false; percent.textContent = '100%';
+                complete.toggleAttribute('hidden', !receipt.success);
+                chip.hidden = false;
             }
-            uploadBtn.disabled = !fi.files.length;
+        } catch (_) { /* Storage is optional; the import still works when unavailable. */ }
+        function showError(message) {
+            error.textContent = message || '';
+            error.hidden = !message;
         }
-
-        fileBtn.addEventListener('click', () => fi.click());
-        fi.addEventListener('change', reflectFile);
-        fileClear.addEventListener('click', () => { fi.value = ''; reflectFile(); });
-
-        ['dragenter', 'dragover'].forEach(ev =>
-            uploadCard.addEventListener(ev, e => { e.preventDefault(); uploadCard.classList.add('drag'); }));
-        ['dragleave', 'dragend'].forEach(ev =>
-            uploadCard.addEventListener(ev, e => { e.preventDefault(); uploadCard.classList.remove('drag'); }));
-        uploadCard.addEventListener('drop', e => {
-            e.preventDefault(); uploadCard.classList.remove('drag');
-            if (e.dataTransfer.files && e.dataTransfer.files.length) {
-                fi.files = e.dataTransfer.files; reflectFile();
+        function selectFile(file) {
+            if (busy) return;
+            const version = ++validationVersion;
+            validated = false;
+            showError('');
+            complete.setAttribute('hidden', ''); percent.hidden = true;
+            progress.hidden = true;
+            progress.value = 0;
+            const maximum = Number(uploadCard.dataset.maxUploadBytes);
+            if (file && (!file.name.toLowerCase().endsWith('.csv') || !file.size || file.size > maximum)) {
+                showError(!file.name.toLowerCase().endsWith('.csv') ? 'Choose a CSV file. You can download the template below.' : !file.size ? 'This file is empty. Choose a CSV containing site codes.' : 'The file exceeds the allowed upload size.');
+                fi.value = '';
+                chip.hidden = true;
+                submit.disabled = true;
+                return;
             }
+            if (file) {
+                const transfer = new DataTransfer();
+                transfer.items.add(file);
+                fi.files = transfer.files;
+                document.getElementById('fileName').textContent = file.name;
+                document.getElementById('fileSize').textContent = file.size >= 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(file.size / 1024)) + ' KB';
+                status.textContent = 'Ready to import';
+            } else fi.value = '';
+            chip.hidden = !file;
+            submit.disabled = true;
+            if (file) validateSelectedFile(version);
+        }
+        async function validateSelectedFile(version) {
+            const start = performance.now();
+            progress.hidden = false; progress.value = 0;
+            percent.hidden = false; percent.textContent = '0%';
+            status.textContent = 'Validating file...';
+            let finished = false;
+            function animate(now) {
+                if (version !== validationVersion || finished) return;
+                const value = Math.min(95, Math.floor((now - start) / 5000 * 95));
+                progress.value = value; percent.textContent = value + '%';
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+            try {
+                const response = await fetch(uploadCard.dataset.validateUrl, {method: 'POST', body: new FormData(uploadCard)});
+                const result = await response.json();
+                await new Promise(function (resolve) { setTimeout(resolve, Math.max(0, 5000 - (performance.now() - start))); });
+                if (version !== validationVersion) return;
+                finished = true;
+                if (!response.ok || !result.valid) throw new Error(result.error || 'File validation failed.');
+                validated = true; progress.value = 100; percent.textContent = '100%';
+                complete.removeAttribute('hidden');
+                complete.setAttribute('aria-label', 'File validated');
+                status.textContent = result.ready ? 'File validated - ready to import' : 'File validated - sites already configured';
+                submit.disabled = false;
+            } catch (error) {
+                if (version !== validationVersion) return;
+                finished = true; progress.hidden = true; percent.hidden = true;
+                complete.setAttribute('hidden', ''); submit.disabled = true;
+                status.textContent = 'Validation failed';
+                showError(error.message || 'Unable to validate this file. Please select it again.');
+            }
+        }
+        fileBtn.addEventListener('click', function () { if (!busy) fi.click(); });
+        fi.addEventListener('change', function () { selectFile(fi.files[0]); });
+        clear.addEventListener('click', function () { selectFile(null); fileBtn.focus(); });
+        uploadCard.addEventListener('dragenter', function (e) { e.preventDefault(); if (!busy) { dragDepth++; uploadCard.classList.add('drag'); } });
+        uploadCard.addEventListener('dragover', function (e) { e.preventDefault(); });
+        uploadCard.addEventListener('dragleave', function (e) { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; uploadCard.classList.remove('drag'); } });
+        uploadCard.addEventListener('drop', function (e) {
+            e.preventDefault(); dragDepth = 0; uploadCard.classList.remove('drag');
+            if (busy) return;
+            if (e.dataTransfer.files.length !== 1) { selectFile(null); showError('Choose one CSV file at a time.'); return; }
+            selectFile(e.dataTransfer.files[0]);
         });
-
-        uploadBtn.addEventListener('click', () => {
-            if (fi.files.length) uploadCard.requestSubmit();
+        uploadCard.addEventListener('submit', function (event) {
+            event.preventDefault();
+            if (busy || !validated || !fi.files.length) return;
+            busy = true;
+            showError('');
+            submit.disabled = true; clear.disabled = true; fileBtn.disabled = true;
+            uploadCard.setAttribute('aria-busy', 'true');
+            status.textContent = 'Importing validated site codes...';
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', uploadCard.action);
+            xhr.timeout = 60000;
+            function failed(message) {
+                busy = false; submit.disabled = false; clear.disabled = false; fileBtn.disabled = false;
+                uploadCard.removeAttribute('aria-busy');
+                complete.setAttribute('hidden', ''); percent.hidden = true;
+                status.textContent = 'Ready to retry';
+                progress.hidden = true; progress.value = 0;
+                showError(message);
+            }
+            xhr.addEventListener('load', function () {
+                if (xhr.status < 200 || xhr.status >= 300) { failed(xhr.status === 413 ? 'This file exceeds the server upload limit.' : 'The import could not finish. Please try again.'); return; }
+                const result = new URL(xhr.responseURL || uploadCard.action, window.location.href);
+                if (result.origin !== window.location.origin) { failed('Unexpected import response. Please refresh and try again.'); return; }
+                if (result.searchParams.get('error')) { failed(result.searchParams.get('error')); return; }
+                progress.value = 100;
+                const success = !result.searchParams.get('invalid');
+                percent.textContent = '100%';
+                complete.toggleAttribute('hidden', !success);
+                status.textContent = !success ? 'Complete - review invalid site codes' : Number(result.searchParams.get('added')) > 0 ? 'Validated and imported' : 'Validated - sites already configured';
+                try {
+                    sessionStorage.setItem(receiptKey, JSON.stringify({time: Date.now(), name: document.getElementById('fileName').textContent, size: document.getElementById('fileSize').textContent, status: status.textContent, success: success}));
+                } catch (_) { /* Completion feedback does not depend on browser storage. */ }
+                window.setTimeout(function () { window.location.assign(result.href); }, 700);
+            });
+            xhr.addEventListener('error', function () { failed('Connection interrupted. Your file is kept here; try again.'); });
+            xhr.addEventListener('timeout', function () { failed('The import timed out. Please try again.'); });
+            xhr.send(new FormData(uploadCard));
         });
     }
 
-    // ── Card 2: typed site-code chips + Add ─────────────────────
     const composer = document.getElementById('composer');
     if (!composer) return;
-    const chipArea = document.getElementById('chipArea');
-    const chipList = document.getElementById('chipList');
+    const area = document.getElementById('chipArea');
+    const list = document.getElementById('chipList');
     const input = document.getElementById('codeInput');
-    const submitBtn = document.getElementById('importBtn');
-
+    const submit = document.getElementById('importBtn');
+    const clear = document.getElementById('clearCodesBtn');
+    const status = document.getElementById('mentorCodeStatus');
     let codes = [];
-
-    function renderChips() {
-        chipList.innerHTML = '';
-        codes.forEach(code => {
+    function refresh() {
+        list.replaceChildren();
+        codes.forEach(function (code) {
             const chip = document.createElement('span');
             chip.className = 'mc-chip';
             chip.appendChild(document.createTextNode(code));
-            const x = document.createElement('button');
-            x.type = 'button';
-            x.className = 'mc-chip-x';
-            x.title = 'Remove ' + code;
-            x.textContent = '×';
-            x.addEventListener('click', () => {
-                codes = codes.filter(c => c !== code);
-                renderChips();
-            });
-            chip.appendChild(x);
-            chipList.appendChild(chip);
+            const remove = document.createElement('button');
+            remove.type = 'button'; remove.className = 'mc-chip-x';
+            remove.setAttribute('aria-label', 'Remove ' + code); remove.title = 'Remove ' + code;
+            remove.textContent = '\u00d7';
+            remove.addEventListener('click', function () { codes = codes.filter(function (value) { return value !== code; }); refresh(); input.focus(); });
+            chip.appendChild(remove); list.appendChild(chip);
         });
-        submitBtn.disabled = codes.length === 0;
+        submit.disabled = codes.length === 0 && !input.value.trim();
+        clear.disabled = codes.length === 0 && !input.value;
+        status.textContent = codes.length ? codes.length + ' site code' + (codes.length === 1 ? '' : 's') + ' ready' : 'No site codes entered';
     }
-
-    function commitInput(text) {
-        (text || '').split(/[^A-Za-z0-9_-]+/).forEach(tok => {
-            const code = tok.trim().toUpperCase();
-            if (code && !codes.includes(code)) codes.push(code);
+    function commit(text) {
+        const invalid = [];
+        String(text || '').split(/[\s,;]+/).forEach(function (value) {
+            const code = value.trim().toUpperCase();
+            if (code && !/^[A-Za-z0-9_-]+$/.test(code)) invalid.push(code);
+            else if (code && !codes.includes(code)) codes.push(code.toUpperCase());
         });
-        input.value = '';
-        renderChips();
+        input.value = ''; input.setCustomValidity(''); refresh();
+        if (invalid.length) status.textContent = 'Enter site codes using letters, numbers, hyphens or underscores.';
     }
-
-    chipArea.addEventListener('click', () => input.focus());
-    input.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-            e.preventDefault();
-            commitInput(input.value);
-        } else if (e.key === 'Backspace' && !input.value && codes.length) {
-            codes.pop();
-            renderChips();
+    area.addEventListener('click', function () { input.focus(); });
+    input.addEventListener('beforeinput', function (event) {
+        if (event.data && /[^A-Za-z0-9_,;\s-]/.test(event.data)) {
+            event.preventDefault();
+            status.textContent = 'Use letters, numbers, hyphens or underscores; leading zeroes are preserved.';
         }
     });
-    input.addEventListener('paste', e => {
-        e.preventDefault();
-        commitInput((e.clipboardData || window.clipboardData).getData('text'));
+    input.addEventListener('input', function () {
+        const invalid = /[^A-Za-z0-9_,;\s-]/.test(input.value);
+        input.setCustomValidity(invalid ? 'Enter a valid site code.' : '');
+        submit.disabled = invalid || (!codes.length && !input.value.trim());
+        clear.disabled = !codes.length && !input.value;
     });
-    input.addEventListener('blur', () => { if (input.value.trim()) commitInput(input.value); });
-
-    submitBtn.addEventListener('click', () => {
-        if (input.value.trim()) commitInput(input.value);
-        if (!codes.length) return;
+    input.addEventListener('keydown', function (e) {
+        if (['Enter', ',', ' '].includes(e.key)) { e.preventDefault(); commit(input.value); }
+        else if (e.key === 'Backspace' && !input.value && codes.length) { codes.pop(); refresh(); }
+    });
+    input.addEventListener('paste', function (e) { e.preventDefault(); commit(e.clipboardData.getData('text')); });
+    input.addEventListener('blur', function () { if (input.value.trim()) commit(input.value); });
+    clear.addEventListener('click', function () { codes = []; input.value = ''; refresh(); input.focus(); });
+    composer.addEventListener('submit', function (e) {
+        if (input.value.trim()) commit(input.value);
+        if (!codes.length) { e.preventDefault(); input.focus(); return; }
         document.getElementById('siteCodesInput').value = codes.join(',');
-        composer.requestSubmit();
+        submit.disabled = true;
+        composer.setAttribute('aria-busy', 'true');
     });
+    refresh();
 })();
 
 // ── Delete confirmation modal (per-row Remove + Clear All) ─────────

@@ -1,0 +1,328 @@
+{% extends "layouts/base.html" %}
+{% block title %}Smart Network Report{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_static('css/components/incident-report.css') }}">
+{% endblock %}
+{% block content %}
+<div class="alarm-header" id="incidentReportPageHeader">
+  <div>
+    <h1>Smart Network Report
+      {% if report_id %}
+      <span class="ir-status-badge ir-status-badge-{{ (report.get('status') or 'Draft')|lower }}">{{ report.get('status') or 'Draft' }}</span>
+      {% endif %}
+    </h1>
+  </div>
+  <div class="alarm-actions ir-toolbar">
+    {% include "incident_report/_type_picker.html" %}
+    <div class="pc-field-with-dropdown ir-report-picker">
+      <button type="button" class="btn-export" id="irReportPickerToggle">
+        <span id="irReportPickerLabel">
+          {%- if report_id -%}
+            {% set r_status = (report.get('status') or 'Draft') %}
+            <span class="ir-report-status ir-report-status-{{ r_status|lower }}">[{{ r_status }}]</span>
+            {{ report.get('file_name') or report.get('smart_customer_name') or report_id }}
+          {%- else -%}
+            + New Report
+          {%- endif -%}
+        </span>
+        <i class="ti ti-chevron-down"></i>
+      </button>
+      <div class="pc-field-dropdown-card ir-report-picker-card" id="irReportPickerCard" style="display:none;">
+        <div class="pc-field-dropdown-options ir-report-picker-options" id="irReportPickerOptions">
+          <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if not report_id else '' }}" data-href="{{ url_for('incident_report.index', type='smart_network') }}">
+            <span class="pc-field-dropdown-option-label">+ New Report</span>
+            <i class="ti ti-check pc-field-dropdown-option-check"></i>
+          </button>
+          {% for r in reports %}
+          <button type="button" class="pc-field-dropdown-option{{ ' is-selected' if r.id == report_id else '' }}" data-href="{{ url_for('incident_report.index', id=r.id) }}">
+            {% set r_status = (r.get('status') or 'Draft') %}
+            <span class="pc-field-dropdown-option-label"><span class="ir-report-status ir-report-status-{{ r_status|lower }}">[{{ r_status }}]</span> {{ r.file_name or r.smart_customer_name or r.id }} &mdash; {{ r.updated_at }}</span>
+            <i class="ti ti-check pc-field-dropdown-option-check"></i>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% if report_id %}
+    <details class="ir-actions-menu">
+      <summary class="btn-export"><i class="ti ti-dots-vertical"></i> Actions <i class="ti ti-chevron-down"></i></summary>
+      <div class="ir-actions-menu-panel">
+        <a class="ir-actions-menu-item" href="{{ url_for('incident_report.export_pdf', report_id=report_id) }}" onclick="this.closest('details').removeAttribute('open')">
+          <i class="ti ti-file-type-pdf"></i> PDF
+        </a>
+        <a class="ir-actions-menu-item" href="{{ url_for('incident_report.export_docx', report_id=report_id) }}" onclick="this.closest('details').removeAttribute('open')">
+          <i class="ti ti-file-type-doc"></i> DOCX
+        </a>
+        <form method="post" action="{{ url_for('incident_report.set_status', report_id=report_id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if (report.get('status') or 'Draft') == 'Final' %}
+          <input type="hidden" name="status" value="Draft">
+          <button type="submit" class="ir-actions-menu-item" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-file-off"></i> Revert to Draft
+          </button>
+          {% else %}
+          <input type="hidden" name="status" value="Final">
+          <button type="submit" class="ir-actions-menu-item" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-file-check"></i> Mark as Final
+          </button>
+          {% endif %}
+        </form>
+        <form method="post" action="{{ url_for('incident_report.delete', report_id=report_id) }}"
+              data-confirm="Delete this Smart Network Report? This cannot be undone." data-confirm-title="Delete Report" data-confirm-yes="Yes, Delete!">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="ir-actions-menu-item ir-actions-menu-item-danger" onclick="this.closest('details').removeAttribute('open')">
+            <i class="ti ti-trash"></i> Delete
+          </button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+  </div>
+</div>
+
+{% if request.args.get('finalize_error') %}
+<div class="ir-finalize-error">
+  <i class="ti ti-alert-triangle"></i>
+  This report isn't complete yet — Customer Name and Report Month are both required before it can be marked as Final.
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('incident_report.save') }}" id="smartNetworkReportForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="report_id" value="{{ report_id or '' }}">
+  <input type="hidden" name="report_type" value="smart_network">
+
+  <div class="ir-document ir-smart-document">
+    <div class="ir-section">
+      <div class="ir-section-title">Monthly Report</div>
+      <div class="ir-section-body">
+        <div class="ir-grid">
+          <div class="ir-field"><label>Customer Name</label><input type="text" name="smart_customer_name" value="{{ report.get('smart_customer_name', '') }}" placeholder="e.g. SMART AXIATA" required></div>
+          <div class="ir-field"><label>Report Period</label><input type="text" name="smart_report_month" value="{{ report.get('smart_report_month', '') }}" placeholder="e.g. Sep-Oct 2026" required></div>
+          <div class="ir-field"><label>Document Title</label><input type="text" name="document_title" value="{{ report.get('document_title', '') }}" placeholder="e.g. Monthly Report"></div>
+          <div class="ir-field"><label>Export File Name</label><input type="text" name="file_name" value="{{ report.get('file_name', '') }}" placeholder="e.g. Smart Network Report_Sep 2026" required></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">1. Active Circuits Inventory</div>
+      <div class="ir-section-body">
+        <div style="overflow-x:auto;">
+        <table class="alarm-table ir-smart-table" style="width:100%;" id="irCircuitsTable">
+          <thead>
+            <tr>
+              <th>Customer Description</th>
+              <th>Service</th>
+              <th>Bandwidth</th>
+              <th>Circuit</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="irCircuitsRows">
+            {% set circuits = report.get('smart_active_circuits') or [] %}
+            {% for c in circuits %}
+            <tr class="ir-smart-row">
+              <td><input type="text" name="circuit_customer_description" value="{{ c.get('customer_description', '') }}" placeholder="e.g. SMART DC/DR &ndash; IPLC to SG1 via MTC"></td>
+              <td><input type="text" name="circuit_service" value="{{ c.get('service', '') }}" placeholder="e.g. IPLC"></td>
+              <td><input type="text" name="circuit_bandwidth" value="{{ c.get('bandwidth', '') }}" placeholder="e.g. 100G"></td>
+              <td><input type="text" name="circuit_id" value="{{ c.get('circuit_id', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              <td class="ir-smart-row-actions">
+                <button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button>
+                <button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <button type="button" class="btn-export" id="irAddCircuitRow" style="margin-top:8px;"><i class="ti ti-plus"></i> Add Circuit</button>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">2. Monthly Outage Statistics</div>
+      <div class="ir-section-body">
+        <div style="overflow-x:auto;">
+        <table class="alarm-table ir-smart-table ir-smart-month-table" style="width:100%;" id="irOutageTable">
+          <thead>
+            <tr>
+              <th>Circuit</th>
+              <th>Jan-{{ current_year_suffix }}</th><th>Feb-{{ current_year_suffix }}</th><th>Mar-{{ current_year_suffix }}</th><th>Apr-{{ current_year_suffix }}</th><th>May-{{ current_year_suffix }}</th><th>Jun-{{ current_year_suffix }}</th>
+              <th>Jul-{{ current_year_suffix }}</th><th>Aug-{{ current_year_suffix }}</th><th>Sep-{{ current_year_suffix }}</th><th>Oct-{{ current_year_suffix }}</th><th>Nov-{{ current_year_suffix }}</th><th>Dec-{{ current_year_suffix }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="irOutageRows">
+            {% set outage_rows = report.get('smart_monthly_outage') or [] %}
+            {% for row in outage_rows %}
+            <tr class="ir-smart-row">
+              <td><input type="text" name="outage_circuit" value="{{ row.get('circuit', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              {% set months = row.get('months', {}) %}
+              <td><input type="text" name="outage_jan" value="{{ months.get('jan', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_feb" value="{{ months.get('feb', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_mar" value="{{ months.get('mar', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_apr" value="{{ months.get('apr', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_may" value="{{ months.get('may', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_jun" value="{{ months.get('jun', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_jul" value="{{ months.get('jul', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_aug" value="{{ months.get('aug', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_sep" value="{{ months.get('sep', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_oct" value="{{ months.get('oct', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_nov" value="{{ months.get('nov', '') }}" placeholder="%"></td>
+              <td><input type="text" name="outage_dec" value="{{ months.get('dec', '') }}" placeholder="%"></td>
+              <td class="ir-smart-row-actions">
+                <button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button>
+                <button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <button type="button" class="btn-export" id="irAddOutageRow" data-prefix="outage" style="margin-top:8px;"><i class="ti ti-plus"></i> Add Circuit Row</button>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">3. Fault Services Statistics &amp; Summary</div>
+      <div class="ir-section-body">
+        <div style="overflow-x:auto;">
+        <table class="alarm-table ir-smart-table ir-smart-month-table" style="width:100%;" id="irFaultTable">
+          <thead>
+            <tr>
+              <th>Circuit</th>
+              <th>Jan-{{ current_year_suffix }}</th><th>Feb-{{ current_year_suffix }}</th><th>Mar-{{ current_year_suffix }}</th><th>Apr-{{ current_year_suffix }}</th><th>May-{{ current_year_suffix }}</th><th>Jun-{{ current_year_suffix }}</th>
+              <th>Jul-{{ current_year_suffix }}</th><th>Aug-{{ current_year_suffix }}</th><th>Sep-{{ current_year_suffix }}</th><th>Oct-{{ current_year_suffix }}</th><th>Nov-{{ current_year_suffix }}</th><th>Dec-{{ current_year_suffix }}</th>
+            </tr>
+          </thead>
+          <tbody id="irFaultRows">
+            {% set fault_rows = report.get('smart_monthly_outage') or [] %}
+            {% for row in fault_rows %}
+            <tr class="ir-smart-row">
+              <td><input type="text" readonly aria-readonly="true" name="fault_circuit" value="{{ row.get('circuit', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              {% set months = row.get('months', {}) %}
+              <td><input type="text" readonly aria-readonly="true" name="fault_jan" value="{{ months.get('jan', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_feb" value="{{ months.get('feb', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_mar" value="{{ months.get('mar', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_apr" value="{{ months.get('apr', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_may" value="{{ months.get('may', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_jun" value="{{ months.get('jun', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_jul" value="{{ months.get('jul', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_aug" value="{{ months.get('aug', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_sep" value="{{ months.get('sep', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_oct" value="{{ months.get('oct', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_nov" value="{{ months.get('nov', '') }}" placeholder="%"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_dec" value="{{ months.get('dec', '') }}" placeholder="%"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">4. Failure to React</div>
+      <div class="ir-section-body">
+        <p class="ir-smart-help">Review complaint and response times. SLA and service credit are entered manually.</p>
+        <div class="ir-smart-scroll"><table class="alarm-table ir-smart-table ir-smart-reaction-table">
+          <thead><tr><th>Ticket No</th><th>Circuit ID</th><th>Occurred Time</th><th>Smart Complain</th><th>TCT Respond</th><th>Failure to React</th><th>SLA</th><th>Service Credit</th><th>Note</th><th>Action</th></tr></thead>
+          <tbody id="irFailureRows">
+          {% for row in report.get('smart_failure_to_react') or [{}] %}
+          <tr class="ir-smart-row">
+            {% for key, placeholder in [('ticket_no','Ticket reference'),('circuit_id','Circuit from inventory'),('occurred_time','DD-Mon-YYYY HH:MM'),('smart_complain','DD-Mon-YYYY HH:MM'),('tct_respond','DD-Mon-YYYY HH:MM'),('failure_to_react','00hrs 00mins'),('sla','Pass / Fail'),('service_credit','e.g. 0%'),('note','Complaint or response details')] %}
+            <td><input type="text" name="react_{{ key }}" value="{{ row.get(key, '') }}" placeholder="{{ placeholder }}" aria-label="{{ key|replace('_',' ')|title }}"></td>
+            {% endfor %}
+            <td class="ir-smart-row-actions"><button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button><button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+        <button type="button" class="btn-export" id="irAddFailureRow"><i class="ti ti-plus"></i> Add Response Row</button>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">5. Services Outage Report</div>
+      <div class="ir-section-body">
+        <div style="overflow-x:auto;">
+        <table class="alarm-table ir-smart-table" style="width:100%;" id="irServicesOutageTable">
+          <thead>
+            <tr>
+              <th>Ticket No</th>
+              <th>Circuit ID</th>
+              <th>Date Started</th>
+              <th>Date Finished</th>
+              <th>Service</th>
+              <th>Issue Owner</th>
+              <th>Interruption</th>
+              <th>Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="irServicesOutageRows">
+            {% set outages = report.get('smart_services_outage') or [] %}
+            {% for o in outages %}
+            <tr class="ir-smart-row">
+              <td><input type="text" name="outage_ticket_no" value="{{ o.get('ticket_no', '') }}" placeholder="e.g. 1979218"></td>
+              <td><input type="text" name="outage_circuit_id" value="{{ o.get('circuit_id', '') }}" placeholder="e.g. MX1453"></td>
+              <td><input type="text" name="outage_date_started" value="{{ o.get('date_started', '') }}" placeholder="e.g. 22-Sep-2026 13:30"></td>
+              <td><input type="text" name="outage_date_finished" value="{{ o.get('date_finished', '') }}" placeholder="e.g. 22-Sep-2026 13:55"></td>
+              <td><input type="text" name="outage_service" value="{{ o.get('service', '') }}" placeholder="e.g. IPLC"></td>
+              <td><input type="text" name="outage_issue_owner" value="{{ o.get('issue_owner', '') }}" placeholder="e.g. TELCOTECH"></td>
+              <td><input type="text" name="outage_interruption" value="{{ o.get('interruption', '') }}" placeholder="e.g. 00hrs 25mins"></td>
+              <td><input type="text" name="outage_notes" value="{{ o.get('notes', '') }}" placeholder="e.g. Partner in Singapore mistakenly performed an operation..."></td>
+              <td class="ir-smart-row-actions">
+                <button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button>
+                <button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <button type="button" class="btn-export" id="irAddServicesOutageRow" style="margin-top:8px;"><i class="ti ti-plus"></i> Add Outage Row</button>
+      </div>
+    </div>
+
+    <div class="ir-section">
+      <div class="ir-section-title">6. Credit Note Summary</div>
+      <div class="ir-section-body">
+        <p class="ir-smart-help">Enter the agreed monthly credit values and confirmed USD amounts. Blank values remain blank.</p>
+        <div class="ir-smart-scroll"><table class="alarm-table ir-smart-table ir-smart-month-table">
+          <thead><tr><th>Circuit</th>{% for month in ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}<th data-smart-month="{{ month }}">{{ month }}-{{ current_year_suffix }}</th>{% endfor %}<th>Action</th></tr></thead>
+          <tbody id="irCreditRows">
+          {% for row in report.get('smart_credit_note') or [{}] %}
+          <tr class="ir-smart-row"><td><input type="text" name="credit_circuit" value="{{ row.get('circuit','') }}" placeholder="Circuit from inventory"></td>
+            {% for month in ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'] %}<td><input type="text" name="credit_{{ month }}" value="{{ (row.get('months') or {}).get(month,'') }}" placeholder="Credit value"></td>{% endfor %}
+            <td class="ir-smart-row-actions"><button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button><button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button></td>
+          </tr>{% endfor %}
+          </tbody>
+          <tfoot><tr><th scope="row">Credit amount (USD)</th>{% for month in ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'] %}<td><input type="text" name="credit_amount_{{ month }}" value="{{ (report.get('smart_credit_amounts') or {}).get(month,'') }}" placeholder="USD" aria-label="{{ month|title }} credit amount in USD"></td>{% endfor %}<td></td></tr></tfoot>
+        </table></div>
+        <button type="button" class="btn-export" id="irAddCreditRow"><i class="ti ti-plus"></i> Add Credit Row</button>
+      </div>
+    </div>
+
+    <div class="ir-footer-actions">
+      {% if report.get('status') == 'Final' %}
+      <span class="ir-save-hint">This report is marked Final &mdash; use <b>Revert to Draft</b> in the Actions menu
+        above if it needs editing again.</span>
+      {% else %}
+      <button type="submit" name="intent" value="draft" formnovalidate id="irSaveDraftBtn" class="btn-export">
+        <i class="ti ti-file-off"></i> Save as Draft
+      </button>
+      <button type="submit" name="intent" value="final" class="btn-export ir-save-complete-btn">
+        <i class="ti ti-file-check"></i> Save &amp; Complete
+      </button>
+      <span class="ir-save-hint">Customer Name, Report Month, and Export File Name are required &mdash; Save as Draft skips the rest; Save &amp; Complete still only requires those three.</span>
+      {% endif %}
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script src="{{ versioned_static('js/incident-report.js') }}"></script>
+<script src="{{ versioned_static('js/smart-circuits.js') }}"></script>
+{% endblock %}

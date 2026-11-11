@@ -1,0 +1,33 @@
+{% extends "layouts/bare.html" %}
+{% block title %}{{ article_title }} - Help Center{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ versioned_static('css/components/help.css') }}">
+<link rel="stylesheet" href="{{ versioned_static('css/components/help-docs.css') }}">
+{% endblock %}
+{% block content %}
+<div class="help-center help-docs">
+<header class="help-docs-header">
+  <a class="help-brand" href="{{ url_for('help.index') }}">Noc-Dashboard <span>Help center</span></a>
+  <nav aria-label="Documentation navigation"><a href="{{ url_for('help.index') }}">Documentation</a><a href="{{ url_for('help.index') }}#downloads">PDF guides</a><a class="help-back" href="{{ url_for('dashboard.index') }}">Dashboard <i class="ti ti-arrow-up-right" aria-hidden="true"></i></a></nav>
+</header>
+<button class="help-docs-menu" type="button" aria-expanded="false" aria-controls="helpDocsSidebar"><i class="ti ti-menu-2" aria-hidden="true"></i> Browse guides</button>
+<div class="help-docs-layout">
+  <aside class="help-docs-sidebar" id="helpDocsSidebar" aria-label="Help topics">
+    <a class="help-docs-home" href="{{ url_for('help.index') }}"><i class="ti ti-arrow-left" aria-hidden="true"></i> Help center</a>
+    {% for group, links in help_navigation.items() %}
+    <div class="help-docs-nav-group"><h2>{{ group }}</h2><nav aria-label="{{ group }}">
+      {% for slug, title in links %}<a href="{{ url_for('help.article', slug=slug) }}"{% if request.view_args.get('slug') == slug %} class="is-active" aria-current="page"{% endif %}>{{ title }}</a>{% endfor %}
+    </nav></div>
+    {% endfor %}
+  </aside>
+  <main class="help-reading" id="article-start">
+    <nav class="help-breadcrumb" aria-label="Breadcrumb"><a href="{{ url_for('help.index') }}">Help center</a><span aria-hidden="true">/</span><span>{{ article_title }}</span></nav>
+    <header class="help-reading-heading"><h1>{{ article_title }}</h1></header>
+    <article class="help-reading-content" id="helpArticleContent">{% block article_body %}{% endblock %}</article>
+    <footer class="help-reading-footer"><a href="{{ url_for('help.index') }}"><i class="ti ti-arrow-left" aria-hidden="true"></i> Back to Help center</a></footer>
+  </main>
+  <aside class="help-docs-toc" aria-label="On this page"><h2>On this page</h2><nav id="helpArticleToc"><a href="#article-start">Overview</a></nav></aside>
+</div>
+</div>
+<script src="{{ versioned_static('js/help-article.js') }}" defer></script>
+{% endblock %}

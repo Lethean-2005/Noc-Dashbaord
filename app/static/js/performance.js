@@ -10,6 +10,9 @@
         'var(--perf-cat-4)', 'var(--perf-cat-5)', 'var(--perf-cat-6)', 'var(--perf-cat-7)',
     ];
 
+    function escapeText(value) {
+        var span = document.createElement('span'); span.textContent = String(value == null ? '' : value); return span.innerHTML;
+    }
     var NS = 'http://www.w3.org/2000/svg';
     function svgEl(tag, attrs) {
         var el = document.createElementNS(NS, tag);
@@ -106,9 +109,11 @@
                     class: 'perf-donut-segment',
                 });
                 circle.addEventListener('mousemove', function (e) {
-                    var tip = label + '<br><b>' + d.count + '</b> incidents &middot; ' + Math.round(frac * 100) + '%';
-                    if (d.note) tip += '<br>' + d.note;
-                    showTip(e, tip);
+                    tip.replaceChildren(document.createTextNode(label), document.createElement('br'));
+                    var count = document.createElement('b'); count.textContent = d.count;
+                    tip.append(count, document.createTextNode(' incidents ? ' + Math.round(frac * 100) + '%'));
+                    if (d.note) tip.append(document.createElement('br'), document.createTextNode(d.note));
+                    tip.classList.add('show'); tip.style.left = e.clientX + 'px'; tip.style.top = (e.clientY - 12) + 'px';
                 });
                 circle.addEventListener('mouseleave', hideTip);
                 svg.appendChild(circle);
@@ -128,19 +133,20 @@
                 var pct = d.pct != null ? d.pct : Math.round((d.count / total) * 100);
                 var row = document.createElement('div');
                 row.className = 'perf-donut-legend-row' + (drilldownScope ? ' badge-item' : '');
-                var pctAttrs = drilldownScope
-                    ? ' class="perf-donut-legend-pct badge" data-scope="' + drilldownScope + '" data-type="' + label.replace(/"/g, '&quot;') + '"'
-                    : ' class="perf-donut-legend-pct"';
-                var labelHtml = '<span class="perf-donut-legend-label badge-label">' + label + '</span>';
+                var dot = document.createElement('span');
+                dot.className = 'perf-donut-legend-dot'; dot.style.background = CAT[i];
+                var text = document.createElement('span');
+                text.className = d.note ? 'perf-donut-legend-text' : 'perf-donut-legend-label badge-label';
                 if (d.note) {
-                    labelHtml =
-                        '<span class="perf-donut-legend-text">' + labelHtml +
-                        '<span class="perf-donut-legend-note">' + d.note + '</span></span>';
-                }
-                row.innerHTML =
-                    '<span class="perf-donut-legend-dot" style="background:' + CAT[i] + '"></span>' +
-                    labelHtml +
-                    '<span' + pctAttrs + '>' + pct + '%</span>';
+                    var name = document.createElement('span'); name.className = 'perf-donut-legend-label badge-label'; name.textContent = label;
+                    var note = document.createElement('span'); note.className = 'perf-donut-legend-note'; note.textContent = d.note;
+                    text.append(name, note);
+                } else text.textContent = label;
+                var percentage = document.createElement('span');
+                percentage.className = 'perf-donut-legend-pct' + (drilldownScope ? ' badge' : '');
+                percentage.textContent = pct + '%';
+                if (drilldownScope) { percentage.dataset.scope = drilldownScope; percentage.dataset.type = label; }
+                row.append(dot, text, percentage);
                 legend.appendChild(row);
             });
 
@@ -195,7 +201,7 @@
                     '<table class="perf-tooltip-table"><tr><td>Total</td><td>' + total + '</td></tr>';
                 durations.forEach(function (d) {
                     if (d.count > 0) {
-                        html += '<tr><td>' + d.label + '</td><td>' + d.count + '</td></tr>';
+                        html += '<tr><td>' + escapeText(d.label) + '</td><td>' + d.count + '</td></tr>';
                     }
                 });
                 html += '</table>';
@@ -229,10 +235,10 @@
 
             cell.addEventListener('mousemove', function (e) {
                 var first = incidents[0];
-                var html = '<div class="perf-tooltip-title">' + first.response_display + '</div>' +
+                var html = '<div class="perf-tooltip-title">' + escapeText(first.response_display) + '</div>' +
                     '<table class="perf-tooltip-table">' +
-                    '<tr><td>Incident ID</td><td>' + first.incident_id + '</td></tr>' +
-                    '<tr><td>Category</td><td>' + first.category + '</td></tr>' +
+                    '<tr><td>Incident ID</td><td>' + escapeText(first.incident_id) + '</td></tr>' +
+                    '<tr><td>Category</td><td>' + escapeText(first.category) + '</td></tr>' +
                     '</table>';
                 if (incidents.length > 1) {
                     html += '<div class="perf-tooltip-note">+' + (incidents.length - 1) + ' more incident(s) tied for this value</div>';
@@ -267,6 +273,8 @@
             var responseFrac = document.getElementById('slaComplianceResponseFrac');
             var resolutionPct = document.getElementById('slaComplianceResolutionPct');
             var resolutionFrac = document.getElementById('slaComplianceResolutionFrac');
+            var legendResponsePct = document.getElementById('slaComplianceLegendResponsePct');
+            var legendResolutionPct = document.getElementById('slaComplianceLegendResolutionPct');
             if (!weekBadge || !responsePct || !responseFrac || !resolutionPct || !resolutionFrac) return;
 
             function pctText(v) {
@@ -289,6 +297,8 @@
                 responseFrac.textContent = d.responseFrac;
                 resolutionPct.textContent = pctText(d.resolutionPct);
                 resolutionFrac.textContent = d.resolutionFrac;
+                if (legendResponsePct) legendResponsePct.textContent = pctText(d.responsePct);
+                if (legendResolutionPct) legendResolutionPct.textContent = pctText(d.resolutionPct);
             });
         })();
 
@@ -398,24 +408,17 @@
     // the fresh elements afterward — see initPerformanceCards()'s own
     // comment for why.
     function swapPerformanceSection(search) {
-        fetch('/performance-cards' + search)
-            .then((res) => res.text())
-            .then((html) => {
-                var container = document.getElementById('performanceSection');
-                if (!container) return;
-                container.innerHTML = html;
-                window.history.replaceState(null, '', '/' + search);
-                initPerformanceCards();
-            });
+        window.NocDashboardFragments.replace({
+            selector: '#performanceSection', url: '/performance-cards' + search,
+            search: search, onUpdated: initPerformanceCards
+        });
     }
 
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (!form.matches('#performanceSection form.date-filter-form')) return;
         e.preventDefault();
-        var params = new URLSearchParams(new FormData(form));
-        var qs = params.toString();
-        swapPerformanceSection(qs ? '?' + qs : '');
+        swapPerformanceSection(window.NocDashboardFragments.searchForForm(form));
     });
 
     // Each filter's own "Clear" link (a plain <a>, not a form submit —
@@ -426,6 +429,6 @@
         var link = e.target.closest('#performanceSection .date-filter-actions a.btn-export');
         if (!link) return;
         e.preventDefault();
-        swapPerformanceSection(new URL(link.href).search);
+        swapPerformanceSection(window.NocDashboardFragments.searchForForm(link.closest('form'), true));
     });
 })();

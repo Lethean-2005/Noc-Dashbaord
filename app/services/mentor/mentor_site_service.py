@@ -33,7 +33,6 @@ from app.utils.alarm_category import SITE_DOWN_EVENTS
 from app.utils.datetime import elapsed_minutes
 from app.utils.event_name import clean_event_name
 from app.utils.nms import NMS_NAMES
-from app.utils.ttl_cache import ttl_cache
 
 _APE_ALARM_TABLE = "ape_alarm"
 _SITE_TABLE = "site_cache"
@@ -56,9 +55,9 @@ STATUS_TYPES = BADGE_TYPES + ("OK",)
 
 
 def _categorize(event_name, additional_info):
-    name = (event_name or "").lower()
+    name = (event_name or "").strip().lower()
     info = (additional_info or "").lower()
-    if name in SITE_DOWN_EVENTS:
+    if name in SITE_DOWN_EVENTS or name in {"site down", "pop/pon down"}:
         return "Site Down"
     if "main failure" in name:
         return "Main AC Failure"
@@ -73,6 +72,7 @@ def _categorize(event_name, additional_info):
     if "door" in name:
         return "Door Alarm"
     return "Other"
+
 
 
 class MentorSiteService:
@@ -90,15 +90,30 @@ class MentorSiteService:
             incident_status_cache_repository or IncidentStatusCacheRepository()
         )
 
+    @staticmethod
+    def _matching(repository, table, field, codes):
+        if repository is None or not codes:
+            return []
+        if hasattr(repository, "fetch_where"):
+            result = []
+            values = sorted(codes)
+            for start in range(0, len(values), 400):
+                batch = values[start:start + 400]
+                result.extend(repository.fetch_where(table, field + " IN (" + ",".join("?" for _ in batch) + ")", tuple(batch)))
+            return result
+        return [r for r in repository.fetch_all(table) if str(r.get(field) or "").strip().upper() in codes]
+
+    def _metadata(self, codes):
+        result = {}
+        for row in self._matching(self.site_cache_repository, _SITE_TABLE, "standard_code", codes):
+            result[str(row.get("standard_code") or "").strip().upper()] = row
+        return result
+
     def _real_site_codes(self):
-        """Every standard_code currently in site_cache — used to reject
-        input that doesn't correspond to a real, known site instead of
-        silently adding garbage a user mistyped."""
-        return {
-            r["standard_code"]
-            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
-            if r.get("standard_code")
-        }
+        """Mentor accepts only known site-database identities, including letters."""
+        repo = self.site_cache_repository
+        rows = repo.fetch_columns(_SITE_TABLE, ("standard_code",)) if hasattr(repo, "fetch_columns") else repo.fetch_all(_SITE_TABLE)
+        return {str(r["standard_code"]).strip().upper() for r in rows if r.get("standard_code")}
 
     def add_site_codes(self, raw_text):
         """Splits raw_text (comma/space/newline-separated, matching the
@@ -125,7 +140,7 @@ class MentorSiteService:
                 added.append(code)
         return added, duplicate, invalid
 
-    def add_from_csv(self, file_stream):
+    def add_from_csv(self, file_stream, *, validate_only=False):
         """Parses an uploaded CSV (must have a site_code column, case-
         insensitive) and adds only the rows whose value matches a real
         site_cache site and isn't already configured (source="Import").
@@ -135,16 +150,23 @@ class MentorSiteService:
         configured; invalid lists whatever doesn't correspond to any known
         site."""
         text = file_stream.read().decode("utf-8-sig", errors="replace")
-        reader = csv.DictReader(io.StringIO(text))
+        try:
+            # Parse completely before any writes so malformed files cannot partially import.
+            reader = csv.DictReader(io.StringIO(text))
+            parsed_rows = list(reader)
+        except csv.Error:
+            return [], [], [], "Invalid CSV format or a field is too large. Please use the Mentor CSV template."
         if not reader.fieldnames:
             return [], [], [], "The file is empty."
         column = next((f for f in reader.fieldnames if f.strip().lower() == "site_code"), None)
         if not column:
             return [], [], [], "No 'site_code' column found in the file."
+        if any(field.strip().lower() == "status" for field in reader.fieldnames):
+            return [], [], [], "Use the Mentor CSV template with only the site_code column. The status column is not an import field."
         valid_codes = self._real_site_codes()
         already_configured = {r["site_code"] for r in self.mentor_site_repository.fetch_all()}
         added, duplicate, invalid = [], [], []
-        for row in reader:
+        for row in parsed_rows:
             code = (row.get(column) or "").strip().upper()
             if not code:
                 continue
@@ -153,8 +175,17 @@ class MentorSiteService:
             elif code in already_configured:
                 duplicate.append(code)
             else:
-                self.mentor_site_repository.add(code, "Import")
+                already_configured.add(code)
                 added.append(code)
+        if not added and not duplicate and not invalid:
+            return [], [], [], "No site codes found. Add values under the site_code column."
+        if added and not validate_only:
+            batch = getattr(self.mentor_site_repository, "add_many", None)
+            if batch is not None:
+                batch(added, "Import")
+            else:
+                for code in added:
+                    self.mentor_site_repository.add(code, "Import")
         return added, duplicate, invalid, None
 
     def has_configured_sites(self):
@@ -186,19 +217,14 @@ class MentorSiteService:
         if not configured:
             return []
 
-        site_by_code = {
-            r["standard_code"]: r
-            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
-            if r.get("standard_code")
-        }
+        codes = {r["site_code"] for r in configured}
+        site_by_code = self._metadata(codes)
         alarms_by_site = {}
-        for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE):
+        for row in self._configured_alarm_rows():
             alarms_by_site.setdefault(row.get("site_code"), []).append(row)
         site_down_incident_codes = {
-            r.get("site_code")
-            for r in self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
+            r.get("site_code") for r in self._matching(self.incident_status_cache_repository, _INCIDENT_STATUS_TABLE, "site_code", codes)
             if (r.get("category") or "").strip().lower() == _SITE_DOWN_CATEGORY
-            and r.get("site_code")
         }
 
         result = []
@@ -225,17 +251,24 @@ class MentorSiteService:
             )
         return result
 
-    def _configured_alarm_rows(self):
+    def _configured_alarm_rows(self, site_code=None):
         configured_codes = {r["site_code"] for r in self.mentor_site_repository.fetch_all()}
+        if site_code:
+            configured_codes.intersection_update({site_code})
         if not configured_codes:
             return []
-        return [
-            row
-            for row in self.ape_alarm_cache_repository.fetch_all(_APE_ALARM_TABLE)
-            if row.get("site_code") in configured_codes
-        ]
+        rows = self._matching(self.ape_alarm_cache_repository, _APE_ALARM_TABLE, "site_code", configured_codes)
+        down_codes = {r.get("site_code") for r in rows
+                      if _categorize(r.get("event_name"), r.get("additional_info")) == "Site Down"}
+        for incident in self._matching(self.incident_status_cache_repository, _INCIDENT_STATUS_TABLE, "site_code", configured_codes):
+            code = incident.get("site_code")
+            if (code in configured_codes and code not in down_codes
+                    and (incident.get("category") or "").strip().lower() == _SITE_DOWN_CATEGORY):
+                rows.append({**incident, "event_name": "Site Down", "site_code": code,
+                             "_incident_only": True})
+                down_codes.add(code)
+        return rows
 
-    @ttl_cache(15)
     def get_counts(self):
         """{'Site Down': n, 'Main AC Failure': n, ...} for the Overall
         Dashboard's Mentor Site card — the full 8-category breakdown (see
@@ -262,24 +295,21 @@ class MentorSiteService:
         and/or to one specific site_code (the Configured Mentor Sites
         table's own per-row "View" action, so it opens only that site's
         alarms instead of every configured site's)."""
-        alarm_rows = self._configured_alarm_rows()
+        alarm_rows = self._configured_alarm_rows(site_code)
         if not alarm_rows:
             return []
 
+        codes = {row["site_code"] for row in alarm_rows}
         incident_by_site = IncidentStatusCacheRepository.latest_by_site(
-            self.incident_status_cache_repository.fetch_all(_INCIDENT_STATUS_TABLE)
+            self._matching(self.incident_status_cache_repository, _INCIDENT_STATUS_TABLE, "site_code", codes)
         )
-        site_by_code = {
-            r["standard_code"]: r
-            for r in self.site_cache_repository.fetch_all(_SITE_TABLE)
-            if r.get("standard_code")
-        }
+        site_by_code = self._metadata(codes)
 
         rows = []
         for alarm in alarm_rows:
             row = dict(alarm)
             row_site_code = row.get("site_code") or ""
-            inc = incident_by_site.get(row_site_code) or {}
+            inc = row if row.get("_incident_only") else (incident_by_site.get(row_site_code) or {})
             site = site_by_code.get(row_site_code) or {}
             row["badge_type"] = _categorize(row.get("event_name"), row.get("additional_info"))
             row["event_name"] = clean_event_name(row.get("event_name"))

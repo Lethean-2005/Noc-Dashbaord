@@ -1,5 +1,7 @@
 # NOC Dashboard
 
+Current release: **v19.3.8**. Project metadata uses `19.3.8`; release labels use `v19.3.8`.
+
 A Flask NOC monitoring dashboard. Almost every card is live, backed by two
 real upstream databases synced into a local SQLite cache
 (`instance/localstorage.db`) on background schedules — pages never query

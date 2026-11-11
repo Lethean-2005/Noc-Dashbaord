@@ -234,7 +234,7 @@ _INC_WO_STATUS_TABLE_SCHEMA = """
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT,
         incident_category TEXT, site_name TEXT, site_code TEXT, overdue TEXT, support_level TEXT,
         responsible_team TEXT,
-        fault_description TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
+        fault_description TEXT, resolution TEXT, nms TEXT, hub_site TEXT, site_grade TEXT,
         province TEXT, district TEXT, commune TEXT
     )
 """
@@ -255,6 +255,7 @@ _INC_WO_STATUS_CACHE_COLUMNS = {
     "support_level",
     "responsible_team",
     "fault_description",
+    "resolution",
     "nms",
     "hub_site",
     "site_grade",
@@ -271,7 +272,8 @@ INC_WO_RESOLVED_CACHE_TABLES = ("inc_wo_resolved",)
 _INC_WO_RESOLVED_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT PRIMARY KEY,
-        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, site_name TEXT, site_code TEXT,
+        wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, resolved_at TEXT, resolution TEXT,
+        site_name TEXT, site_code TEXT,
         overdue TEXT, support_level TEXT, responsible_team TEXT, fault_description TEXT, nms TEXT,
         hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT
     )
@@ -286,6 +288,7 @@ _INC_WO_RESOLVED_CACHE_COLUMNS = {
     "wo_created_at",
     "wo_status",
     "resolved_at",
+    "resolution",
     "site_name",
     "site_code",
     "overdue",
@@ -402,7 +405,8 @@ _INCIDENT_SITE_DOWN_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT, incident_numeric_id INTEGER, incident_status TEXT, wo_id TEXT,
         wo_numeric_id INTEGER, wo_created_at TEXT, wo_status TEXT, site_name TEXT, site_code TEXT,
-        occurred_at TEXT, l1_noc_investigation_result TEXT, last_comments TEXT, source TEXT, nms TEXT,
+        occurred_at TEXT, l1_noc_investigation_result TEXT, actual_root_cause TEXT,
+        last_comments TEXT, source TEXT, nms TEXT,
         hub_site TEXT, site_grade TEXT, province TEXT, district TEXT, commune TEXT,
         PRIMARY KEY (incident_id, site_code)
     )
@@ -420,6 +424,7 @@ _INCIDENT_SITE_DOWN_CACHE_COLUMNS = {
     "site_code",
     "occurred_at",
     "l1_noc_investigation_result",
+    "actual_root_cause",
     "last_comments",
     "source",
     "nms",
@@ -622,6 +627,11 @@ _INCIDENT_RESOLUTION_TIME_DETAILS_CACHE_COLUMNS = {
 # resolution_known_count is only incidents Streamline actually gave a
 # verdict on (overdue IS NOT NULL) — see that query's header for why
 # the blanks are excluded rather than guessed at from due_date.
+# not_graded_count is computed directly (issue_occurred_at-anchored,
+# same as incident_sla_compliance_details), NOT incident_count minus
+# resolution_known_count — see the query's own header for why that
+# subtraction mixes two differently-anchored cohorts and was confirmed
+# live to produce a wrong number (1, vs the 27 real incidents behind it).
 INCIDENT_SLA_COMPLIANCE_WEEKLY_CACHE_TABLES = ("incident_sla_compliance_weekly",)
 
 _INCIDENT_SLA_COMPLIANCE_WEEKLY_TABLE_SCHEMA = """
@@ -629,7 +639,7 @@ _INCIDENT_SLA_COMPLIANCE_WEEKLY_TABLE_SCHEMA = """
         iso_week TEXT, category TEXT, priority TEXT, incident_count INTEGER,
         response_met_count INTEGER, response_sla_pct REAL,
         resolution_known_count INTEGER, resolution_met_count INTEGER,
-        resolution_sla_pct REAL,
+        resolution_sla_pct REAL, not_graded_count INTEGER,
         PRIMARY KEY (iso_week, category, priority)
     )
 """
@@ -644,6 +654,7 @@ _INCIDENT_SLA_COMPLIANCE_WEEKLY_CACHE_COLUMNS = {
     "resolution_known_count",
     "resolution_met_count",
     "resolution_sla_pct",
+    "not_graded_count",
 }
 
 INCIDENT_SLA_COMPLIANCE_DETAILS_CACHE_TABLES = ("incident_sla_compliance_details",)
@@ -651,8 +662,10 @@ INCIDENT_SLA_COMPLIANCE_DETAILS_CACHE_TABLES = ("incident_sla_compliance_details
 _INCIDENT_SLA_COMPLIANCE_DETAILS_TABLE_SCHEMA = """
     CREATE TABLE IF NOT EXISTS {table} (
         incident_id TEXT PRIMARY KEY, incident_numeric_id INTEGER, iso_week TEXT,
+        response_iso_week TEXT, resolution_iso_week TEXT,
         category TEXT, priority TEXT, support_level TEXT, site_grade TEXT,
-        occurred_at TEXT, overdue_response INTEGER, overdue INTEGER
+        occurred_at TEXT, overdue_response INTEGER, overdue INTEGER,
+        root_cause_category TEXT
     )
 """
 
@@ -660,6 +673,8 @@ _INCIDENT_SLA_COMPLIANCE_DETAILS_CACHE_COLUMNS = {
     "incident_id",
     "incident_numeric_id",
     "iso_week",
+    "response_iso_week",
+    "resolution_iso_week",
     "category",
     "priority",
     "support_level",
@@ -667,6 +682,7 @@ _INCIDENT_SLA_COMPLIANCE_DETAILS_CACHE_COLUMNS = {
     "occurred_at",
     "overdue_response",
     "overdue",
+    "root_cause_category",
 }
 
 # SLA Compliance card's "View SLA Policy" reference table — object_327
@@ -1047,6 +1063,19 @@ _SITE_RAN_VENDOR_TABLE_SCHEMA = """
 
 _SITE_RAN_VENDOR_CACHE_COLUMNS = {"site_code", "actual_ran_vendor"}
 
+# Per-site RAN/SRAN baseband name from MSSQL (TBL_NE) — "RAN_NAME" on the
+# Site Down 24h alert's multi-site Excel attachment. See
+# app/database/queries/mssql_site_ran_name.sql.
+SITE_RAN_NAME_CACHE_TABLES = ("site_ran_name_cache",)
+
+_SITE_RAN_NAME_TABLE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS {table} (
+        site_code TEXT PRIMARY KEY, ran_name TEXT
+    )
+"""
+
+_SITE_RAN_NAME_CACHE_COLUMNS = {"site_code", "ran_name"}
+
 # Mirrors object_170 ("Counterparty") — the platform's general
 # business-partner catalog (vendors, brands, site owners, energy
 # suppliers, etc — see its `type` column). See
@@ -1103,7 +1132,18 @@ _PARTNER_CONTACT_CACHE_COLUMNS = {
 # (cache table names, CREATE TABLE template, expected columns) — used by
 # init_cache_db() to create each group and drop-and-recreate any table
 # whose columns are stale.
+_ALL_WOS_RESOLVED_SCHEMA = """
+CREATE TABLE IF NOT EXISTS {table} (
+    incident_numeric_id INTEGER PRIMARY KEY, incident_id TEXT,
+    incident_status TEXT, incident_category TEXT, site_code TEXT,
+    occurred_at TEXT, wo_count INTEGER, resolved_wo_count INTEGER, resolved_at TEXT, all_wo_is_resolved INTEGER
+)
+"""
+_ALL_WOS_RESOLVED_COLUMNS = {"incident_numeric_id", "incident_id", "incident_status", "incident_category",
+                             "site_code", "occurred_at", "wo_count", "resolved_wo_count", "resolved_at", "all_wo_is_resolved"}
+
 _CACHE_DEFINITIONS = (
+    (("inc_wo_all_resolved",), _ALL_WOS_RESOLVED_SCHEMA, _ALL_WOS_RESOLVED_COLUMNS),
     (ALARM_CACHE_TABLES, _ALARM_TABLE_SCHEMA, _ALARM_CACHE_COLUMNS),
     (SITE_CACHE_TABLES, _SITE_TABLE_SCHEMA, _SITE_CACHE_COLUMNS),
     (INCIDENT_STATUS_CACHE_TABLES, _INCIDENT_STATUS_TABLE_SCHEMA, _INCIDENT_STATUS_CACHE_COLUMNS),
@@ -1213,6 +1253,7 @@ _CACHE_DEFINITIONS = (
     (SITE_TECHNOLOGY_CACHE_TABLES, _SITE_TECHNOLOGY_TABLE_SCHEMA, _SITE_TECHNOLOGY_CACHE_COLUMNS),
     (NE_NMS_LOOKUP_CACHE_TABLES, _NE_NMS_LOOKUP_TABLE_SCHEMA, _NE_NMS_LOOKUP_CACHE_COLUMNS),
     (SITE_RAN_VENDOR_CACHE_TABLES, _SITE_RAN_VENDOR_TABLE_SCHEMA, _SITE_RAN_VENDOR_CACHE_COLUMNS),
+    (SITE_RAN_NAME_CACHE_TABLES, _SITE_RAN_NAME_TABLE_SCHEMA, _SITE_RAN_NAME_CACHE_COLUMNS),
     (COUNTERPARTY_CACHE_TABLES, _COUNTERPARTY_TABLE_SCHEMA, _COUNTERPARTY_CACHE_COLUMNS),
     (
         PARTNER_CONTACT_CACHE_TABLES,
@@ -1329,10 +1370,29 @@ def init_cache_db() -> None:
                     conn.execute(
                         f"CREATE INDEX IF NOT EXISTS idx_{table}_device_name ON {table}(device_name)"
                     )
+        # Indexed keys used by Mentor and site/POP drilldowns.
+        for table, column in [("site_cache", "standard_code"), ("ape_alarm", "site_code"),
+                              ("incident_by_status", "site_code"), ("pop_cache", "ncode"),
+                              ("isp_pop_alarm_cache", "pop_code"), ("eze_alarm_cache", "pop_code"), ("tct_alarm_cache", "pop_code")]:
+            conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{column} ON {table}({column})")
         conn.execute(
             "CREATE TABLE IF NOT EXISTS sync_meta ("
             "table_name TEXT PRIMARY KEY, last_synced_at TEXT)"
         )
+        # User-maintained exclusions must survive every background cache refill.
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS congestion_blacklist ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, "
+            "match_kind TEXT NOT NULL, match_value TEXT NOT NULL, "
+            "pop_name TEXT, pop_code TEXT, device_name TEXT, ip_address TEXT, "
+            "created_at TEXT NOT NULL, created_by TEXT, "
+            "UNIQUE(source, match_kind, match_value))"
+        )
+        # Add display metadata without replacing persisted exclusion rules.
+        blacklist_columns = {row[1] for row in conn.execute("PRAGMA table_info(congestion_blacklist)")}
+        for column in ("interface", "additional_info", "note", "remark"):
+            if column not in blacklist_columns:
+                conn.execute(f"ALTER TABLE congestion_blacklist ADD COLUMN {column} TEXT")
         # mentor_sites holds user-entered site codes (app/routes/mentor.py),
         # not synced data — excluded from the drop-and-recreate loop above
         # since it must never be dropped automatically.
@@ -1396,6 +1456,35 @@ def init_cache_db() -> None:
             "permanent_fixed_2",
             "improvement_plan_json",
             "picture_references_json",
+        ):
+            if column not in existing_report_cols:
+                conn.execute(f"ALTER TABLE incident_reports ADD COLUMN {column} TEXT")
+        # Smart Network Report — a second report TYPE on this same page
+        # (switched via a dropdown, see document.html's own toolbar),
+        # sharing this table/report-picker/save-draft-or-final workflow
+        # rather than a separate table, since both are just "a report
+        # someone fills in and exports." report_type distinguishes which
+        # one a row is ('incident' is the default/implicit value for
+        # every row saved before this existed, via Python's own
+        # fallback — never backfilled here, same "ALTER TABLE ADD
+        # COLUMN, no data migration" pattern as every other addition in
+        # this block). The smart_*_json fields hold this type's own
+        # repeatable tables (Active Circuits Inventory, Monthly Outage
+        # Statistics, Fault Services Statistics & Summary, Services
+        # Outage Report) — same JSON-list-of-dicts convention as
+        # chronology_events_json above, since each is a variable number
+        # of rows, not a fixed set of columns.
+        for column in (
+            "report_type",
+            "smart_report_month",
+            "smart_customer_name",
+            "smart_active_circuits_json",
+            "smart_monthly_outage_json",
+            "smart_fault_services_json",
+            "smart_services_outage_json",
+            "smart_failure_to_react_json",
+            "smart_credit_note_json",
+            "smart_credit_amounts_json",
         ):
             if column not in existing_report_cols:
                 conn.execute(f"ALTER TABLE incident_reports ADD COLUMN {column} TEXT")

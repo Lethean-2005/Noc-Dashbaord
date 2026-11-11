@@ -1,0 +1,785 @@
+[
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Over-24h Teams incident alert and conditional site attachment",
+    "remarks": "Condition-based file generation and Teams alert flow; site attachment used for multi-site incidents.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Multi-site alert summary and impacted-province grouping",
+    "remarks": "Clean titles, Number of Sites Impacted, hub-site impact and grouped province summaries replace long repeated site-code text.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Impacted-sites Excel attachment formatting",
+    "remarks": "No automatic table filters or banner title; no-wrap cells, content-based widths and regular Huawei Sans. Existing Telegram delivery remains separate.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Threaded restoration reply and source timestamp rules",
+    "remarks": "NOC/manual uses Created At to Closed At; alarm source uses Issue Occurred At. Restoration reply follows the original incident thread.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Actual Root Cause and Resolution restoration fields",
+    "remarks": "Restoration Root Cause uses Actual Root Cause only; Action Recovery uses Resolution only. No fallback to suspected cause or note.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Alarm restoration changed to Cleared Alarm Received At",
+    "remarks": "Alarm-source restoration now uses the cleared-alarm receipt timestamp with start/end validation; manual/NOC rule remains unchanged.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Persistent alert ledger and five-minute checks",
+    "remarks": "Incident-level delivery history survives restart; default down/restore checks are five minutes, with restore offset. Existing history prevents blanket resend.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Teams Site-Down Alert Enhancements",
+    "name": "Teams webhook configuration and VM update guidance",
+    "remarks": "Checked configured down/restore flow identities. Channel selection remains inside Power Automate; webhook acceptance does not prove downstream completion.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Telegram Alert Maintenance",
+    "name": "Huawei Sans Bold for Telegram alert images",
+    "remarks": "Site-down and shared INC-WO image renderers use Huawei Sans Bold; plain Telegram message font remains client-controlled.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Telegram Alert Maintenance",
+    "name": "VM Telegram test-launcher path repair",
+    "remarks": "Shipped batch launchers use the retained scripts/send_telegram_test.py entry point; obsolete tests/manual path removed. No live send required for dry-run validation.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Huawei Sans across dashboard and form controls",
+    "remarks": "Shared UI font applied to cards, tables, Partner Contact, Mentor, imports and explanatory popups.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Remove blur and shadows; unify 3px controls",
+    "remarks": "Flat cards, buttons, dropdowns and tooltips use thin borders and consistent corners; chart/table styling preserved.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Bordered chart tooltips and action popups",
+    "remarks": "Site Down age, weekly duration, Top Congestion and congestion-page tooltip/action surfaces use visible borders.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Sheet-style drilldown grids and rounded tables",
+    "remarks": "Outer and cell borders, readable headers and 3px table frames; corrected unwanted stray lines.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Reusable empty-state SVG and real text",
+    "remarks": "Compact no-data state uses transparent vector artwork and accessible real text rather than an image containing text.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Single-open filters and outside-click/Escape close",
+    "remarks": "Shared dropdown behavior prevents multiple filters remaining open and contains scrolling inside the intended panel.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Root-cause percentage readability in light theme",
+    "remarks": "Visible percentage and legend colors retained on light backgrounds instead of white-on-white text.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Weekly duration chart spacing and axis refinement",
+    "remarks": "Adjusted plot position, labels, 500-step scale through 3K and legend gap; temporary 3.5K/4K ticks were removed.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Dashboard UI Consistency",
+    "name": "Navigation and action SVG icon updates",
+    "remarks": "Applied supplied icons for Mentor view, map, Partner Contact and Incident Report with consistent sizing.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Mentor Site Enhancements",
+    "name": "Compact import card and site-code input redesign",
+    "remarks": "Matched input/import cards, site-code chips, aligned borders and smaller monitoring badges.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Mentor Site Enhancements",
+    "name": "CSV validation progress and completion status",
+    "remarks": "Validation begins on file selection, shows progress for the requested interval, completion tick or failure, and stale-response protection.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Mentor Site Enhancements",
+    "name": "CSV template, file-size and error validation",
+    "remarks": "Rejects wrong template, empty/non-CSV/oversize file and unknown codes; input, upload and validation status remain distinct.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Mentor Site Enhancements",
+    "name": "Site inventory validation for alphanumeric codes",
+    "remarks": "Accepts valid site database codes, including supported I-prefixed identifiers; does not silently create unknown sites or POP monitoring.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Mentor Site Enhancements",
+    "name": "Mentor view/action styling and combined down evidence",
+    "remarks": "Compact supplied view icon and bordered action popups; active Site Down incidents can supplement missing alarm rows for monitored sites.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Persistent local congestion exclusions",
+    "remarks": "Saved SQLite exclusions survive refresh and restart; restore removes a saved rule, not source alarm data.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Narrow exclusions to one device/interface",
+    "remarks": "Owner plus device identity and interface define matching. Other interfaces and non-congestion alarms remain visible.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Optional exclusion remark and validation",
+    "remarks": "Remark stored with the saved rule; interface reviewed in dialog and missing-interface records do not become broad device exclusions.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Expanded blacklist table and Restore workflow",
+    "remarks": "Owner, device/site, IP, interface, additional info, note, remark, operator and Cambodia-time fields with per-entry Restore.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Consistent exclusions across counts and history",
+    "remarks": "Current alarm lists, relevant badge counts, historical congestion views and exports apply interface-aware rules. Legacy rules without ports are inactive.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Congestion Interface Blacklist",
+    "name": "Blacklist popup request and layout hardening",
+    "remarks": "Abort stale list requests; safe loading/error feedback, small headings, aligned buttons, bordered fields and supplied unboxed close icon.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "All WO is Resolved badge and source-flag verification",
+    "remarks": "One incident per qualifying result: non-closed parent, true source flag, at least one WO, and every linked WO strictly Resolved.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "All-resolved incident drilldown and export",
+    "remarks": "Total WOs, Resolved WOs and latest WO resolution shown per incident; no sibling status filtering before aggregation.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "All-resolved cache refresh and table continuity",
+    "remarks": "Scheduled incident snapshot refresh and periodic drilldown reload preserve search/scroll where supported.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "All-resolved badge placement and labels",
+    "remarks": "Badge moved below Overdue Site-Down; label All WO is Resolved and spacing below View controls updated.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "Multi-site incident code caching and placeholders",
+    "remarks": "Combine incident site fields, retain valid codes and leading zeroes, display multiple codes together; missing/question-only values render as underscore.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "Customer Complaint active-status restriction",
+    "remarks": "Only In Progress parents for the Customer Complaint category in applicable active incident/WO/all-resolved queries. Other categories and historical reporting keep their own rules.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Incident and WO Data Logic",
+    "name": "Reconcile source flag versus actual sibling status",
+    "remarks": "Read-only source comparison explained why Streamline true-flag counts can exceed strict all-WO-resolved results; cache freshness reviewed.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "SLA and Cambodia-Time Correctness",
+    "name": "Response and Resolution Cambodia-week cutoffs",
+    "remarks": "Aligned summary/detail reporting cutoff with Cambodia weeks; preserve the relevant per-metric date anchors.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "SLA and Cambodia-Time Correctness",
+    "name": "SLA summary/detail reconciliation checks",
+    "remarks": "Compared badge/summary cohorts with per-incident details, selected categories and correct occurrence/creation/closing week fields.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "SLA and Cambodia-Time Correctness",
+    "name": "SLA root-cause failures: Response and Resolution",
+    "remarks": "Root-cause breakdown includes incidents that miss either result; independent counts appear under Response Not Met and Resolution Not Met.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "SLA and Cambodia-Time Correctness",
+    "name": "SLA root-cause matching drilldown and export",
+    "remarks": "Each count opens its exact failure result and root cause with selected categories and occurrence week; shared incidents can appear once in each list.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "SLA and Cambodia-Time Correctness",
+    "name": "Wider SLA popup with bordered example table",
+    "remarks": "Three columns only: Root Cause Category, Response Not Met, Resolution Not Met. Wider responsive popup and shared outer/cell borders.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "Smart Network report model and document exports",
+    "remarks": "Smart Network report supports inventory/circuit data and matching DOCX/PDF document generation from saved report data.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "Smart circuit single-value fill and multi-select",
+    "remarks": "One available circuit fills automatically; two or more offer only actual available choices; deletion removes related dependent records.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "Stable circuit association during rename",
+    "remarks": "Preserve row/circuit identity through renames or temporary blanks instead of silently assigning another circuit.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "Structural unsaved-report change tracking",
+    "remarks": "Insert/delete row and user selection actions mark report dirty; clean initial load and save/reset behavior retained.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "Chronology date grouping, insertion and sorting",
+    "remarks": "Daily chronology headers, insert-below controls and live chronological ordering. Existing basic report template retained.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Reporting and Smart Network Documents",
+    "name": "HEIC image normalization and Word PDF hardening",
+    "remarks": "Phone-photo decoding before document embedding; Word automation security/fallback improvements verified in repository history.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Escape root-cause labels and notes in UI",
+    "remarks": "Use safe text insertion for source-provided labels/notes rather than unescaped HTML.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Security response headers for no-login deployment",
+    "remarks": "Added framing, nosniff and scoped CSP protections. No-login operation remains intentional; this is not a login feature.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Central source-system URL configuration",
+    "remarks": "Shared URL helpers/configuration reduce repeated hardcoded hosts across services and templates.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Remove worklog columns from drilldown tables",
+    "remarks": "Removed unneeded table worklog presentation while retaining the separate Site Down age worklog feature.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Cache projections and measured alarm-count optimization",
+    "remarks": "Read only needed columns for badge counts; representative local benchmark showed reduced calculation cost. Not a VM load-test claim.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Retryable weekday popup loading errors",
+    "remarks": "Validate HTTP response; show retryable inline failure and allow reload after failure instead of caching an error as success.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Request timing and performance diagnostics",
+    "remarks": "Per-request method/path/status/duration logging and focused local browser/performance checks; no claim of guaranteed VM capacity.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Remove obsolete completed-test artifacts safely",
+    "remarks": "Removed obsolete manual test copies/generated previews; scripts folder and automated regression suite were retained as requested.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Security and Maintainability",
+    "name": "Application regression and syntax validation",
+    "remarks": "Full suite at V51 build: 596 passing tests; Python/JS/template syntax and Pyflakes checks passed. Later Help changes were checked separately.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Map View Improvements",
+    "name": "Site/POP owner and coordinate interpretation",
+    "remarks": "Verified site-status colors differ from POP-owner colors. Grey POP means blank/unrecognized owner; source query supplied for blank owners.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Map View Improvements",
+    "name": "Latitude and Longitude in site and POP popups",
+    "remarks": "Both marker types display existing coordinates to six decimals; zero handled correctly and invalid/missing values use underscore.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Full-width searchable Help landing page",
+    "remarks": "Compact welcome/search, popular articles, grouped topics and preserved PDF links; fixed inherited flex-width gap.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Preserve original Help articles and PDF downloads",
+    "remarks": "Restored all original articles, introduction and four PDFs after layout simplification; original documents remain available.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Separate article description pages",
+    "remarks": "Topic links open their own readable page rather than one long accordion; Back navigation and unknown-topic handling verified.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Documentation sidebars and section navigation",
+    "remarks": "Grouped topic tree with selected highlight/dots; central article and On this page anchors; mobile Browse guides control.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Consistent reading typography and inline highlights",
+    "remarks": "Huawei Sans across text, lists, tables and inline labels; equal inline size with subtle highlight; visible color swatches restored.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Twenty detailed card-by-card guides",
+    "remarks": "VIP/VVIP, Mentor, IP, RAN, incident/WO, trends, SLA, congestion and refresh guides with examples and plain-language rules.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Trend calculation recipes and worked tables",
+    "remarks": "Calculation formulas, date boundaries, independent SLA failure lists and all-WO examples available in Help.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Expanded general Help descriptions",
+    "remarks": "Thirteen existing topics supplemented with detailed workflows and troubleshooting while retaining original article text.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Reference-style equal Help topic cards",
+    "remarks": "Equal-height cards, simple headings and guide lists, no colored panel background; See all docs opens topic pages.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Custom Help category and popular-guide SVGs",
+    "remarks": "Applied supplied play, tower, cog, candlestick, headset, shield, crown, reply and numbered-file icons.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Practical action and feature usage guides",
+    "remarks": "Eight guides explain Acknowledge/Modify Note, Exclude, Blacklist/Restore, Clear Alarm, filters/search, Mentor CSV, exports and report workflow.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Nine real-interface screenshot demonstrations",
+    "remarks": "Screenshots captured with isolated sample fixtures and blocked writes. Small demo overlay text removed on request; captions retain illustrative context.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Help/PDF content parity and quick references",
+    "remarks": "Worked SLA/WO tables, quick-start rules, glossary and verification checklist added to Help; source-code paths omitted.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Separate Detailed User Guide PDF",
+    "remarks": "62-page Huawei Sans guide for cards/calculations and practical topics; clickable contents/bookmarks and all pages checked.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Separate Feature Guide PDF with screenshots",
+    "remarks": "20-page action/feature guide containing nine screenshot placements; separate Help download link. Original four PDFs are unchanged.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Help Center Redesign and Content",
+    "name": "Help route, asset and browser regression checks",
+    "remarks": "Latest focused run: 79 passing tests; guide links, screenshots, example tables, desktop/mobile navigation, icons and PDF downloads checked.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Packaging and VM Update Process",
+    "name": "Refresh V50 deployment and remove obsolete V51 copy",
+    "remarks": "User-requested Nov-06 V50 package refresh and obsolete V51 removal completed at that time. A later Nov-10 V51 is a separate new build.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Packaging and VM Update Process",
+    "name": "V51 complete build and archive integrity checks",
+    "remarks": "Nov-10 V51 ZIP built: 367 runtime files, no real .env or instance data. All archived contents matched current build files. Later Help updates are not included.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Packaging and VM Update Process",
+    "name": "Application-only VM update folders",
+    "remarks": "Prepared reviewed changed-file sets, including a 48-file all-WO/SLA update folder; preserved folder structure for copy/replace deployment.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Packaging and VM Update Process",
+    "name": "Document persistent instance and environment upgrades",
+    "remarks": "Keep both .env and entire instance folder; live caches refresh normally while saved exclusions, Mentor selections and alert history persist. Stop old process before copying.",
+    "priority": "High",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Frame 8 real-time/history dashboard design",
+    "remarks": "Editable paired real-time and history design screens created in Figma using clearly identified sample data. Application implementation was not part of this design completion.",
+    "priority": "Medium",
+    "status": "Completed",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Frame 9 complete default dashboard design",
+    "remarks": "Frame 9 remains unfinished after Figma tool quota blocked import/completion; local SVG/PNG fallback prepared. Do not report as delivered.",
+    "priority": "Medium",
+    "status": "In Progress",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Mentor POP-code monitoring support",
+    "remarks": "Explicitly deferred by user. Current Mentor validation/monitoring remains site-inventory based; accepting a POP code alone would not enable monitoring.",
+    "priority": "Medium",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Dedicated hardware-fault and degraded-TX monitoring",
+    "remarks": "Discussed requirement for faulty boards and degraded TX links. Dedicated widgets/rules and source reconciliation have not been implemented.",
+    "priority": "High",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Separate real-time operations and history application tabs",
+    "remarks": "Proposed dashboard organization exists in the design discussion; complete application migration has not been implemented.",
+    "priority": "Medium",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "RT fiber/backbone incident integration",
+    "remarks": "Proposed integration only; no completed operational data feed is evidenced.",
+    "priority": "Medium",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Source-confirmed Teams delivery completion",
+    "remarks": "HTTP 2xx/202 only confirms webhook acceptance. Power Automate completion acknowledgment/run-history verification remains an external delivery limitation.",
+    "priority": "High",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  },
+  {
+    "phase": "Design Work and Deferred Requests",
+    "name": "Semantic release-numbering migration",
+    "remarks": "Version choices discussed, but user deferred the naming decision. Do not relabel V51 or claim a new semantic release was built.",
+    "priority": "Low",
+    "status": "Not Started",
+    "dependency": "-",
+    "date": null
+  }
+]

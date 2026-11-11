@@ -11,7 +11,7 @@
   margin: 8px 0 20px;
   padding: 5px 11px;
   border: 1px solid var(--border-card);
-  border-radius: 6px;
+  border-radius: 3px;
   font-size: 12px;
   color: var(--text-secondary);
   opacity: 0.85;
@@ -60,17 +60,17 @@
 
 .mentor-composer {
   border: 1px solid var(--border-card);
-  border-radius: 12px;
+  border-radius: 3px;
   background: var(--bg-card);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   width: 100%;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 #uploadCard.drag {
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+  box-shadow: none;
   border-color: #6366f1;
 }
 
@@ -238,11 +238,11 @@
   align-items: center;
   gap: 2px;
   padding: 2px 3px 2px 8px;
-  border-radius: 2px;
+  border-radius: 3px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   background: rgba(99, 102, 241, 0.12);
   color: #818cf8;
   border: 1px solid rgba(99, 102, 241, 0.35);
@@ -260,7 +260,7 @@
   font-weight: 700;
   line-height: 1;
   padding: 3px 5px;
-  border-radius: 6px;
+  border-radius: 3px;
   font-family: inherit;
   opacity: 0.55;
 }
@@ -325,7 +325,7 @@
   border-radius: 3px;
   margin-bottom: 12px;
   overflow: hidden;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .mentor-alert::after {
@@ -376,10 +376,10 @@
 .mentor-alert-action {
   z-index: 1;
   flex-shrink: 0;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   font-size: 12px;
   font-weight: 600;
-  border-radius: 5px;
+  border-radius: 3px;
   padding: 6px 12px;
   cursor: pointer;
   text-decoration: none;
@@ -469,7 +469,7 @@
   padding: 1px 6px;
   border-radius: 3px;
   line-height: 1.5;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
   cursor: default;
 }
 
@@ -496,11 +496,11 @@
   max-width: 300px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
-  border-radius: 10px;
-  box-shadow: var(--shadow-card);
+  border-radius: 3px;
+  box-shadow: none;
   padding: 24px 20px 20px;
   text-align: center;
-  font-family: 'Nunito', sans-serif;
+  font-family: var(--font-ui);
 }
 
 .mentor-confirm-icon {
@@ -531,7 +531,7 @@
 .mentor-confirm-ok {
   flex: 1;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 3px;
   border: none;
   font-family: inherit;
   font-size: 12.5px;
@@ -565,3 +565,129 @@
   border-bottom: none;
   padding-bottom: 0;
 }
+
+
+/* Mentor import workspace: flat surfaces, clear hierarchy and real file feedback. */
+.mentor-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 960px; margin: 18px 0 28px; }
+.mentor-card-form { display: flex; min-width: 0; max-width: none; }
+.mentor-composer { padding: 22px; gap: 18px; border-color: var(--border-card); font-family: var(--font-ui); }
+.mentor-composer-head { display: flex; align-items: center; gap: 12px; }
+.mentor-composer-head h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.mentor-composer-head p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+.mentor-composer-icon { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: 0 0 auto; border: 1px solid var(--border-card); border-radius: 3px; color: #397ef5; background: var(--bg-search); font-size: 21px; }
+.mentor-dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 185px; padding: 22px 16px; border: 1px dashed #8aaff3; border-radius: 3px; background: var(--bg-search); color: var(--text-primary); cursor: pointer; font-family: var(--font-ui); transition: background-color .15s, border-color .15s; }
+.mentor-dropzone strong { font-size: 13px; font-weight: 600; }
+.mentor-dropzone span, .mentor-dropzone small { font-size: 11.5px; color: var(--text-muted); }
+.mentor-dropzone .mentor-browse-link { color: #397ef5; text-decoration: underline; text-underline-offset: 3px; }
+#uploadCard.drag .mentor-dropzone { background: var(--bg-search-focus); border-color: #397ef5; }
+.mentor-dropzone:focus-visible, .mentor-code-input:focus-within { outline: 2px solid var(--input-focus-border); outline-offset: 2px; }
+.mentor-dropzone:disabled { cursor: wait; }
+.mentor-selected-file { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border-card); border-radius: 3px; min-width: 0; }
+.mentor-selected-file[hidden], .mentor-inline-error[hidden], .mentor-upload-progress[hidden] { display: none; }
+.mentor-file-type { display: flex; align-items: center; justify-content: center; flex: 0 0 34px; height: 42px; border-radius: 3px; background: #397ef5; color: #fff; font-size: 10px; font-weight: 700; }
+.mentor-file-details { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.mentor-file-details strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.mentor-file-details span { font-size: 11px; color: var(--text-muted); }
+#mentorFileStatus { color: var(--text-primary); }
+.mentor-upload-progress { width: 100%; height: 5px; border: 0; accent-color: #397ef5; }
+.mentor-inline-error { margin: 0; font-size: 12px; line-height: 1.5; color: #dc2626; }
+.mentor-composer-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: auto; padding-top: 4px; }
+.mentor-template-link { color: var(--text-secondary); text-decoration: none; font-size: 11.5px; }
+.mentor-template-link:hover { color: var(--text-primary); text-decoration: underline; }
+.mentor-primary-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 35px; padding: 8px 14px; border: 1px solid #2563eb; border-radius: 3px; background: #2563eb; color: #fff; font-family: var(--font-ui); font-size: 12px; font-weight: 600; cursor: pointer; transition: background-color .15s; }
+.mentor-primary-button:hover:not(:disabled) { background: #1d4ed8; }
+.mentor-primary-button:disabled { opacity: .45; cursor: not-allowed; }
+.mentor-code-label { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: -10px; }
+.mentor-code-input { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px; min-height: 120px; padding: 12px; border: 1px solid var(--border-strong); border-radius: 3px; background: var(--bg-search); cursor: text; }
+.mentor-code-input #chipList { display: contents; }
+.mentor-code-input input { flex: 1 1 150px; min-width: 100px; border: 0; padding: 4px 0; background: transparent; color: var(--text-primary); outline: none; font-family: var(--font-ui); font-size: 13px; }
+.mentor-code-input .mc-chip { background: var(--bg-card); border: 1px solid var(--border-card); padding: 3px 4px 3px 9px; font-size: 12px; }
+.mentor-code-hint { margin: -8px 0 0; font-size: 11.5px; color: var(--text-muted); line-height: 1.6; }
+.mentor-code-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--text-secondary); }
+.mentor-clear-codes { border: 0; background: transparent; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-family: var(--font-ui); }
+.mentor-clear-codes:disabled { opacity: .45; cursor: default; }
+.mentor-code-note { display: flex; align-items: flex-start; gap: 8px; font-size: 11.5px; line-height: 1.6; color: var(--text-muted); }
+.mentor-code-note i { color: #397ef5; margin-top: 2px; }
+.mentor-code-footer-note { font-size: 10.5px; color: var(--text-muted); }
+@media (max-width: 700px) { .mentor-cards { grid-template-columns: minmax(0, 1fr); gap: 14px; } .mentor-composer { padding: 18px; } }
+
+.mentor-code-input .mc-chip { color: var(--text-primary); }
+.mentor-code-input .mc-chip-x { color: var(--text-muted); }
+
+
+/* Compact mentor workspace; match the input and import surfaces. */
+.mentor-cards { max-width: 800px; gap: 14px; margin: 14px 0 20px; }
+.mentor-composer { padding: 16px; gap: 12px; }
+.mentor-composer :where(input, button, strong, p, small, span, label, a) { font-family: var(--font-ui); }
+.mentor-composer-head { gap: 9px; }
+.mentor-composer-head h2 { font-size: 15px; }
+.mentor-composer-head p { font-size: 11px; }
+.mentor-composer-icon { width: 32px; height: 32px; font-size: 18px; }
+.mentor-dropzone { min-height: 130px; gap: 7px; padding: 14px 12px; }
+.mentor-dropzone svg { width: 40px; height: 34px; }
+.mentor-dropzone strong { font-size: 12px; }
+.mentor-dropzone span, .mentor-dropzone small { font-size: 10.5px; }
+.mentor-code-input { min-height: 88px; padding: 10px; border: 1px dashed #8aaff3; background: var(--bg-search); }
+.mentor-code-input:focus-within { outline: none; }
+.mentor-code-input input:focus-visible { outline: 1px dotted var(--input-focus-border); outline-offset: 2px; }
+.mentor-code-hint, .mentor-code-note { font-size: 10.5px; }
+.mentor-selected-file { padding: 9px; gap: 9px; }
+.mentor-file-type { flex-basis: 29px; height: 34px; font-size: 9px; }
+.mentor-primary-button { min-height: 31px; padding: 6px 11px; font-size: 11px; }
+.mentor-monitoring { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.mentor-monitor-label { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.mentor-monitor-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.mentor-monitor-badge { padding: 4px 7px; border: 1px solid var(--border-card); border-radius: 3px; background: var(--bg-card); color: var(--text-secondary); font-family: var(--font-ui); font-size: 10.5px; line-height: 1.3; }
+.mentor-upload-progress:not([value]) { accent-color: #397ef5; }
+
+/* Compact file-validation row, with completion indicator at the end. */
+.mentor-file-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+.mentor-file-heading strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#mentorFilePercent { flex-shrink:0; font-size:10px; color:var(--text-muted); }
+.mentor-file-complete { flex:0 0 18px; }
+.mentor-file-complete[hidden], #mentorFilePercent[hidden] { display:none; }
+.mentor-file-details .mentor-upload-progress { display:block; margin-top:5px; height:3px; width:100%; appearance:none; border:0; border-radius:3px; overflow:hidden; background:var(--border-card); }
+.mentor-file-details .mentor-upload-progress[hidden] { display:none; }
+.mentor-upload-progress::-webkit-progress-bar { background:var(--border-card); border-radius:3px; }
+.mentor-upload-progress::-webkit-progress-value { background:#397ef5; border-radius:3px; transition:width .15s linear; }
+.mentor-upload-progress::-moz-progress-bar { background:#397ef5; border-radius:3px; }
+
+.mentor-code-composer .mentor-code-input { min-height:130px; box-sizing:border-box; }
+
+/* Keep the upload workspace on Huawei Sans, including dynamic text. */
+#uploadCard, #uploadCard :where(h2, p, strong, b, small, span, a, button, input, progress),
+#codeInput, #codeInput::placeholder {
+  font-family: 'Huawei Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+}
+/* The outer box supplies the border; the typing field stays visually flat. */
+.mentor-code-input #codeInput,
+.mentor-code-input #codeInput:focus,
+.mentor-code-input #codeInput:focus-visible {
+  outline: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.mentor-code-input:focus-within { border-color: var(--border-strong); }
+
+.mentor-file-type svg { width:24px; height:24px; flex-shrink:0; }
+
+/* Compact selected-file feedback. */
+#uploadCard .mentor-selected-file { padding:7px 8px; gap:8px; }
+#uploadCard .mentor-file-type { flex-basis:26px; height:30px; }
+#uploadCard .mentor-file-type svg { width:20px; height:20px; }
+#uploadCard .mentor-file-details { gap:2px; }
+#uploadCard .mentor-file-details strong { font-size:11px; line-height:1.3; }
+#uploadCard .mentor-file-details span { font-size:10px; line-height:1.3; }
+#uploadCard .mentor-file-complete { width:15px; height:15px; flex-basis:15px; }
+.alarm-table .app-tooltip::after {
+  border:1px solid var(--border-strong);
+  border-radius:3px;
+  box-shadow:none;
+  filter:none;
+  backdrop-filter:none;
+  font-family:var(--font-ui);
+}
+
+/* Match the View icon to the other compact table actions. */
+.alarm-table .mc-chip-x .lucide-hat-glasses { width:14px; height:14px; flex-shrink:0; }

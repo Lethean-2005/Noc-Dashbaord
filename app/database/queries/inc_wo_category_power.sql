@@ -32,6 +32,7 @@ SELECT
   END AS "Support Level",
   team.name AS "Responsible Team",
   wo.fault_description AS "Fault Description",
+  wo.resolution AS "Resolution",
   sites.hub_site AS "Hub Site",
   INITCAP(sites.site_grade) AS "Site Grade",
   province.name AS "Province",

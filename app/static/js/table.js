@@ -33,29 +33,50 @@ document.addEventListener('DOMContentLoaded', () => {
   // "Configured Mentor Sites" table), and querying globally grabbed
   // whichever came first in the DOM regardless of which table it actually
   // belonged to.
-  document.querySelectorAll('.alarm-table-wrap').forEach(wrap => {
+  function initTableSearch(wrap) {
     const table = wrap.querySelector('.alarm-table');
     const header = wrap.previousElementSibling;
     if (!table || !header || !header.classList.contains('alarm-header')) return;
     const countEl = header.querySelector('.alarm-row-count');
+    table.querySelectorAll('tbody td').forEach(td => {
+      if (!td.children.length && !td.textContent.trim() && !td.closest('.empty-row')) td.textContent = '?';
+    });
 
-    const rows = Array.from(table.querySelectorAll('tbody tr')).filter(r => !r.querySelector('.empty-row'));
-    if (!rows.length) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr')).filter(r => !r.classList.contains('empty-row') && !r.querySelector('td.empty-row'));
+    const existingSearch = header.querySelector('input.alarm-search');
+    if (existingSearch) clearTimeout(existingSearch._nocSearchTimer);
+    if (!rows.length) {
+      if (existingSearch) { existingSearch.oninput = null; existingSearch.disabled = true; }
+      return;
+    }
     // Precomputed once, not per keystroke — .textContent (unlike
     // .innerText) doesn't force a layout reflow, so typing stays smooth
     // even on a few hundred rows.
     const rowText = rows.map(r => r.textContent.toLowerCase());
 
-    const search = document.createElement('input');
+    const search = header.querySelector('input.alarm-search') || document.createElement('input');
+    search.disabled = false;
     search.type = 'text';
     search.placeholder = 'Search records...';
     search.className = 'alarm-search';
     header.insertBefore(search, header.firstChild);
 
-    let debounceTimer;
-    search.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => {
+    table.querySelectorAll('.search-empty-row').forEach(row => row.remove());
+    const noMatches = document.createElement('tr');
+    noMatches.className = 'empty-row search-empty-row';
+    noMatches.hidden = true;
+    const noMatchesCell = document.createElement('td');
+    const heading = table.tHead && table.tHead.rows[0];
+    noMatchesCell.colSpan = heading
+      ? Array.from(heading.cells).reduce((total, cell) => total + cell.colSpan, 0)
+      : rows[0].cells.length;
+    const emptyTemplate = document.getElementById('tableEmptyStateTemplate');
+    if (emptyTemplate) noMatchesCell.appendChild(emptyTemplate.content.cloneNode(true));
+    else noMatchesCell.textContent = 'No results found';
+    noMatches.appendChild(noMatchesCell);
+    table.tBodies[0].appendChild(noMatches);
+
+    function applySearch() {
         const q = search.value.trim().toLowerCase();
         let visible = 0;
         rows.forEach((row, i) => {
@@ -63,8 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
           row.style.display = match ? '' : 'none';
           if (match) visible++;
         });
+        noMatches.hidden = visible !== 0;
         if (countEl) countEl.textContent = `${visible} record${visible === 1 ? '' : 's'}`;
-      }, 120);
-    });
-  });
+    }
+    search.oninput = () => {
+      clearTimeout(search._nocSearchTimer);
+      search._nocSearchTimer = setTimeout(applySearch, 120);
+    };
+    if (search.value.trim()) applySearch();
+  }
+  window.NocTableSearch = initTableSearch;
+  document.querySelectorAll('.alarm-table-wrap').forEach(initTableSearch);
 });

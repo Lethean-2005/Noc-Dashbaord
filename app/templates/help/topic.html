@@ -1,0 +1,10 @@
+{% extends "help/documentation.html" %}
+{% block article_body %}
+<p>{{ description }} Choose a guide below to read its explanation and examples.</p>
+<div class="help-topic-documents">
+{% for slug in slugs %}
+<h3><a href="{{ url_for('help.article', slug=slug) }}">{{ articles[slug] }}</a></h3>
+{% if slug in card_guides %}<p>{{ card_guides[slug].intro }}</p>{% endif %}
+{% endfor %}
+</div>
+{% endblock %}

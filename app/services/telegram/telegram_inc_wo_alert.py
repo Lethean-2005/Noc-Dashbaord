@@ -53,11 +53,9 @@ try:
 except ImportError:
     _HAS_PIL = False
 
-# Inter (not telegram_alert.py's Exo2-Bold), for this alert only. A
-# variable font — set_variation_by_name("Bold") pins the weight
-# explicitly (the filename says "Regular" but is the variable font file
-# itself).
-_FONT_PATH = os.path.join(_FONT_DIR, "Inter-Regular.ttf")
+# Shared INC-WO renderer uses Huawei Sans Bold throughout.
+_FONT_PATH = os.path.join(_FONT_DIR, "HuaweiSans-Bold.ttf")
+_TITLE_FONT_PATH = os.path.join(_FONT_DIR, "HuaweiSans-Bold.ttf")
 
 logger = get_logger(__name__)
 
@@ -204,7 +202,7 @@ def _render_inc_wo_table_image(rows, title):
     the Site Down and Category Power alerts. INC-WO Status is colored per
     _STATUS_COLORS; a Hub/Gold/Diamond row is shaded _PRIORITY_ROW_BG.
     Returns None if Pillow/the font isn't available."""
-    if not _HAS_PIL or not os.path.exists(_FONT_PATH):
+    if not _HAS_PIL or not os.path.exists(_FONT_PATH) or not os.path.exists(_TITLE_FONT_PATH):
         return None
 
     # SCALE=1, not telegram_alert.py's 2 — this table has 15 columns, and
@@ -227,9 +225,7 @@ def _render_inc_wo_table_image(rows, title):
     TEXT_COLOR, GRID_COLOR, TITLE_COLOR, FRAME_COLOR = "#000000", "#000000", "#000000", "#F0F2F5"
 
     font = ImageFont.truetype(_FONT_PATH, FONT_SIZE)
-    font.set_variation_by_name("Bold")
-    title_font = ImageFont.truetype(_FONT_PATH, TITLE_SIZE)
-    title_font.set_variation_by_name("Bold")
+    title_font = ImageFont.truetype(_TITLE_FONT_PATH, TITLE_SIZE)
     char_w = int(font.getlength("M"))
 
     headers = [c[0] for c in _COLUMNS]
@@ -382,9 +378,19 @@ def send_inc_wo_site_down_alert(
     if excel:
         sent = _send_telegram_excel(token, chat_ids, excel, "inc-wo-site-down-alert.xlsx") and sent
 
-    logger.info(
-        f"Sent Telegram INC-WO Site Down alert — {len(rows)} row(s) to {len(chat_ids)} chat(s)"
-    )
+    # `sent` tracks every underlying send call's own success (image/text AND
+    # excel) — logging "Sent" unconditionally here, regardless of that
+    # value, previously made a fully-failed send (e.g. "chat not found")
+    # look identical to a real success in the logs.
+    if sent:
+        logger.info(
+            f"Sent Telegram INC-WO Site Down alert — {len(rows)} row(s) to {len(chat_ids)} chat(s)"
+        )
+    else:
+        logger.error(
+            f"Telegram INC-WO Site Down alert FAILED to send — {len(rows)} row(s), "
+            f"{len(chat_ids)} chat(s) (see the send error(s) logged above)"
+        )
     return {"sent": sent, "count": len(rows)}
 
 

@@ -75,4 +75,5 @@ LEFT JOIN object_166 commune
   ON (CASE WHEN sites.id IS NULL THEN inc.commune ELSE sites.commune END) = commune.id
 LEFT JOIN object_308 ploc ON ploc.id = sites.physical_location
 WHERE inc.status IN ('new', 'in_progress')
+AND (inc.incident_category IS DISTINCT FROM 'customer_complaint' OR inc.status = 'in_progress')
 ORDER BY inc.issue_occurred_at DESC NULLS FIRST;

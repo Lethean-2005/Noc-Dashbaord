@@ -113,6 +113,7 @@
                     </details>
                 </div>
             </div>
+            {% if site_down_duration.week_totals|sum(attribute='total') %}
             <div class="campaign-top-row">
                 <div class="series-legend">
                     {% for wt in site_down_duration.week_totals %}
@@ -122,8 +123,8 @@
             </div>
             <div class="campaign-chart-row">
                 <div class="campaign-y-axis">
-                    {% for tick in site_down_duration.tick_labels %}
-                    <span>{{ tick }}</span>
+                    {% for tick in site_down_duration.ticks %}
+                    <span style="top:{{ tick.top_pct }}%;">{{ tick.label }}</span>
                     {% endfor %}
                 </div>
                 <div class="campaign-chart-inner">
@@ -176,6 +177,9 @@
                    href="{{ url_for('dashboard.index', age_bucket=selected_age_buckets, volume_category=selected_volume_categories, volume_week=selected_volume_weeks, closed_category=selected_closed_categories, closed_week=selected_closed_weeks, site_down_duration_week=selected_site_down_duration_weeks, duration_bucket=selected_duration_buckets, top_site_down_week=top_site_down.selected_weeks, root_cause_site=selected_root_cause_site, response_time_category=selected_response_time_categories, response_time_week=selected_response_time_weeks, resolution_time_category=selected_resolution_time_categories, resolution_time_week=selected_resolution_time_weeks, sla_compliance_category=selected_sla_compliance_categories, sla_compliance_week=selected_sla_compliance_weeks, root_cause_bucket=b.bucket) }}#siteDownRootCauseWeekCard">{{ b.bucket }}</a>
                 {% endfor %}
             </div>
+            {% else %}
+            {% with empty_message='No Site Down incidents in the selected period.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
+            {% endif %}
         </div>
 
         <div class="perf-card" id="topSiteDownCard">
@@ -284,7 +288,7 @@
                     <span class="expenses-count-value badge" data-scope="Top Site Down" data-type="{{ bar.badge_type }}">{{ bar.count }}</span>
                 </div>
                 {% else %}
-                <p class="perf-card-sub">No Site Down incidents in this window.</p>
+                {% with empty_message='No Site Down incidents in this window.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
                 {% endfor %}
             </div>
             {% if top_site_down.bars %}
@@ -379,14 +383,14 @@
                     </tbody>
                     {% else %}
                     <tbody>
-                        <tr class="empty-row"><td colspan="{{ root_cause_week_table.week_labels|length + 2 }}">No incidents in the selected week(s)</td></tr>
+                        <tr class="empty-row"><td colspan="{{ root_cause_week_table.week_labels|length + 2 }}">{% with empty_message='No incidents in the selected week(s)' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                     </tbody>
                     {% endfor %}
                 </table>
                 </div>
             </div>
             {% else %}
-            <p class="perf-card-sub">No Site Down incidents with a root cause assigned in the selected week(s).</p>
+            {% with empty_message='No Site Down incidents with a root cause assigned in the selected week(s).' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endif %}
         </div>
 
@@ -500,14 +504,14 @@
                     </tbody>
                     {% else %}
                     <tbody>
-                        <tr class="empty-row"><td colspan="{{ root_cause_weekly_breakdown.week_labels|length + 2 }}">No incidents in the last 2 weeks</td></tr>
+                        <tr class="empty-row"><td colspan="{{ root_cause_weekly_breakdown.week_labels|length + 2 }}">{% with empty_message='No incidents in the last 2 weeks' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                     </tbody>
                     {% endfor %}
                 </table>
                 </div>
             </div>
             {% else %}
-            <p class="perf-card-sub">No Site Down incidents with a root cause assigned ({{ root_cause_breakdown.weeks_label }}).</p>
+            {% with empty_message='No Site Down incidents with a root cause assigned (' ~ root_cause_breakdown.weeks_label ~ ').' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endif %}
         </div>
     </div>
@@ -631,8 +635,8 @@
             {% if sla_compliance.buckets %}
             <div class="campaign-top-row">
                 <div class="series-legend">
-                    <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ sla_compliance.buckets[-1].series[0].color }};"></span>{{ sla_compliance.buckets[-1].series[0].label }} <b>{{ (sla_compliance.buckets[-1].series[0].value ~ '%') if sla_compliance.buckets[-1].series[0].value is not none else '--' }}</b></span>
-                    <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ sla_compliance.buckets[-1].series[1].color }};"></span>{{ sla_compliance.buckets[-1].series[1].label }} <b>{{ (sla_compliance.buckets[-1].series[1].value ~ '%') if sla_compliance.buckets[-1].series[1].value is not none else '--' }}</b></span>
+                    <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ sla_compliance.buckets[-1].series[0].color }};"></span>{{ sla_compliance.buckets[-1].series[0].label }} <b id="slaComplianceLegendResponsePct">{{ (sla_compliance.buckets[-1].series[0].value ~ '%') if sla_compliance.buckets[-1].series[0].value is not none else '--' }}</b></span>
+                    <span class="series-legend-item"><span class="series-legend-dot" style="background:{{ sla_compliance.buckets[-1].series[1].color }};"></span>{{ sla_compliance.buckets[-1].series[1].label }} <b id="slaComplianceLegendResolutionPct">{{ (sla_compliance.buckets[-1].series[1].value ~ '%') if sla_compliance.buckets[-1].series[1].value is not none else '--' }}</b></span>
                 </div>
             </div>
             <div class="campaign-chart-row">
@@ -697,17 +701,35 @@
             {% set week_breakdown = sla_compliance_week_breakdowns.get(b.iso_week) %}
             {% if week_breakdown %}
             <div class="modal" id="slaComplianceDurationModal_{{ b.iso_week }}">
-                <div class="modal-content" style="width:640px;">
+                <div class="modal-content" style="width:820px;max-width:calc(100vw - 32px);">
                     <div class="modal-header">
                         <div class="modal-header-left">
                             <h2>SLA Compliance — {{ week_breakdown.week_label }}</h2>
                         </div>
                         <span class="close-modal duration-popup-close">&times;</span>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+                        {% set root_cause_rows = sla_compliance_root_cause_breakdowns.get(b.iso_week) %}
+                        {# Two views instead of one long stacked scroll — same tab
+                           mechanic/markup as Incident Volume's own per-day popup
+                           (.volume-day-tabs/.volume-day-tab-btn/.volume-day-tab-panel,
+                           _volume_day_popup_body.html), reused as-is so this needed
+                           zero new JS (graph_cards.js's existing .closest('.modal')
+                           tab handler already matches any .volume-day-tab-btn). No
+                           Root Cause tab at all when there's nothing to show there,
+                           same "don't render an empty tab" rule the rest of this
+                           card already follows. #}
+                        <div class="volume-day-tabs">
+                            <button type="button" class="volume-day-tab-btn is-active" data-tab="sla">SLA</button>
+                            {% if root_cause_rows %}
+                            <button type="button" class="volume-day-tab-btn" data-tab="root_cause">Root Cause</button>
+                            {% endif %}
+                        </div>
+                        <div class="volume-day-tab-panel is-active" data-tab="sla">
                         <p style="margin-bottom:10px;color:var(--text-muted);font-size:11.5px;">Response/Resolution SLA pass rate for {{ week_breakdown.week_label }}, by Category and Priority.</p>
-                        <div style="overflow-x:auto;max-height:60vh;overflow-y:auto;">
-                        <table class="alarm-table" style="width:100%;">
+                        <div style="overflow-x:auto;">
+                        <div class="volume-category-table-wrap">
+                        <table class="alarm-table volume-category-table" style="width:100%;">
                             <thead>
                                 <tr>
                                     <th>Category</th>
@@ -739,11 +761,40 @@
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr class="empty-row"><td colspan="5">No incidents this week</td></tr>
+                                <tr class="empty-row"><td colspan="5">{% with empty_message='No incidents this week' %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
                         </div>
+                        </div>
+                        </div>
+                        {% if root_cause_rows %}
+                        <div class="volume-day-tab-panel" data-tab="root_cause">
+                        <p style="margin-bottom:8px;color:var(--text-muted);font-size:11.5px;">Incidents that missed Response or Resolution SLA in {{ week_breakdown.week_label }}. Click a count to view its records. An incident that missed both appears in both columns.</p>
+                        <div style="overflow-x:auto;">
+                        <div class="volume-category-table-wrap">
+                        <table class="alarm-table volume-category-table" style="width:100%;">
+                            <thead>
+                                <tr>
+                                    <th>Root Cause Category</th>
+                                    <th class="right" style="white-space:nowrap;">Response Not Met</th>
+                                    <th class="right" style="white-space:nowrap;">Resolution Not Met</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rc in root_cause_rows %}
+                                <tr>
+                                    <td>{{ rc.category }}</td>
+                                    <td class="right"><a href="{{ url_for('dashboard.drilldown', scope='SLA Compliance', type='root_cause_resp_' + b.iso_week, root_cause=rc.category, sla_compliance_category=selected_sla_compliance_categories, title='Response Not Met - ' + rc.category + ' - ' + week_breakdown.week_label, label=rc.category + ' - ' + week_breakdown.week_label, value=rc.response_not_met) }}">{{ rc.response_not_met }}</a></td>
+                                    <td class="right"><a href="{{ url_for('dashboard.drilldown', scope='SLA Compliance', type='root_cause_res_' + b.iso_week, root_cause=rc.category, sla_compliance_category=selected_sla_compliance_categories, title='Resolution Not Met - ' + rc.category + ' - ' + week_breakdown.week_label, label=rc.category + ' - ' + week_breakdown.week_label, value=rc.resolution_not_met) }}">{{ rc.resolution_not_met }}</a></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                        </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -753,7 +804,7 @@
             <p class="perf-card-sub">Check at least 2 weeks under Compare Weeks to see the trend line.</p>
             {% endif %}
             {% else %}
-            <p class="perf-card-sub">No data yet — waiting for the incident cache's first sync cycle.</p>
+            {% with empty_message="No data yet — waiting for the incident cache's first sync cycle." %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endif %}
         </div>
 
@@ -933,7 +984,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="perf-card-sub">No data yet — waiting for the incident cache's first sync cycle.</p>
+            {% with empty_message="No data yet — waiting for the incident cache's first sync cycle." %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endif %}
         </div>
 
@@ -1153,7 +1204,7 @@
                 </table>
             </div>
             {% else %}
-            <p class="perf-card-sub">No data yet — waiting for the incident cache's first sync cycle.</p>
+            {% with empty_message="No data yet — waiting for the incident cache's first sync cycle." %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endif %}
         </div>
 
@@ -1320,13 +1371,26 @@ improved = 0.0333 &le; 0.0532 &rarr; True  (faster this week = good)</pre>
         </div>
         <div class="modal-body perf-help-modal-body">
             <h4>What this measures</h4>
-            <p>Every incident has a response deadline and a resolution deadline. This card shows the percentage that beat each deadline — using Streamline's own recorded pass/fail (<code>overdue_response</code> / <code>overdue</code>), not a guess calculated here.</p>
+            <p>Every incident has a response deadline and a resolution deadline. This card shows the percentage that beat each deadline — using Streamline's own recorded pass/fail, not a guess calculated here. In Streamline itself, these are two fields you can add as columns: <b>Overdue (Response)</b> and <b>Overdue (Resolution)</b>.</p>
+
+            <ul style="background:#fef2f2;border-radius:3px;padding:8px 12px 8px 26px;margin:0 0 10px;font-size:13px;line-height:1.55;color:var(--text-secondary);">
+                <li><b>Overdue (Response) = Yes</b> &rarr; the response was <b>late</b> (missed the deadline)</li>
+                <li><b>Overdue (Response) = No</b> &rarr; the response was <b>on time</b> (met the deadline)</li>
+                <li><b>Overdue (Resolution) = Yes</b> &rarr; the fix was <b>late</b> (missed the deadline)</li>
+                <li><b>Overdue (Resolution) = No</b> &rarr; the fix was <b>on time</b> (met the deadline)</li>
+                <li><b>Overdue (Resolution) = blank</b> &rarr; Streamline never recorded a verdict at all — this is what "Not Graded" below counts</li>
+            </ul>
+
+            <p><b>Important:</b> "Response Met," "Resolution Met," and "Not Graded" each count a <b>different</b> group of incidents for "this week" — incidents <b>created</b> this week, incidents <b>closed</b> this week, and incidents that <b>happened</b> this week, respectively. They're not three slices of the same batch, so their numbers are not meant to add up to each other.</p>
 
             <h4>Response SLA Met</h4>
-            <p>Every incident counts. Example: <b>730/738</b> means 738 incidents happened this week, and 730 of them got a response before their deadline &rarr; 730 &divide; 738 = <b>99%</b>.</p>
+            <p>Every incident <b>created</b> this week counts. Example: <b>730/738</b> means 738 incidents were created this week, and 730 of them got a response before their deadline &rarr; 730 &divide; 738 = <b>99%</b>.</p>
 
             <h4>Resolution SLA Met</h4>
-            <p>Only incidents Streamline actually gave a verdict on count — some incidents (often closed a different way) are left blank by Streamline and are excluded rather than guessed at, so the bottom number here is usually smaller than the total incident count. Example: <b>274/288</b> means 288 incidents had a real pass/fail verdict, and 274 passed &rarr; 95%.</p>
+            <p>Counts incidents <b>closed</b> this week — only the ones Streamline actually gave a resolution verdict on. Some incidents (often closed a different way) are left blank by Streamline and are excluded rather than guessed at, so the bottom number here is a count of closed-and-graded incidents, not every incident from this week. Example: <b>274/288</b> means 288 incidents closed this week with a real pass/fail verdict, and 274 passed &rarr; 95%.</p>
+
+            <h4>Not Graded</h4>
+            <p>Counts incidents that <b>happened</b> this week and never got a resolution verdict at all — not pass, not fail, Streamline just never recorded one. Example: <b>27</b> means 27 incidents occurred this week with no resolution verdict. These are separate from the incidents counted in Resolution SLA Met above, since that count is based on when an incident was closed, not when it happened — an incident from this week might still be open, or might close weeks from now, and either way it won't show up in Resolution Met until Streamline actually grades it.</p>
 
             <h4>Compare Weeks</h4>
             <p>Click the calendar icon to check/uncheck weeks. All weeks are checked by default, so the trend line always shows the full picture. The two pills at the top always show the <b>most recent checked week</b> — so if you uncheck the newest week, the pills update to show the next-newest one instead.</p>
