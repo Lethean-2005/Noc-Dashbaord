@@ -1,9 +1,11 @@
-"""Builds a lean deploy_zips/Noc_Dashboard-v<version>.zip containing only
+"""Builds a lean deploy_zips/Noc_Dashboard_v<version>_<YYMMDD>.zip containing only
 what's needed to run the app — no caches, logs, secrets, docs, or scratch
 files. Run from the repo root: python scripts/build_deploy_zip.py
 """
 
 import zipfile
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import tomllib
 from pathlib import Path
 
@@ -69,7 +71,8 @@ def _release_version():
 def main():
     DEPLOY_DIR.mkdir(exist_ok=True)
     version = _release_version()
-    out_path = DEPLOY_DIR / f"Noc_Dashboard-v{version}.zip"
+    build_date = datetime.now(ZoneInfo("Asia/Phnom_Penh")).strftime("%y%m%d")
+    out_path = DEPLOY_DIR / f"Noc_Dashboard_v{version}_{build_date}.zip"
 
     count = 0
     with zipfile.ZipFile(out_path, "x", zipfile.ZIP_DEFLATED) as zf:
