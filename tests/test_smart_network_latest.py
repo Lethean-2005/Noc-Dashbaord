@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from docx import Document
+from docx.table import _Cell
 from werkzeug.datastructures import MultiDict
 
 from app.services.incident_report.incident_report_service import IncidentReportService
@@ -48,7 +49,7 @@ def test_new_sections_save_reload_and_keep_manual_credit(app):
 
 def test_latest_export_preserves_structure_and_clears_reference_samples():
     doc=Document(BytesIO(build_docx({"smart_report_month":"Sep-Oct 2027"})))
-    reference=Document(Path("Smart Network Report_Sep-Oct 2026_v1.docx"))
+    reference=Document(Path("Smart Network Report_Sep-Oct 2026_v1 (2).docx"))
     assert len(doc.tables)==6
     assert [(s.page_width,s.page_height) for s in doc.sections] == [(s.page_width,s.page_height) for s in reference.sections]
     text=" ".join(p.text for p in doc.paragraphs)+" "+" ".join(c.text for t in doc.tables for r in t.rows for c in r.cells)
@@ -86,4 +87,62 @@ def test_all_twelve_months_save_reload_and_export(app):
     doc = Document(BytesIO(build_docx(report)))
     for table_index in (1, 2):
         for index, month in enumerate(months):
-            assert doc.tables[table_index].rows[2].cells[2 + index].text == expected[month]
+            cells = [_Cell(cell, doc.tables[table_index]) for cell in doc.tables[table_index].rows[2]._tr.tc_lst]
+            assert cells[2 + index].text == expected[month]
+
+
+def test_revision_two_template_and_layout_are_preserved():
+    from zipfile import ZipFile
+    from lxml import etree
+
+    reference_path = Path('Smart Network Report_Sep-Oct 2026_v1 (2).docx')
+    template_path = Path('app/services/incident_report/template/smart_network_report_template.docx')
+    assert template_path.read_bytes() == reference_path.read_bytes()
+    reference = Document(reference_path)
+    exported_bytes = build_docx({'smart_report_month': 'Jan-Dec 2027'})
+    exported = Document(BytesIO(exported_bytes))
+    assert [section._sectPr.xml for section in exported.sections] == [section._sectPr.xml for section in reference.sections]
+    for actual, original in zip(exported.tables, reference.tables):
+        assert actual._tbl.tblPr.xml == original._tbl.tblPr.xml
+        assert actual._tbl.tblGrid.xml == original._tbl.tblGrid.xml
+        for row_index in (0, 1, 2) if len(original.columns) > 9 else (0, 1):
+            assert [cell.tcPr.xml for cell in actual.rows[row_index]._tr.tc_lst] == [cell.tcPr.xml for cell in original.rows[row_index]._tr.tc_lst]
+    with ZipFile(reference_path) as source, ZipFile(BytesIO(exported_bytes)) as output:
+        for name in source.namelist():
+            if name.startswith(('word/media/', 'word/header', 'word/footer')) or name == 'word/styles.xml':
+                if name.endswith('.xml'):
+                    assert etree.tostring(etree.fromstring(output.read(name)), method='c14n') == etree.tostring(etree.fromstring(source.read(name)), method='c14n')
+                else:
+                    assert output.read(name) == source.read(name)
+
+
+def test_merged_month_summary_keeps_distinct_months_in_cloned_rows():
+    months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+    rows = [{'circuit': f'CIRCUIT-{i}', 'months': {m: f'{i}-{m}' for m in months}} for i in range(3)]
+    document = Document(BytesIO(build_docx({'smart_fault_services': rows})))
+    table = document.tables[2]
+    assert len(table.rows) == 5
+    for index, item in enumerate(rows, 2):
+        cells = [_Cell(cell, table) for cell in table.rows[index]._tr.tc_lst]
+        assert cells[1].text == item['circuit']
+        assert [cell.text for cell in cells[2:]] == list(item['months'].values())
+
+
+def test_outage_and_reaction_rows_keep_individual_reference_formatting():
+    reference = Document(Path('Smart Network Report_Sep-Oct 2026_v1 (2).docx'))
+    report = {'smart_failure_to_react': [{}] * 3, 'smart_services_outage': [{}] * 4}
+    output = Document(BytesIO(build_docx(report)))
+    for table_index in (3, 4):
+        for actual, original in zip(output.tables[table_index].rows, reference.tables[table_index].rows):
+            assert (actual._tr.trPr.xml if actual._tr.trPr is not None else None) == (original._tr.trPr.xml if original._tr.trPr is not None else None)
+            assert [c.tcPr.xml for c in actual._tr.tc_lst] == [c.tcPr.xml for c in original._tr.tc_lst]
+
+
+def test_long_outage_notes_can_expand_without_clipping():
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+
+    note = 'Long report details. ' * 80
+    document = Document(BytesIO(build_docx({'smart_services_outage': [{'notes': note}]})))
+    row = document.tables[4].rows[1]
+    assert row.cells[7].text == note
+    assert row.height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
