@@ -1596,46 +1596,19 @@ class IncidentService:
         return [r for r in rows if str(r.get("closed_at") or "")[:10] in date_strs], selected
 
     def _rank_site_down_codes(self, rows):
-        """Every site in `rows` ranked by Site Down incident count,
-        newest-highest first — the full ranking get_top_site_down()
-        caps at [:10] for its own bars, and
-        get_site_down_root_cause_breakdown()/get_site_down_root_cause_
-        weekly_breakdown() also cap at [:10] to know which site_codes
-        "Top 10 Site Down — Overtime" is actually showing, rather than
-        summarizing every site in the whole 30-day window (confirmed
-        live: 2,132 sites have at least one Site Down incident in 30
-        days — nowhere close to the 10 sites the card itself shows, so
-        defaulting to "every site" instead of just these 10 was the
-        actual cause of the root-cause numbers looking wildly
-        unrelated to the card next to them).
-
-        Cached per instance by `rows`' own id() — not @ttl_cache, since
-        comparing two ~9k-row lists for equality just to decide a cache
-        hit would cost nearly as much as ranking them again; identity
-        is an O(1) check and exactly right here, because every caller
-        either passes the SAME cached list object
-        (_site_down_duration_weekly_rows() is itself @ttl_cache(15)'d)
-        or a freshly filtered list unique to its own call — so two
-        unrelated inputs can never collide under this key. Confirmed
-        via profiling that a single default (no-filter) dashboard load
-        called this 3x on the exact same rows list — once each from
-        get_top_site_down(), get_site_down_root_cause_breakdown(), and
-        get_site_down_root_cause_weekly_breakdown() — ~122ms of the
-        page's ~480ms context-build time for 2 entirely redundant
-        passes over the same rows."""
+        """Rank site counts, retaining the input to prevent recycled-ID cache hits."""
         cache = self._rank_site_down_codes_cache
-        key = id(rows)
-        if cache is not None and cache[0] == key:
+        if cache is not None and cache[0] is rows:
             return cache[1]
         counts = {}
-        for r in rows:
-            site_code = r.get("site_code") or ""
+        for row in rows:
+            site_code = row.get("site_code") or ""
             if not site_code:
                 continue
-            rank_key = (site_code, r.get("site") or site_code)
+            rank_key = (site_code, row.get("site") or site_code)
             counts[rank_key] = counts.get(rank_key, 0) + 1
-        result = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
-        self._rank_site_down_codes_cache = (key, result)
+        result = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+        self._rank_site_down_codes_cache = (rows, result)
         return result
 
     def get_top_site_down(self, weeks=None):
@@ -2045,7 +2018,7 @@ class IncidentService:
         weeks_label = (
             ", ".join(week_labels.get(iso, iso) for iso in selected_weeks)
             if selected_weeks
-            else "last 30 days"
+            else "available weeks"
         )
         return {
             "categories": categories,
@@ -2525,6 +2498,10 @@ class IncidentService:
             deduped.append(r)
 
         week_labels = {w["iso"]: w["label"] for w in _available_weeks()}
+        selected_labels = {
+            m: week_labels.get(m.isoformat(), f"{m.strftime('%b')} {m.day}")
+            for m in mondays
+        }
         date_to_monday = {
             (monday + timedelta(days=i)).isoformat(): monday for monday in mondays for i in range(7)
         }
@@ -2582,7 +2559,7 @@ class IncidentService:
                 "category": category,
                 "weeks": [
                     {
-                        "label": week_labels.get(m.isoformat(), f"{m.strftime('%b')} {m.day}"),
+                        "label": selected_labels[m],
                         "count": week_counts[i],
                     }
                     for i, m in enumerate(mondays)
@@ -2594,7 +2571,7 @@ class IncidentService:
                         "token": _DURATION_BUCKET_TOKENS[bucket_label],
                         "weeks": [
                             {
-                                "label": week_labels.get(m.isoformat(), f"{m.strftime('%b')} {m.day}"),
+                                "label": selected_labels[m],
                                 "count": duration_week_counts[i][bucket_index],
                             }
                             for i, m in enumerate(mondays)
@@ -2607,7 +2584,7 @@ class IncidentService:
         breakdown.sort(key=lambda b: b["delta"], reverse=True)
 
         return {
-            "week_labels": [week_labels.get(m.isoformat(), f"{m.strftime('%b')} {m.day}") for m in mondays],
+            "week_labels": [selected_labels[m] for m in mondays],
             "categories": breakdown,
         }
 

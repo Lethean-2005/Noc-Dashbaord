@@ -174,3 +174,19 @@ opens the browser once it's up. `scripts/create_shortcuts.bat` adds Desktop
 shortcuts for that and for `scripts/configure.bat`, which opens a small
 PySide6 window (`configurator.py`) to toggle dashboard cards on/off and
 edit sync/alert intervals without hand-editing `.env`.
+
+## JSON API
+
+The JSON API is listed at `/api/v1/`. Map data is available at `/api/v1/map/sites`. Existing JSON URLs remain compatible. See [API usage](docs/api.md) for supported requests and CSRF requirements.
+
+## Dedicated sync worker
+
+The web server serves HTTP only; `python run.py` ensures its separate worker is started first. Use `python run.py --web-only` when a separate service manages the worker. `worker.py` owns all scheduled sync and Teams/Telegram loops. Run both from the same project folder and preserve `.env` and `instance/`. The normal `scripts/start_dashboard.bat` launcher ensures an independent hidden worker is running before starting the website. Closing only the website leaves the worker running.
+
+Check status at `/api/v1/system/sync` or run `.venv\Scripts\python.exe worker.py --status`. Validate schedules without syncing or sending with `.venv\Scripts\python.exe worker.py --check`. See [worker operations](docs/sync-worker.md) before migration.
+
+Historical performance charts now load as their section approaches the viewport, so initial dashboard rendering prioritizes live cards. Filters and existing chart endpoints remain unchanged. The loader offers Retry on failure; `/?load_performance=1` provides a full-page fallback. Set `DASHBOARD_LAZY_PERFORMANCE=false` and restart the web process to disable deferred loading.
+
+Historical SLA and response/resolution drilldowns show all matching rows in one table, without pagination. Exports retain the complete result for the selected view filters.
+
+HTTP error pages share a consistent layout for all application HTTP exceptions. API errors remain JSON; status codes and protocol headers are preserved. Mentor upload/session errors provide readable recovery guidance.

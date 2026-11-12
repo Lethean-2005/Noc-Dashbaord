@@ -29,10 +29,11 @@
 -- rolling day-count cutoff isn't safe here.
 -- ==============================================================
 
+-- :since is Cambodia midnight; compare its UTC equivalent with UTC source timestamps.
 -- name: incident_created_trend
 SELECT
   inc.incident_id AS "Incident ID",
   inc.id AS "Incident Numeric ID",
   inc.issue_occurred_at AS "Created At"
 FROM object_322 inc
-WHERE inc.issue_occurred_at >= :since;
+WHERE inc.issue_occurred_at >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC');

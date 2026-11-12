@@ -66,7 +66,7 @@ see app/services/mentor/mentor_site_service.py. #}
 
 <div class="mentor-cards">
   <div class="mentor-card-form">
-    <form class="mentor-composer mentor-upload" id="uploadCard" data-validate-url="{{ url_for('mentor.validate_upload') }}" method="post" action="{{ url_for('mentor.upload') }}" enctype="multipart/form-data" data-max-upload-bytes="{{ config.MAX_CONTENT_LENGTH }}">
+    <form class="mentor-composer mentor-upload" id="uploadCard" data-validate-url="{{ url_for('api_v1.mentor_validate') }}" method="post" action="{{ url_for('mentor.upload') }}" enctype="multipart/form-data" data-max-upload-bytes="{{ config.MAX_CONTENT_LENGTH }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="mentor-composer-head"><span class="mentor-composer-icon"><i class="ti ti-cloud-upload"></i></span><div><h2>Import site codes</h2><p>Upload a CSV to add several sites at once.</p></div></div>
       <input type="file" id="fileInput" name="file" accept=".csv,text/csv" hidden>
@@ -89,7 +89,7 @@ see app/services/mentor/mentor_site_service.py. #}
     <form class="mentor-composer mentor-code-composer" id="composer" method="post" action="{{ url_for('mentor.add') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="site_codes" id="siteCodesInput">
       <div class="mentor-composer-head"><span class="mentor-composer-icon"><i class="ti ti-map-pin-plus"></i></span><div><h2>Add site codes</h2><p>Type one code or paste a list of sites.</p></div></div>
-      <div class="mentor-code-input" id="chipArea"><span id="chipList"></span><input type="text" id="codeInput" aria-label="Site codes" placeholder="e.g. 0460, 1002, I0104" inputmode="text" autocomplete="off" spellcheck="false" aria-describedby="mentorCodeHint mentorCodeStatus"></div>
+      <div class="mentor-code-input" id="chipArea"><span id="chipList"></span><input type="text" id="codeInput" aria-label="Site codes" placeholder="Enter site codes" inputmode="text" autocomplete="off" spellcheck="false" aria-describedby="mentorCodeHint mentorCodeStatus"></div>
       <p class="mentor-code-hint" id="mentorCodeHint">Site codes accept letters and numbers. Press Enter, space, or comma, or paste a list.</p>
       <div class="mentor-code-summary"><span id="mentorCodeStatus" role="status">No site codes entered</span><button type="button" class="mentor-clear-codes" id="clearCodesBtn" disabled>Clear all</button></div>
       <div class="mentor-code-note"><i class="ti ti-info-circle"></i><span>Only codes in the site database are added. Existing sites are kept and duplicates are skipped.</span></div>

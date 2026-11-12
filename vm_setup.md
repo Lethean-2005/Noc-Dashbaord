@@ -1,3 +1,5 @@
+> Dedicated worker update: `python run.py` and `scripts/start_dashboard.bat` ensure the independent worker is running. `python run.py --web-only` serves HTTP only when another task/service manages the worker. Before replacing worker code, run `.venv\Scripts\python.exe worker.py --stop` and stop the web server; preserve `.env` and `instance/`. After launch, check `/api/v1/system/sync`. For automatic worker recovery, explicitly install `scripts/install_sync_worker_task.ps1`; its default trigger is current-user logon, not unattended boot. See `docs/sync-worker.md` in the repository for complete operations guidance.
+
 # VM Setup
 
 Commands to get the dashboard running on this VM, in order. Run each
@@ -179,19 +181,22 @@ scripts/configure.bat
 
 Opens a settings window to toggle dashboard cards and edit sync/alert
 intervals — saves back to `.env`. Card visibility applies live; sync/alert
-changes need the dashboard restarted.
+changes need the dedicated worker restarted.
 
-## Step 13 — Optional: auto-start on VM boot
+## Step 13 - Optional: automatic worker startup and recovery
 
-**With admin rights** (recommended — works even if nobody logs in):
+For a normal signed-in Windows user, run PowerShell explicitly:
+
+```powershell
+.\scripts\install_sync_worker_task.ps1
+Start-ScheduledTask -TaskName NocDashboardSyncWorker
 ```
-schtasks /create /tn "Noc Dashboard" /tr "E:\Noc-Dashboard\scripts\start_dashboard.bat" /sc onstart /ru SYSTEM
-```
-(adjust the path to wherever this VM's copy actually lives)
 
-**Without admin rights** (only starts when this account logs in):
-Press `Win + R`, type `shell:startup`, press Enter, and copy the **Noc
-Dashboard** desktop shortcut (from Step 11) into that folder.
+This installs a dedicated worker task at user logon with one-minute restart after failure. It does not install or start automatically during a ZIP update. Start the website separately with the existing dashboard shortcut. The worker and web server are separate processes.
+
+For unattended VM boot, ask the VM administrator to register separate boot-time tasks/services: one executes the project's `.venv\Scripts\python.exe worker.py`, the other executes `.venv\Scripts\python.exe run.py --web-only`, both with the project as working directory and an account that can access the configured source systems. Do not manage both through one parent task if independent restarts are required. The provided default installer uses interactive user logon, not a SYSTEM account or stored password.
+
+If older boot automation launches the combined dashboard batch file, review it when adopting separate process supervision. Stop old embedded schedulers before the first worker starts. On folder changes, update task paths; keeping a stable installation folder avoids this.
 
 ---
 

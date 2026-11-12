@@ -1420,7 +1420,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // every 5 min, see SITE_SYNC_INTERVAL_SECONDS/INCIDENT_SYNC_INTERVAL_SECONDS
   // in app/config.py) and updates marker colors + counts in place, never a
   // full page reload — that would reset the user's pan/zoom/search/filter.
-  const SITES_URL = "/map/sites.json";
+  const SITES_URL = "/api/v1/map/sites";
   const REFRESH_INTERVAL_MS = 60000;
 
   function updateCounts(statusCounts) {

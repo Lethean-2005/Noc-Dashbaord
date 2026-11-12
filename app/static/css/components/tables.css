@@ -2319,3 +2319,5 @@ table:is(.alarm-table, .pc-grid, .pc-mini-table, .pc-escalation-table, .perf-tim
   display:flex; flex:0 0 auto; flex-wrap:wrap; justify-content:flex-end; gap:8px;
   padding:12px 20px 16px; border-top:1px solid var(--border-card);
 }
+
+.category-filter-options { scrollbar-gutter: stable; }

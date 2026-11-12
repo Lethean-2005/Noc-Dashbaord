@@ -53,6 +53,7 @@
     // still point at the now-removed old elements).
     function initPerformanceCards() {
         var tip = document.getElementById('perfTooltip');
+        if (!tip) return;
         function showTip(evt, html) {
             tip.innerHTML = html;
             tip.classList.add('show');
@@ -306,7 +307,57 @@
         initHelpModal('slaPolicy');
     }
 
+    function deferPerformanceSection() {
+        var section = document.getElementById('performanceSection');
+        if (!section || !section.dataset.lazyUrl) return;
+        var loading = false;
+        var observer;
+        async function load() {
+            if (loading || !section.dataset.lazyUrl) return;
+            loading = true;
+            section.setAttribute('aria-busy', 'true');
+            var retry = section.querySelector('[data-retry-performance]');
+            if (retry) retry.hidden = true;
+            try {
+                var url = new URL(section.dataset.lazyUrl, window.location.origin);
+                url.search = window.location.search;
+                var response = await fetch(url.toString(), {cache: 'no-store'});
+                if (!response.ok) throw new Error('Unable to load trends');
+                var html = await response.text();
+                var parsed = new DOMParser().parseFromString(html, 'text/html');
+                if (!parsed.getElementById('perfTooltip')) throw new Error('Incomplete trend response');
+                section.innerHTML = html;
+                delete section.dataset.lazyUrl;
+                if (observer) observer.disconnect();
+                initPerformanceCards();
+                var anchor = document.getElementById(window.location.hash.slice(1));
+                if (anchor && section.contains(anchor)) anchor.scrollIntoView({block: 'start'});
+            } catch (_) {
+                var message = section.querySelector('[data-loading-message]');
+                if (message) message.textContent = 'Unable to load trends.';
+                if (retry) retry.hidden = false;
+            } finally {
+                section.removeAttribute('aria-busy');
+                loading = false;
+            }
+        }
+        section.addEventListener('click', function (event) {
+            if (event.target.closest('[data-retry-performance]')) load();
+        });
+        if (window.location.hash && !document.getElementById(window.location.hash.slice(1))) {
+            load();
+        } else if ('IntersectionObserver' in window) {
+            observer = new IntersectionObserver(function (entries) {
+                if (entries.some(function (entry) { return entry.isIntersecting; })) load();
+            }, {root: document.getElementById('main-wrapper'), rootMargin: '500px'});
+            observer.observe(section);
+        } else {
+            setTimeout(load, 0);
+        }
+    }
+
     initPerformanceCards();
+    deferPerformanceSection();
 
     // Response Time / Resolution Time cards' "By Duration" popups — one
     // modal per week shown in each card's own MIN/AVG/MAX table

@@ -4,7 +4,7 @@ Named `datetime.py` to match the requested layout; import it as
 `from app.utils import datetime as dt_utils` to avoid clashing with the stdlib module.
 """
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 # Hardcoded rather than read from current_app.config["TIMEZONE"] — this
@@ -54,3 +54,25 @@ def format_short_date(date_str):
     except ValueError:
         return ""
     return f"{d.day} {d.strftime('%b %Y')}"
+
+
+def filter_calendar_dates(rows, field, date_from="", date_to=""):
+    """Filter Cambodia-local cache timestamps by complete calendar days.
+
+    Include midnight on the first day and exclude midnight after the last
+    day. Comparing ISO dates also includes fractional seconds at day end.
+    Cache timestamps have already been converted from UTC during sync.
+    """
+    if not date_from and not date_to:
+        return rows
+    try:
+        start = date.fromisoformat(date_from).isoformat() if date_from else ""
+        end = (date.fromisoformat(date_to) + timedelta(days=1)).isoformat() if date_to else ""
+    except (ValueError, OverflowError):
+        return []
+    return [
+        row for row in rows
+        if (value := str(row.get(field) or "")[:10])
+        and (not start or value >= start)
+        and (not end or value < end)
+    ]

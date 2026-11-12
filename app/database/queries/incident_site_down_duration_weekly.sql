@@ -39,6 +39,7 @@
 -- sync cycle happens to run on.
 -- ==============================================================
 
+-- :since is Cambodia midnight; compare its UTC equivalent with UTC source timestamps.
 -- name: incident_site_down_duration_weekly
 SELECT
   inc.incident_id AS "Incident ID",
@@ -50,4 +51,4 @@ FROM object_322 inc
 WHERE inc.incident_category = 'site_down'
   AND inc.status = 'closed'
   AND inc.resolved_at IS NOT NULL
-  AND inc.closed_at >= :since;
+  AND inc.closed_at >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC');

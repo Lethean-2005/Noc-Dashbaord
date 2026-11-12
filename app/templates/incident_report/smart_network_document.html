@@ -126,7 +126,7 @@
               <td><input type="text" name="circuit_customer_description" value="{{ c.get('customer_description', '') }}" placeholder="e.g. SMART DC/DR &ndash; IPLC to SG1 via MTC"></td>
               <td><input type="text" name="circuit_service" value="{{ c.get('service', '') }}" placeholder="e.g. IPLC"></td>
               <td><input type="text" name="circuit_bandwidth" value="{{ c.get('bandwidth', '') }}" placeholder="e.g. 100G"></td>
-              <td><input type="text" name="circuit_id" value="{{ c.get('circuit_id', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              <td><input type="text" name="circuit_id" value="{{ c.get('circuit_id', '') }}" placeholder="Circuit ID"></td>
               <td class="ir-smart-row-actions">
                 <button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button>
                 <button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button>
@@ -143,6 +143,7 @@
     <div class="ir-section">
       <div class="ir-section-title">2. Monthly Outage Statistics</div>
       <div class="ir-section-body">
+        <p class="ir-smart-help">Enter circuit IDs and monthly values here. All months from January to December are editable. These circuits become the choices in the following sections.</p>
         <div style="overflow-x:auto;">
         <table class="alarm-table ir-smart-table ir-smart-month-table" style="width:100%;" id="irOutageTable">
           <thead>
@@ -154,10 +155,10 @@
             </tr>
           </thead>
           <tbody id="irOutageRows">
-            {% set outage_rows = report.get('smart_monthly_outage') or [] %}
+            {% set outage_rows = report.get('smart_monthly_outage') or [{}] %}
             {% for row in outage_rows %}
             <tr class="ir-smart-row">
-              <td><input type="text" name="outage_circuit" value="{{ row.get('circuit', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              <td><input type="text" name="outage_circuit" value="{{ row.get('circuit', '') }}" placeholder="Circuit ID"></td>
               {% set months = row.get('months', {}) %}
               <td><input type="text" name="outage_jan" value="{{ months.get('jan', '') }}" placeholder="%"></td>
               <td><input type="text" name="outage_feb" value="{{ months.get('feb', '') }}" placeholder="%"></td>
@@ -187,6 +188,7 @@
     <div class="ir-section">
       <div class="ir-section-title">3. Fault Services Statistics &amp; Summary</div>
       <div class="ir-section-body">
+        <p class="ir-smart-help">Automatically follows section 2. Edit the monthly values in Monthly Outage Statistics.</p>
         <div style="overflow-x:auto;">
         <table class="alarm-table ir-smart-table ir-smart-month-table" style="width:100%;" id="irFaultTable">
           <thead>
@@ -200,7 +202,7 @@
             {% set fault_rows = report.get('smart_monthly_outage') or [] %}
             {% for row in fault_rows %}
             <tr class="ir-smart-row">
-              <td><input type="text" readonly aria-readonly="true" name="fault_circuit" value="{{ row.get('circuit', '') }}" placeholder="e.g. MX1453-MX1454"></td>
+              <td><input type="text" readonly aria-readonly="true" name="fault_circuit" value="{{ row.get('circuit', '') }}" placeholder="Circuit ID"></td>
               {% set months = row.get('months', {}) %}
               <td><input type="text" readonly aria-readonly="true" name="fault_jan" value="{{ months.get('jan', '') }}" placeholder="%"></td>
               <td><input type="text" readonly aria-readonly="true" name="fault_feb" value="{{ months.get('feb', '') }}" placeholder="%"></td>
@@ -231,7 +233,7 @@
           <tbody id="irFailureRows">
           {% for row in report.get('smart_failure_to_react') or [{}] %}
           <tr class="ir-smart-row">
-            {% for key, placeholder in [('ticket_no','Ticket reference'),('circuit_id','Circuit from inventory'),('occurred_time','DD-Mon-YYYY HH:MM'),('smart_complain','DD-Mon-YYYY HH:MM'),('tct_respond','DD-Mon-YYYY HH:MM'),('failure_to_react','00hrs 00mins'),('sla','Pass / Fail'),('service_credit','e.g. 0%'),('note','Complaint or response details')] %}
+            {% for key, placeholder in [('ticket_no','Ticket reference'),('circuit_id','Circuit from section 2'),('occurred_time','DD-Mon-YYYY HH:MM'),('smart_complain','DD-Mon-YYYY HH:MM'),('tct_respond','DD-Mon-YYYY HH:MM'),('failure_to_react','00hrs 00mins'),('sla','Pass / Fail'),('service_credit','e.g. 0%'),('note','Complaint or response details')] %}
             <td><input type="text" name="react_{{ key }}" value="{{ row.get(key, '') }}" placeholder="{{ placeholder }}" aria-label="{{ key|replace('_',' ')|title }}"></td>
             {% endfor %}
             <td class="ir-smart-row-actions"><button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button><button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button></td>
@@ -294,7 +296,7 @@
           <thead><tr><th>Circuit</th>{% for month in ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}<th data-smart-month="{{ month }}">{{ month }}-{{ current_year_suffix }}</th>{% endfor %}<th>Action</th></tr></thead>
           <tbody id="irCreditRows">
           {% for row in report.get('smart_credit_note') or [{}] %}
-          <tr class="ir-smart-row"><td><input type="text" name="credit_circuit" value="{{ row.get('circuit','') }}" placeholder="Circuit from inventory"></td>
+          <tr class="ir-smart-row"><td><input type="text" name="credit_circuit" value="{{ row.get('circuit','') }}" placeholder="Circuit from section 2"></td>
             {% for month in ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'] %}<td><input type="text" name="credit_{{ month }}" value="{{ (row.get('months') or {}).get(month,'') }}" placeholder="Credit value"></td>{% endfor %}
             <td class="ir-smart-row-actions"><button type="button" class="ir-smart-row-insert" title="Insert row below"><i class="ti ti-plus"></i></button><button type="button" class="ir-smart-row-remove" onclick="this.closest('tr').remove()" title="Remove row"><i class="ti ti-trash"></i></button></td>
           </tr>{% endfor %}

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ code }} - {{ name }} | NOC Dashboard</title>
+    <link rel="stylesheet" href="{{ versioned_static('css/tabler-icons.min.css') }}">
+    <link rel="stylesheet" href="{{ versioned_static('css/components/404.css') }}">
+    <link rel="icon" href="{{ versioned_static('images/noc_dashboard.ico') }}">
+</head>
+<body class="nf3-page">
+    <div class="nf3-card">
+        <div class="nf3-left">
+            <p class="nf3-eyebrow">{{ code }} {{ name }}</p>
+            <h1 class="nf3-title">{{ title }}</h1>
+            <p class="nf3-desc">{{ message }}</p>
+            <a class="nf3-btn" href="{{ return_url }}">
+                {{ return_label }}
+                <span class="nf3-btn-arrow"><i class="ti ti-arrow-right"></i></span>
+            </a>
+        </div>
+        <div class="nf3-right">{{ code }}</div>
+    </div>
+</body>
+</html>

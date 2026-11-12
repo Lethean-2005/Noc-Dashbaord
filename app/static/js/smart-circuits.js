@@ -1,9 +1,9 @@
-/* Circuit fields always follow this report's active inventory. */
+/* Downstream circuit choices follow section 2 of this report. */
 (function () {
     'use strict';
-    var inventory = document.getElementById('irCircuitsRows');
-    if (!inventory) return;
-    var targets = ['irOutageRows', 'irServicesOutageRows', 'irFailureRows', 'irCreditRows'].map(function (id) {
+    var monthlyRows = document.getElementById('irOutageRows');
+    if (!monthlyRows) return;
+    var targets = ['irServicesOutageRows', 'irFailureRows', 'irCreditRows'].map(function (id) {
         return document.getElementById(id);
     }).filter(Boolean);
     var scheduled = false;
@@ -16,13 +16,13 @@
             refresh();
         });
     }
-    function inventoryChanged(event) {
-        if (event.target.matches('[name="circuit_id"]')) scheduleRefresh();
+    function monthlyCircuitsChanged(event) {
+        if (event.target.matches('[name="outage_circuit"]')) scheduleRefresh();
     }
     function refresh() {
         var entries = [];
         var inputs = new Map();
-        inventory.querySelectorAll('[name="circuit_id"]').forEach(function (input) {
+        monthlyRows.querySelectorAll('[name="outage_circuit"]').forEach(function (input) {
             if (!input.dataset.circuitIdentity) input.dataset.circuitIdentity = String(++nextIdentity);
             var entry = { id: input.dataset.circuitIdentity, value: input.value.trim() };
             inputs.set(entry.id, entry);
@@ -37,7 +37,7 @@
                 var value = field.value.trim();
                 var identity = field.dataset.circuitIdentity;
                 if (identity && !inputs.has(identity)) {
-                    // Removing inventory also removes its dependent report rows.
+                    // Removing a monthly circuit also removes its dependent report rows.
                     field.closest('tr').remove();
                     return;
                 }
@@ -53,7 +53,7 @@
                     var replacement = document.createElement(tag.toLowerCase());
                     replacement.name = field.name;
                     replacement.className = field.className;
-                    replacement.setAttribute('aria-label', 'Circuit ID from active circuits inventory');
+                    replacement.setAttribute('aria-label', 'Circuit ID from Monthly Outage Statistics');
                     var focused = document.activeElement === field;
                     field.replaceWith(replacement);
                     field = replacement;
@@ -62,7 +62,7 @@
                 field.dataset.circuitOptions = signature;
                 if (identity) field.dataset.circuitIdentity = identity;
                 var valid = !value && !identity || entries.some(function (entry) { return entry.value === value; });
-                field.setCustomValidity(valid ? '' : 'Enter the circuit ID in section 1 or select an inventory circuit.');
+                field.setCustomValidity(valid ? '' : 'Enter the circuit ID in section 2 or select a monthly outage circuit.');
                 if (multiple) {
                     var options = document.createDocumentFragment();
                     entries.forEach(function (entry) {
@@ -74,7 +74,7 @@
                     if (!valid) {
                         var missing = document.createElement('option');
                         missing.value = value;
-                        missing.textContent = value || 'Enter circuit ID in section 1';
+                        missing.textContent = value || 'Enter circuit ID in section 2';
                         // Keep the selected value in Draft form data; custom validity still blocks Final.
                         options.appendChild(missing);
                     }
@@ -84,21 +84,21 @@
                     field.type = 'text';
                     field.readOnly = true;
                     field.setAttribute('aria-readonly', 'true');
-                    field.placeholder = 'Enter circuit ID in section 1';
+                    field.placeholder = 'Enter circuit ID in section 2';
                     field.value = value;
                 }
             });
             if (changed) body.dispatchEvent(new Event('change', { bubbles: true }));
         });
     }
-    inventory.addEventListener('input', inventoryChanged);
-    inventory.addEventListener('change', inventoryChanged);
-    new MutationObserver(scheduleRefresh).observe(inventory, { childList: true });
+    monthlyRows.addEventListener('input', monthlyCircuitsChanged);
+    monthlyRows.addEventListener('change', monthlyCircuitsChanged);
+    new MutationObserver(scheduleRefresh).observe(monthlyRows, { childList: true });
     targets.forEach(function (body) {
         body.addEventListener('change', function (event) {
             var field = event.target;
-            if (!field.matches('select[name="outage_circuit"], select[name="outage_circuit_id"], select[name="react_circuit_id"], select[name="credit_circuit"]')) return;
-            var input = Array.from(inventory.querySelectorAll('[name="circuit_id"]')).find(function (item) { return item.value.trim() === field.value; });
+            if (!field.matches('select[name="outage_circuit_id"], select[name="react_circuit_id"], select[name="credit_circuit"]')) return;
+            var input = Array.from(monthlyRows.querySelectorAll('[name="outage_circuit"]')).find(function (item) { return item.value.trim() === field.value; });
             if (input) {
                 field.dataset.circuitIdentity = input.dataset.circuitIdentity;
                 field.setCustomValidity('');

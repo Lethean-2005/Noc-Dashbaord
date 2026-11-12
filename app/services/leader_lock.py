@@ -1,24 +1,9 @@
-"""Cross-process "only one of us actually syncs" lock.
+"""Machine-wide scheduler ownership shared with older embedded-scheduler builds.
 
-The existing WERKZEUG_RUN_MAIN check in app/__init__.py only prevents
-Werkzeug's debug reloader from double-starting jobs within one
-`python run.py` invocation — it can't help when something outside this
-app (an antivirus/EDR process-monitoring agent, confirmed on this
-machine) launches a second, fully independent run.py process, unaware a
-first process already started every scheduler.
-
-This closes that gap without needing to know why the duplicate exists:
-the first process to bind a fixed local TCP port becomes the "leader"
-and starts every background job; any process that fails to bind that
-port is a "follower" — it still serves HTTP normally, it just skips its
-own duplicate schedulers. The bound socket is never closed: as soon as
-the leader exits, the OS releases the port immediately, so a follower
-can become leader on its next attempt — no stale-lock file to clean up.
-
-A follower that gave up once used to stay a follower forever, even after
-the leader disappeared. wait_for_leadership() below fixes that — it
-keeps retrying in the background and takes over automatically once the
-lock frees up.
+Only the dedicated worker claims the existing exclusive loopback port. New
+web processes never acquire it or wait for takeover. The OS releases the
+socket on process exit; graceful shutdown releases it after jobs finish.
+The legacy takeover helper remains for compatibility with external callers.
 """
 
 import socket
@@ -78,3 +63,12 @@ def wait_for_leadership(on_acquired, retry_seconds=_RETRY_SECONDS):
         on_acquired()
 
     threading.Thread(target=_poll, daemon=True, name="leader-lock-watcher").start()
+
+
+def release_leadership():
+    """Release only after all jobs stopped; normal process exit also frees the lock."""
+    global _leader_socket
+    with _lock:
+        if _leader_socket is not None:
+            _leader_socket.close()
+            _leader_socket = None

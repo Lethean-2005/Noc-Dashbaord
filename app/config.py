@@ -308,6 +308,8 @@ class Config:
     # requests carrying the matching session cookie.
     WTF_CSRF_TIME_LIMIT = None
 
+    DASHBOARD_LAZY_PERFORMANCE = _bool(os.environ.get("DASHBOARD_LAZY_PERFORMANCE"), default=True)
+
     JSON_SORT_KEYS = False
 
 

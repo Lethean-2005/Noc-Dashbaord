@@ -69,3 +69,15 @@ test('concurrent sections preserve both filter changes in the URL', async () => 
     assert.equal(result.get('volume_category'), 'Facility');
     assert.equal(result.get('response_time_category'), 'Power');
 });
+
+
+test('repeated Apply for the same pending filter does not restart its request', async () => {
+    const { api, pending, target } = setup();
+    const first = api.replace({selector:'#cards',url:'/cards?category=Power',search:'?category=Power'});
+    await api.replace({selector:'#cards',url:'/cards?category=Power',search:'?category=Power'});
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].options.signal.aborted, false);
+    pending[0].resolve({ok:true,text:async()=> 'Power cards'});
+    await first;
+    assert.equal(target.innerHTML, 'Power cards');
+});

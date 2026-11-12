@@ -999,3 +999,11 @@
 .ir-smart-document .ir-section-body > .btn-export { margin-top: 10px; }
 .ir-smart-month-table tfoot th { min-width: 170px; }
 @media(max-width: 700px) { .ir-smart-document { width: 100%; padding: 16px; } }
+
+/* Keep all twelve month fields readable and aligned with the report grid. */
+.ir-smart-month-table { min-width: 1570px; table-layout: fixed; }
+.ir-smart-month-table th:first-child,
+.ir-smart-month-table td:first-child { width: 200px; }
+.ir-smart-month-table th:last-child:empty { width: 72px; }
+.ir-smart-month-table input { min-width: 0; }
+.ir-smart-month-table input[readonly] { color: var(--text-muted); }

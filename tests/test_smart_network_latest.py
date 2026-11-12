@@ -72,3 +72,18 @@ def test_latest_export_fills_both_new_tables_and_retains_legacy_outages():
     assert doc.tables[4].rows[1].cells[0].text=="OLD-RECORD"
     assert doc.tables[5].rows[2].cells[11].text=="Agreed value"
     assert doc.tables[5].rows[-1].cells[11].text=="2700"
+
+
+def test_all_twelve_months_save_reload_and_export(app):
+    months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+    form = MultiDict([('smart_report_month', 'Jan-Dec 2027'), ('outage_circuit', 'MONTHLY-CIRCUIT')]
+                     + [(f'outage_{month}', f'{index}%') for index, month in enumerate(months)])
+    service = IncidentReportService()
+    report = service.get_report(service.create_report(service.parse_smart_form(form)))
+    expected = {month: f'{index}%' for index, month in enumerate(months)}
+    assert report['smart_monthly_outage'][0]['months'] == expected
+    assert report['smart_fault_services'][0]['months'] == expected
+    doc = Document(BytesIO(build_docx(report)))
+    for table_index in (1, 2):
+        for index, month in enumerate(months):
+            assert doc.tables[table_index].rows[2].cells[2 + index].text == expected[month]

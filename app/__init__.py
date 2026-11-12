@@ -1,7 +1,6 @@
 """Application factory."""
 
 import os
-from importlib import import_module
 
 from dotenv import load_dotenv
 
@@ -15,16 +14,19 @@ from app.config import config_map  # noqa: E402
 from app.extensions import compress, csrf, db, login_manager  # noqa: E402
 
 
-def create_app(env=None, instance_path=None):
+def create_app(env=None, instance_path=None, *, process_role="web"):
     """`instance_path`, if given, overrides Flask's default instance folder
-    (where instance/localstorage.db lives — see app/database/cache.py). Only
-    tests pass this, so each test run gets its own empty SQLite cache
+    (where instance/localstorage.db lives — see app/database/cache.py). Both
+    tests and the worker use this; each test gets its own SQLite cache
     instead of reading whatever real data happens to be synced into the
     dev machine's instance/localstorage.db."""
+    if process_role not in {"web", "worker"}:
+        raise ValueError("process_role must be web or worker")
     env = env or os.environ.get("APP_ENV", "default")
     
     app = Flask(__name__, instance_relative_config=True, instance_path=instance_path)
     app.config.from_object(config_map[env])
+    app.config["PROCESS_ROLE"] = process_role
 
     os.makedirs(app.instance_path, exist_ok=True)
 
@@ -35,14 +37,20 @@ def create_app(env=None, instance_path=None):
     _register_context_processors(app)
     _register_static_cache_headers(app)
     _register_request_timing_log(app)
-    _init_cache_db(app)
-    _validate_scheduler_offsets()
-    _start_background_jobs(app)
-    _init_telegram_alert(app)
-    _init_inc_wo_telegram_alert(app)
-    _init_inc_wo_power_telegram_alert(app)
-    _init_inc_wo_general_telegram_alert(app)
-    _init_webhook_alerts(app)
+    runtime = None
+    if process_role == "worker" and not app.testing:
+        from app.worker_runtime import WorkerRuntime
+
+        runtime = WorkerRuntime(app)
+        runtime.acquire()
+    try:
+        _init_cache_db(app)
+        if runtime is not None:
+            runtime.start()
+    except BaseException:
+        if runtime is not None:
+            runtime.abort_startup()
+        raise
 
     return app
 
@@ -72,6 +80,10 @@ def _register_blueprints(app):
     app.register_blueprint(partner_contact_bp)
     app.register_blueprint(incident_report_bp, url_prefix="/incident-report")
     app.register_blueprint(help_bp)
+
+    from app.routes.api import register_api
+
+    register_api(app)
 
 
 def _register_template_filters(app):
@@ -201,269 +213,7 @@ def _init_cache_db(app):
     app.teardown_appcontext(close_request_cache_conn)
 
 
-# Every scheduler that writes to the shared SQLite cache
-# (instance/localstorage.db) via offset_seconds-based clock alignment —
-# used by _validate_scheduler_offsets() below. Add a new entry here
-# whenever a new scheduler module gets its own OFFSET_SECONDS constant,
-# or the check below can't see it. The Telegram/webhook alert loops use
-# the same OFFSET_SECONDS pattern for a different, unrelated reason
-# (spacing out Telegram API calls, not SQLite writes) and are
-# deliberately NOT included — a different collision domain.
-_SCHEDULER_OFFSET_MODULES = (
-    "app.services.alarm.alarm_scheduler",
-    "app.services.alarm.congestion_history_scheduler",
-    "app.services.site.site_scheduler",
-    "app.services.site.site_lookup_scheduler",
-    "app.services.incident.incident_scheduler",
-    "app.services.ape_alarm.ape_alarm_scheduler",
-    "app.services.vip.vip_alarm_scheduler",
-    "app.services.vip.vip_site_scheduler",
-    "app.services.pop.pop_scheduler",
-    "app.services.site.mssql_site_onair_scheduler",
-    "app.services.partner_contact.partner_contact_scheduler",
-    "app.services.incident.site_down_24h_alert_scheduler",
-)
-
-
-def _validate_scheduler_offsets():
-    """Fails app startup loudly if two schedulers in
-    _SCHEDULER_OFFSET_MODULES share the same OFFSET_SECONDS — the exact
-    bug behind a real production incident (2026-10-06):
-    partner_contact_scheduler.py and mssql_site_onair_scheduler.py both
-    used offset_seconds=110 with the same 300s interval, so they launched
-    at the identical instant every cycle, piled up writing to the shared
-    SQLite cache at once, and several OTHER schedulers' writes queued up
-    behind that collision and failed outright ("database is locked")
-    after 58-123s instead of the normal <1s. That went undetected for
-    weeks because nothing checked it.
-
-    Called unconditionally from create_app() — including under pytest,
-    not just a real app boot — so a repeat of this exact mistake fails
-    the test suite immediately instead of silently reaching production
-    again."""
-    seen = {}
-    for module_path in _SCHEDULER_OFFSET_MODULES:
-        offset = import_module(module_path).OFFSET_SECONDS
-        if offset in seen:
-            raise RuntimeError(
-                f"Scheduler offset collision: {module_path!r} and {seen[offset]!r} "
-                f"both use OFFSET_SECONDS={offset}. Two schedulers sharing an "
-                "offset launch at the exact same instant every cycle and pile up "
-                "writing to the same SQLite cache file at once — this caused a "
-                "real production incident on 2026-10-06 (partner_contact_scheduler.py "
-                "vs mssql_site_onair_scheduler.py, both offset=110). Pick a value "
-                "not already used by any other entry in _SCHEDULER_OFFSET_MODULES."
-            )
-        seen[offset] = module_path
-
-    # site_down_24h_alert_scheduler runs TWO independently-timed loops
-    # (down-alert + restore-confirmation) sharing one module, so it needs
-    # a second offset checked here too — its own OFFSET_SECONDS (the
-    # down-alert loop) was already checked by the generic loop above.
-    from app.services.incident import site_down_24h_alert_scheduler as _sd24h
-
-    restore_offset = _sd24h.RESTORE_OFFSET_SECONDS
-    if restore_offset in seen:
-        raise RuntimeError(
-            "Scheduler offset collision: site_down_24h_alert_scheduler's own "
-            f"RESTORE_OFFSET_SECONDS={restore_offset} collides with "
-            f"{seen[restore_offset]!r}. Pick a value not already used by any "
-            "other entry in _SCHEDULER_OFFSET_MODULES."
-        )
-    seen[restore_offset] = "app.services.incident.site_down_24h_alert_scheduler (restore loop)"
-
-
-# (scheduler module, config key holding its interval in seconds) — every
-# entry here used to be its own near-identical _init_*_cache() function
-# (~100 lines total) repeating the same testing/debug-reloader skip-guard
-# by hand. Collapsed into _start_background_jobs() below; add a domain's
-# background sync here instead of writing a new function for it.
-_BACKGROUND_JOBS = (
-    ("app.services.alarm.alarm_scheduler", "MSSQL_SYNC_INTERVAL_SECONDS"),
-    ("app.services.alarm.congestion_history_scheduler", "CONGESTION_SYNC_INTERVAL_SECONDS"),
-    ("app.services.site.site_scheduler", "SITE_SYNC_INTERVAL_SECONDS"),
-    ("app.services.site.site_lookup_scheduler", "SITE_LOOKUP_SYNC_INTERVAL_SECONDS"),
-    ("app.services.incident.incident_scheduler", "INCIDENT_SYNC_INTERVAL_SECONDS"),
-    ("app.services.ape_alarm.ape_alarm_scheduler", "APE_ALARM_SYNC_INTERVAL_SECONDS"),
-    ("app.services.vip.vip_alarm_scheduler", "VIP_ALARM_SYNC_INTERVAL_SECONDS"),
-    ("app.services.vip.vip_site_scheduler", "VIP_SITE_SYNC_INTERVAL_SECONDS"),
-    ("app.services.pop.pop_scheduler", "POP_SYNC_INTERVAL_SECONDS"),
-    ("app.services.site.mssql_site_onair_scheduler", "MSSQL_SITE_ONAIR_SYNC_INTERVAL_SECONDS"),
-    ("app.services.partner_contact.partner_contact_scheduler", "PARTNER_CONTACT_SYNC_INTERVAL_SECONDS"),
-    ("app.services.incident.site_down_24h_alert_scheduler", "SITE_DOWN_24H_ALERT_INTERVAL_SECONDS"),
-    ("app.services.all_tasks_scheduler", "ALL_TASKS_SUMMARY_INTERVAL_SECONDS"),
-    ("app.routes.dashboard", "DASHBOARD_LOG_INTERVAL_SECONDS"),
-)
-
-
-def _start_background_jobs(app):
-    """Starts every scheduler in _BACKGROUND_JOBS. Skipped in tests (no real
-    MSSQL/Postgres to hit), under the Werkzeug debug reloader skipped in the
-    watcher parent process so nothing starts twice, and skipped for now in
-    any process that isn't this machine's leader (see leader_lock.py) — so
-    an externally-duplicated `run.py` process still serves HTTP normally but
-    never runs its own duplicate set of schedulers. A follower doesn't stay
-    a follower forever: wait_for_leadership() keeps retrying in the
-    background and starts these same jobs automatically the moment the
-    leader disappears, instead of needing every process manually restarted."""
-    if app.testing:
-        return
-    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
-        return
-
-    def _start_all():
-        for module_path, config_key in _BACKGROUND_JOBS:
-            import_module(module_path).start(app, app.config[config_key])
-
-    from app.services.leader_lock import is_leader, wait_for_leadership
-
-    if is_leader():
-        _start_all()
-        return
-
-    from app.utils.logger import get_logger
-
-    get_logger(__name__).info(
-        "Another process already owns background sync — this process will serve HTTP "
-        "requests only for now, and take over automatically if that process stops."
-    )
-    wait_for_leadership(_start_all)
-
-
-def _init_telegram_alert(app):
-    """Start the background Telegram Site Down alert loop (every
-    ALERT_INTERVAL_SECONDS). Reads the incident_by_status cache that the
-    incident scheduler (see _BACKGROUND_JOBS above) already keeps in sync —
-    no new cache table needed here. Same skip conditions as
-    _start_background_jobs() (including the leader_lock check with the same
-    automatic-takeover-on-leader-loss behavior — a follower process must
-    not send duplicate Telegram alerts either); additionally a no-op
-    whenever TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS aren't set, so a dev
-    machine without those in .env just never starts this thread."""
-    if app.testing:
-        return
-    if not app.config.get("TELEGRAM_BOT_TOKEN") or not app.config.get("TELEGRAM_CHAT_IDS"):
-        return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.leader_lock import is_leader, wait_for_leadership
-        from app.services.telegram.telegram_alert import start
-
-        def _start_telegram():
-            start(app, app.config["ALERT_INTERVAL_SECONDS"])
-
-        if is_leader():
-            _start_telegram()
-        else:
-            wait_for_leadership(_start_telegram)
-
-
-def _init_inc_wo_telegram_alert(app):
-    """Start the background Telegram INC-WO Site Down alert loop (every
-    INC_WO_ALERT_INTERVAL_SECONDS). Same skip conditions as
-    _init_telegram_alert() above, but gated on
-    TELEGRAM_BOT_INC_WO_TOKEN/TELEGRAM_CHAT_IDS_INC_WO instead of
-    TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS — a separate bot posting to its
-    own chat, independent of whether the Site Down alert above is
-    configured. See app/services/telegram/telegram_inc_wo_alert.py."""
-    if app.testing:
-        return
-    if not app.config.get("TELEGRAM_BOT_INC_WO_TOKEN") or not app.config.get(
-        "TELEGRAM_CHAT_IDS_INC_WO"
-    ):
-        return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.leader_lock import is_leader, wait_for_leadership
-        from app.services.telegram.telegram_inc_wo_alert import start
-
-        def _start_inc_wo_telegram():
-            start(app, app.config["INC_WO_ALERT_INTERVAL_SECONDS"])
-
-        if is_leader():
-            _start_inc_wo_telegram()
-        else:
-            wait_for_leadership(_start_inc_wo_telegram)
-
-
-def _init_inc_wo_power_telegram_alert(app):
-    """Start the background Telegram INC-WO Category Power alert loop —
-    same skip conditions as _init_inc_wo_telegram_alert() above, but
-    gated on TELEGRAM_BOT_INC_WO_POWER_TOKEN/TELEGRAM_CHAT_IDS_INC_WO_POWER,
-    a third, separate bot/chat."""
-    if app.testing:
-        return
-    if not app.config.get("TELEGRAM_BOT_INC_WO_POWER_TOKEN") or not app.config.get(
-        "TELEGRAM_CHAT_IDS_INC_WO_POWER"
-    ):
-        return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.leader_lock import is_leader, wait_for_leadership
-        from app.services.telegram.telegram_inc_wo_power_alert import start
-
-        def _start_inc_wo_power_telegram():
-            start(app, app.config["INC_WO_POWER_ALERT_INTERVAL_SECONDS"])
-
-        if is_leader():
-            _start_inc_wo_power_telegram()
-        else:
-            wait_for_leadership(_start_inc_wo_power_telegram)
-
-
-def _init_inc_wo_general_telegram_alert(app):
-    """Start the background Telegram INC-WO General alert loop — same
-    skip conditions as _init_inc_wo_power_telegram_alert() above, but
-    gated on TELEGRAM_BOT_INC_WO_GENERAL_TOKEN/TELEGRAM_CHAT_IDS_INC_WO_GENERAL,
-    a fourth, separate bot/chat."""
-    if app.testing:
-        return
-    if not app.config.get("TELEGRAM_BOT_INC_WO_GENERAL_TOKEN") or not app.config.get(
-        "TELEGRAM_CHAT_IDS_INC_WO_GENERAL"
-    ):
-        return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.leader_lock import is_leader, wait_for_leadership
-        from app.services.telegram.telegram_inc_wo_general_alert import start
-
-        def _start_inc_wo_general_telegram():
-            start(app, app.config["INC_WO_GENERAL_ALERT_INTERVAL_SECONDS"])
-
-        if is_leader():
-            _start_inc_wo_general_telegram()
-        else:
-            wait_for_leadership(_start_inc_wo_general_telegram)
-
-
-def _init_webhook_alerts(app):
-    """Start the background Teams webhook alert loop (every
-    TEAMS_ALERT_INTERVAL_SECONDS — see webhook/__init__.py's start()). Same
-    skip conditions as _init_telegram_alert() above (including the
-    leader_lock automatic-takeover-on-leader-loss behavior — a follower
-    process must not send duplicate Teams alerts either); additionally a
-    no-op whenever TEAMS_ALERTS_ENABLED is false, so it can be switched off
-    in .env without touching code."""
-    if app.testing:
-        return
-    if not app.config.get("TEAMS_ALERTS_ENABLED"):
-        return
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        from app.services.leader_lock import is_leader, wait_for_leadership
-        from webhook import start
-
-        def _start_webhook_alerts():
-            start(app, app.config["TEAMS_ALERT_INTERVAL_SECONDS"])
-
-        if is_leader():
-            _start_webhook_alerts()
-        else:
-            wait_for_leadership(_start_webhook_alerts)
-
-
 def _register_error_handlers(app):
-    from flask import render_template
+    from app.http_errors import register_error_handlers
 
-    @app.errorhandler(404)
-    def not_found(error):
-        return render_template("errors/404.html"), 404
-
-    @app.errorhandler(500)
-    def server_error(error):
-        return render_template("errors/500.html"), 500
+    register_error_handlers(app)

@@ -147,3 +147,70 @@ with letter entry. No browser JavaScript errors were observed.
 - Interface, additional info and notes persist with exclusion rules. Existing schemas upgrade without deleting rules; missing historical metadata stays blank.
 - Shortened reviewed comments and removed real incident examples. No unused imports or undefined names were reported by Pyflakes. All SQL files have query-loader references; none were removed as unused.
 - Baseline: 556 Python tests passed. After the changes, 65 affected Python tests and 12 existing JavaScript checks passed. Edge reported no dashboard JavaScript errors; local median frame interval was 8.3 ms. This measures the local browser, not VM load or source database query latency.
+
+
+## Dashboard initial loading review - 12 November 2026
+
+Existing request logs showed dashboard server render times of approximately 1.96-4.27 seconds under the user's active PC workload. Profiling identified historical performance context and template construction as the largest part of initial page rendering.
+
+The live cards and graph row remain server-rendered immediately. Historical performance cards now load through the existing /performance-cards route when their section approaches the viewport. This reduces critical-path work rather than changing query definitions or caching data for longer. Requests retain current filters; chart initialization runs after insertion. Failed loads retain a Retry control. Hash links into historical cards trigger loading before scrolling. The full-page fallback is /?load_performance=1; DASHBOARD_LAZY_PERFORMANCE=false disables the optimization after a web-process restart.
+
+Week labels in the root-cause table are computed once per selected week rather than reformatting the same label for each category/duration cell. No counting, sorting, deduplication or duration predicates changed.
+
+Five-run local median comparison using one consistent, temporary read-only-source cache snapshot:
+
+| Render | Median server time | Initial HTML |
+|---|---:|---:|
+| Full-page compatibility mode | 448.1 ms | 591.6 KiB |
+| Deferred initial page | 104.1 ms | 160.4 KiB |
+| Historical section, loaded separately | 358.0 ms | 431.5 KiB |
+
+Initial server time improved by approximately 77%, and initial HTML by approximately 73%. These are warm local test-client measurements, not production VM timings or total-load CPU savings. Historical calculations still run when the section is needed. Hardware load, memory pressure, source freshness and network conditions can affect real performance.
+
+Validation: 730 Python tests, 14 JavaScript regression tests, Python static checks and JavaScript syntax checks passed. An isolated Edge browser verified deferred loading, HTTP failure/retry, subsequent filter swaps and absence of page JavaScript errors. Comparing 3,465 historical DOM elements between full-page and fragment rendering on the same populated snapshot produced identical values, links and attributes. Existing filter/drilldown/SLA tests passed.
+
+The repeatable benchmark is scripts/diagnostics/profile_dashboard.py. It clones the local cache through SQLite's backup API into a temporary test instance, disables jobs and delivery through testing configuration, measures renders and removes its snapshot. It does not modify the production cache or send alerts.
+
+No production process was restarted, no live sync or notification was triggered, and no commit, push or deployment ZIP was created during this review. Existing dedicated-worker and API changes remain in the working tree.
+
+
+## Historical drilldown review - 12 November 2026
+
+Large historical tables were measured as a remaining bottleneck: the populated SLA view had 20,104 rows and approximately 14 MiB HTML, and Resolution Time had 12,241 rows and approximately 4.9 MiB HTML. Paging was evaluated but removed at the user's request. The active implementation shows all matching historical rows together, with no 100-row limit or Previous/Next controls. Existing in-page search and complete exports are retained.
+
+The earlier deferred dashboard chart loading and precomputed week-label improvements remain active. No source SQL, database schema, notification rules or live records were changed. Further historical-table optimization must preserve the all-rows view the user requested.
+
+The live cache returned ok from a read-only PRAGMA quick_check. Original paging experiment results are not performance claims for the restored all-rows tables. No commit, push, production restart or ZIP build was performed.
+
+
+## Filter interaction review - 12 November 2026
+
+Filter placement previously measured popup bounds twice on every outer scroll reposition and scanned all filters in each animation frame. Placement now tracks the active filter, measures popup size once per open/input/resize/font update, and reuses those dimensions while scrolling. Internal option-list scrolling does not schedule placement work. Popup dimensions are invalidated when relevant inputs or viewport/font dimensions change. Stable scrollbar space prevents list-width shifts.
+
+Apply and Clear close the floating popup without altering field values. Identical repeated Apply clicks while the same request is pending no longer abort and restart that request. Different later requests still cancel/ignore stale responses, and other cards' current filter parameters remain preserved. Scheduled page refresh now defers during active filter-fragment requests while retaining the existing refresh schedule and maximum deferral behavior.
+
+Validation: 16 JavaScript regression tests and 12 focused Python/browser tests passed. An isolated Edge check measured one popup size read on open and no additional popup size reads while internally scrolling or scrolling the page. The popup stayed within desktop/mobile viewport bounds after resize. Apply closure, outside click, Escape, checkbox interaction, failed-load retry, repeated filter updates and all-rows historical-table visibility passed. JavaScript syntax checks passed.
+
+No pagination was reintroduced. No source records, database tables, sync intervals or alert rules were changed. These checks confirm the tested local browser behaviors, not a production VM frame-rate guarantee. Changes remain local until an authorized deployment.
+
+
+## Follow-up project performance review - 12 November 2026
+
+A fresh five-run benchmark on an isolated SQLite backup measured median server render times of 53.4 ms for the initial dashboard, 201.9 ms for the full-page compatibility mode and 160.7 ms for the separately loaded historical section. Initial HTML was 158.9 KiB versus 590.1 KiB for full rendering. These are warm local test-client timings under the current PC workload, not VM or end-to-end browser timings. The historical section still runs when needed; the measurements do not imply that its CPU work disappeared.
+
+Table search now skips repeated normalized queries and writes a row's display style only when visibility changes. Browser verification with 1,000 rows confirmed all records remain available, clearing search restores all rows, and an equivalent query causes zero row-style mutations. Dynamically initialized blank cells use the same em dash as initial tables instead of a question mark. No pagination, count definitions, SQL or notification rules changed.
+
+Read-only database quick_check returned ok. Worker heartbeat was healthy with 20 job loops at the time of inspection. Python syntax parsing passed for 193 application/script/entry-point files; Pyflakes reported no findings. All browser JavaScript files passed syntax checks, and all 16 JavaScript regressions passed. Three focused browser tests passed, covering chart retry, filter scrolling and table search. No manual test notifications were sent.
+
+Large all-row historical drilldowns remain the main known browser-rendering constraint. They retain every matching row as requested. Actual VM contention, source query latency and concurrent-user load require measurement on that VM. Saved data, environment settings and scripts were preserved. No commit, push, deployment or ZIP build was performed.
+
+Full Python regression suite completed: 752 passed in 134.64 seconds. The added table-search browser regression also passed in the separate three-test browser run.
+
+
+## Release verification - v19.3.8, 12 November 2026
+
+The full final Python suite passed: 824 tests. The shared HTTP error handler covers all 31 Werkzeug HTTP error statuses with browser pages or API JSON, preserving Allow and Retry-After headers and hiding internal exception details. Normal startup ensures a separate worker; calendar-date filters include complete Cambodia days. Existing saved data and notification schedules are preserved. The deployment ZIP excludes instance, real environment configuration, logs, virtual environments and tests. Copy the existing VM .env and complete instance folder during upgrade, and install requirements into the new project virtual environment.
+
+Smart Report follow-up: section 2 Monthly Outage Statistics now supplies downstream circuit choices. One circuit fills automatically; multiple circuits provide a dropdown. Renaming keeps linked rows associated, and removing a source circuit removes only its dependent rows. Section 1 inventory is independent. A blank monthly row is present on new reports so January through December can be entered immediately. Section 3 remains a mirror of section 2. All twelve months passed browser input and save/reload/DOCX export checks. Reference-template export tests passed. Monthly table widths were aligned for readable horizontal scrolling. The focused 22-test report suite passed.
+
+Final release check after the Smart Report follow-up: all 826 Python tests passed. JavaScript regressions (16), JavaScript syntax checks and Pyflakes passed. The rebuilt 410-file ZIP passed archive integrity and source parity checks.

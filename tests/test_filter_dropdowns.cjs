@@ -24,7 +24,7 @@ function setup() {
 test('clicking another filter closes the first before native opening', () => {
     const { handlers, addFilter } = setup();
     const first = addFilter(true), second = addFilter(false);
-    handlers.click({ target: { closest: () => second } });
+    handlers.click({ target: { closest: (selector) => selector.startsWith('details.') ? second : null } });
     assert.equal(first.open, false);
     assert.equal(second.open, false); // native summary click still controls opening
 });
@@ -39,7 +39,7 @@ test('outside click closes the dropdown', () => {
 test('clicking checkbox or input inside a filter keeps it open', () => {
     const { handlers, addFilter } = setup();
     const filter = addFilter(true);
-    handlers.click({ target: { closest: () => filter } });
+    handlers.click({ target: { closest: (selector) => selector.startsWith('details.') ? filter : null } });
     assert.equal(filter.open, true);
 });
 
@@ -66,4 +66,12 @@ test('a delayed close event does not close the newly opened filter', () => {
     const oldFilter = addFilter(false), current = addFilter(true);
     handlers.toggle({ target: oldFilter });
     assert.equal(current.open, true);
+});
+
+
+test('submitting a filter closes it without changing field values', () => {
+    const { handlers, addFilter } = setup();
+    const filter = addFilter(true);
+    handlers.submit({target:{closest:()=>filter}});
+    assert.equal(filter.open, false);
 });

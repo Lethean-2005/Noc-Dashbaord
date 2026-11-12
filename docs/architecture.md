@@ -62,3 +62,7 @@ No commits or pushes are authorized by this document. Preserve scripts, environm
 ## Completion criteria
 
 A structural change is complete when existing endpoints and public interfaces work, relevant regressions pass, no new import cycles appear, source data semantics remain unchanged, and persistent data survives restart. Production load performance requires a separate VM measurement.
+
+## Worker implementation
+
+`app/background.py` now owns the unchanged job registry and clock-offset validation. `app/worker_runtime.py` owns single-worker lifecycle and health. The web factory defaults to the web-only role; `worker.py` explicitly selects the worker role. See `docs/sync-worker.md` for operational migration.

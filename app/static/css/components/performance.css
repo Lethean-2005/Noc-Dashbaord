@@ -626,3 +626,18 @@ table.perf-time-table td:first-child { color: var(--text-muted); font-family: ui
 /* Separate each week and its total without changing other chart legends. */
 #siteDownDurationCard .series-legend { gap:10px 24px; }
 #siteDownDurationCard .series-legend-item b { margin-left:6px; }
+
+/* Reserve space while off-screen historical charts load. */
+.perf-loading {
+    min-height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 1px solid var(--border-color, #e2e6ec);
+    border-radius: 3px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text-secondary, #64748b);
+}
+.perf-loading [hidden] { display: none; }

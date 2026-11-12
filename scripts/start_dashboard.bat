@@ -18,6 +18,14 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
 )
 
+REM The worker is an independent process and survives closing this web window.
+".venv\Scripts\python.exe" scripts\ensure_sync_worker.py
+if errorlevel 1 (
+    echo Worker startup failed. Resolve the worker error before starting the dashboard.
+    pause
+    exit /b 1
+)
+
 for /f "tokens=2 delims==" %%p in ('findstr /b "PORT=" .env 2^>nul') do set "PORT=%%p"
 if "%PORT%"=="" set "PORT=8000"
 
@@ -25,7 +33,7 @@ start "" cmd /c "timeout /t 5 >nul & start http://localhost:%PORT%/"
 
 echo Starting Noc Dashboard on http://localhost:%PORT%/ ...
 echo (Close this window to stop the dashboard.)
-".venv\Scripts\python.exe" run.py
+".venv\Scripts\python.exe" run.py --web-only
 
 echo.
 echo Dashboard stopped.

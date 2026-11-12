@@ -206,7 +206,8 @@ def test_empty_charts_use_shared_svg_instead_of_zero_plots(client):
     response = client.get("/")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert html.count('class="chart-empty-state"') >= 8
+    performance_html = client.get("/performance-cards").get_data(as_text=True)
+    assert (html + performance_html).count('class="chart-empty-state"') >= 8
     assert 'images/no-data-available.svg' in html
     assert 'class="campaign-chart-row"' not in html
     assert 'class="sales-chart-row"' not in html

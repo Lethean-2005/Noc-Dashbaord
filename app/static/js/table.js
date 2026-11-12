@@ -76,12 +76,16 @@ document.addEventListener('DOMContentLoaded', () => {
     noMatches.appendChild(noMatchesCell);
     table.tBodies[0].appendChild(noMatches);
 
+    let previousQuery;
     function applySearch() {
         const q = search.value.trim().toLowerCase();
+        if (q === previousQuery) return;
+        previousQuery = q;
         let visible = 0;
         rows.forEach((row, i) => {
           const match = !q || rowText[i].includes(q);
-          row.style.display = match ? '' : 'none';
+          const display = match ? '' : 'none';
+          if (row.style.display !== display) row.style.display = display;
           if (match) visible++;
         });
         noMatches.hidden = visible !== 0;

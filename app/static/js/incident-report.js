@@ -1432,7 +1432,7 @@ function parseSmartReportDateTime(value) {
     wireAddButton('irAddFailureRow', 'irFailureRows',
         ['react_ticket_no', 'react_circuit_id', 'react_occurred_time', 'react_smart_complain',
          'react_tct_respond', 'react_failure_to_react', 'react_sla', 'react_service_credit', 'react_note'],
-        ['Ticket reference', 'Circuit from inventory', 'DD-Mon-YYYY HH:MM', 'DD-Mon-YYYY HH:MM',
+        ['Ticket reference', 'Circuit from section 2', 'DD-Mon-YYYY HH:MM', 'DD-Mon-YYYY HH:MM',
          'DD-Mon-YYYY HH:MM', '00hrs 00mins', 'Pass / Fail', 'e.g. 0%', 'Complaint or response details']);
     // Section 2 is the single source for the read-only section 3 summary.
     var outageRows = document.getElementById('irOutageRows');

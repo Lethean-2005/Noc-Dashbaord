@@ -618,19 +618,19 @@
 {% block scripts %}
 <script>
     window.NOC_PARTNER_CREATE_URL = "{{ url_for('partner_contact.create') }}";
-    window.NOC_PARTNER_CHECK_NAME_URL = "{{ url_for('partner_contact.check_name') }}";
-    window.NOC_PARTNER_DOMAINS_URL = "{{ url_for('partner_contact.domains') }}";
-    window.NOC_PARTNER_ESCALATION_LEVELS_URL = "{{ url_for('partner_contact.escalation_levels') }}";
-    window.NOC_PARTNER_ESCALATION_MATRIX_URL = "{{ url_for('partner_contact.escalation_matrix_values') }}";
-    window.NOC_PARTNER_CONTACTS_URL = "{{ url_for('partner_contact.partner_contacts') }}";
-    window.NOC_PARTNER_CREATE_PARTNER_ONLY_URL = "{{ url_for('partner_contact.create_partner_only') }}";
-    window.NOC_PARTNER_ADD_CONTACT_ONLY_URL = "{{ url_for('partner_contact.add_contact_only') }}";
-    window.NOC_PARTNER_UPDATE_CONTACT_ONLY_URL = "{{ url_for('partner_contact.update_contact_only') }}";
-    window.NOC_PARTNER_DELETE_CONTACT_ONLY_URL = "{{ url_for('partner_contact.delete_contact_only') }}";
+    window.NOC_PARTNER_CHECK_NAME_URL = "{{ url_for('api_v1.partner_check_name') }}";
+    window.NOC_PARTNER_DOMAINS_URL = "{{ url_for('api_v1.partner_domains') }}";
+    window.NOC_PARTNER_ESCALATION_LEVELS_URL = "{{ url_for('api_v1.partner_escalation_levels') }}";
+    window.NOC_PARTNER_ESCALATION_MATRIX_URL = "{{ url_for('api_v1.partner_escalation_matrix') }}";
+    window.NOC_PARTNER_CONTACTS_URL = "{{ url_for('api_v1.partner_contacts') }}";
+    window.NOC_PARTNER_CREATE_PARTNER_ONLY_URL = "{{ url_for('api_v1.partner_create') }}";
+    window.NOC_PARTNER_ADD_CONTACT_ONLY_URL = "{{ url_for('api_v1.partner_add_contact') }}";
+    window.NOC_PARTNER_UPDATE_CONTACT_ONLY_URL = "{{ url_for('api_v1.partner_update_contact') }}";
+    window.NOC_PARTNER_DELETE_CONTACT_ONLY_URL = "{{ url_for('api_v1.partner_delete_contact') }}";
     window.NOC_PARTNER_UPDATE_URL = "{{ url_for('partner_contact.update') }}";
     window.NOC_PARTNER_ADD_CONTACT_URL = "{{ url_for('partner_contact.add_contact') }}";
-    window.NOC_PARTNER_IMPORT_URL = "{{ url_for('partner_contact.import_rows') }}";
-    window.NOC_PARTNER_VERIFY_IMPORT_PASSWORD_URL = "{{ url_for('partner_contact.verify_import_password') }}";
+    window.NOC_PARTNER_IMPORT_URL = "{{ url_for('api_v1.partner_import') }}";
+    window.NOC_PARTNER_VERIFY_IMPORT_PASSWORD_URL = "{{ url_for('api_v1.partner_verify_import_password') }}";
     window.NOC_DEFAULT_ACK_USERNAME = {{ default_ack_username|tojson }};
 </script>
 <script src="{{ versioned_static('js/partner_contact.js') }}"></script>

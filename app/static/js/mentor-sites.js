@@ -73,7 +73,7 @@
             }
             requestAnimationFrame(animate);
             try {
-                const response = await fetch(uploadCard.dataset.validateUrl, {method: 'POST', body: new FormData(uploadCard)});
+                const response = await fetch(uploadCard.dataset.validateUrl, {method: 'POST', headers: {'Accept': 'application/json'}, body: new FormData(uploadCard)});
                 const result = await response.json();
                 await new Promise(function (resolve) { setTimeout(resolve, Math.max(0, 5000 - (performance.now() - start))); });
                 if (version !== validationVersion) return;
@@ -114,6 +114,7 @@
             status.textContent = 'Importing validated site codes...';
             const xhr = new XMLHttpRequest();
             xhr.open('POST', uploadCard.action);
+            xhr.setRequestHeader('Accept', 'application/json');
             xhr.timeout = 60000;
             function failed(message) {
                 busy = false; submit.disabled = false; clear.disabled = false; fileBtn.disabled = false;
@@ -124,7 +125,11 @@
                 showError(message);
             }
             xhr.addEventListener('load', function () {
-                if (xhr.status < 200 || xhr.status >= 300) { failed(xhr.status === 413 ? 'This file exceeds the server upload limit.' : 'The import could not finish. Please try again.'); return; }
+                if (xhr.status < 200 || xhr.status >= 300) {
+                    let message = xhr.status === 413 ? 'This file exceeds the server upload limit.' : 'The import could not finish. Please try again.';
+                    try { message = JSON.parse(xhr.responseText).error || message; } catch (_) { /* Non-JSON server error. */ }
+                    failed(message); return;
+                }
                 const result = new URL(xhr.responseURL || uploadCard.action, window.location.href);
                 if (result.origin !== window.location.origin) { failed('Unexpected import response. Please refresh and try again.'); return; }
                 if (result.searchParams.get('error')) { failed(result.searchParams.get('error')); return; }

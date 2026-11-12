@@ -20,6 +20,10 @@
         return query ? '?' + query : '';
     }
     async function replace(options) {
+        let target = document.querySelector(options.selector);
+        if (!target) return;
+        const ongoing = requests.get(options.selector);
+        if (ongoing && ongoing.requestUrl === options.url) return;
         const baseline = new URLSearchParams(window.location.search);
         const requested = new URLSearchParams(options.search);
         const changedNames = new Set([...baseline.keys(), ...requested.keys()]);
@@ -29,9 +33,8 @@
         const previous = requests.get(options.selector);
         if (previous) previous.abort();
         const controller = new AbortController();
+        controller.requestUrl = options.url;
         requests.set(options.selector, controller);
-        let target = document.querySelector(options.selector);
-        if (!target) return;
         target.setAttribute('aria-busy', 'true');
         try {
             const response = await fetch(options.url, { signal: controller.signal });

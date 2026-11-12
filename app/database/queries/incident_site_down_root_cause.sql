@@ -51,6 +51,7 @@
 -- against issue_occurred_at's own timestamp column either way.
 -- ==============================================================
 
+-- :since is Cambodia midnight; compare its UTC equivalent with UTC source timestamps.
 -- name: incident_site_down_root_cause
 SELECT
   inc.incident_id AS "Incident ID",
@@ -65,4 +66,4 @@ LEFT JOIN object_10 rca_link
   AND rca_link.source_record_id = inc.id
 LEFT JOIN object_356 cat
   ON cat.id = rca_link.target_record_id
-WHERE inc.issue_occurred_at >= :since;
+WHERE inc.issue_occurred_at >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC');

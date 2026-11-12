@@ -23,6 +23,7 @@ INCLUDE_PATHS = [
     "webhook",
     "configurator.py",
     "run.py",
+    "worker.py",
     "requirements.txt",
     "pyproject.toml",
     "README.md",

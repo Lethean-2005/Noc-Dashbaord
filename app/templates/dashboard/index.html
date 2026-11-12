@@ -8,8 +8,16 @@
 
 {% block content %}
     {% include "dashboard/partials/cards.html" %}
-    <div id="performanceSection">
-    {% include "dashboard/partials/performance_cards.html" %}
+    <div id="performanceSection"{% if lazy_performance %} data-lazy-url="{{ url_for('dashboard.performance_cards') }}" aria-busy="true"{% endif %}>
+    {% if lazy_performance %}
+        <div class="perf-loading" role="status">
+            <span data-loading-message>Loading trends&hellip;</span>
+            <button type="button" class="btn-export" data-retry-performance hidden>Retry</button>
+            <noscript><a href="{{ performance_fallback_url }}">View trends</a></noscript>
+        </div>
+    {% else %}
+        {% include "dashboard/partials/performance_cards.html" %}
+    {% endif %}
     </div>
 {% endblock %}
 
@@ -33,6 +41,7 @@
     var MAX_DEFER_MS = 3 * 60 * 1000;
 
     function isUserBusy() {
+        if (document.querySelector('.graph-row[aria-busy="true"], #performanceSection[aria-busy="true"]:not([data-lazy-url])')) return true;
         if (Array.prototype.some.call(document.querySelectorAll('.modal'), function (m) {
             return m.style.display === 'block';
         })) return true;

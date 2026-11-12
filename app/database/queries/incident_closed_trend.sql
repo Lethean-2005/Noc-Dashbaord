@@ -66,6 +66,7 @@
 -- weeks, regardless of which weekday sync runs on.
 -- ==============================================================
 
+-- :since is Cambodia midnight; compare its UTC equivalent with UTC source timestamps.
 -- name: incident_closed_trend
 SELECT
   inc.incident_id AS "Incident ID",
@@ -76,4 +77,4 @@ WHERE (
     (inc.incident_category = 'customer_complaint' AND inc.status = 'resolved')
     OR (inc.incident_category IS DISTINCT FROM 'customer_complaint' AND inc.status IN ('closed', 'resolved'))
   )
-  AND COALESCE(inc.closed_at, inc.resolved_at) >= :since;
+  AND COALESCE(inc.closed_at, inc.resolved_at) >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC');

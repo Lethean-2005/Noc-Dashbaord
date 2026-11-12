@@ -45,6 +45,7 @@
 -- into both branches below.
 -- ==============================================================
 
+-- :since is Cambodia midnight; compare its UTC equivalent with UTC source timestamps.
 -- name: incident_duration_weekly
 SELECT
   inc.incident_id AS "Incident ID",
@@ -63,7 +64,7 @@ SELECT
   inc.closed_at AS "Closed At"
 FROM object_322 inc
 WHERE (
-  (inc.closed_at IS NOT NULL AND inc.closed_at >= :since)
+  (inc.closed_at IS NOT NULL AND inc.closed_at >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC'))
   OR
-  (inc.closed_at IS NULL AND inc.issue_occurred_at >= :since)
+  (inc.closed_at IS NULL AND inc.issue_occurred_at >= ((CAST(:since AS timestamp) AT TIME ZONE 'Asia/Phnom_Penh') AT TIME ZONE 'UTC'))
 );

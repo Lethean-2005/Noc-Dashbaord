@@ -1,16 +1,28 @@
-"""Entry point: `python run.py`, or via the Flask CLI with `flask --app run run`.
+"""Web server entry point; scheduled work runs in the independent worker.py.
+
+Entry point: `python run.py`, or via the Flask CLI with `flask --app run run`.
 
 APP_ENV (set in .env) selects the config class from app/config.py, which
 determines the database connection, debug mode, and host/port.
 """
 
+import argparse
 import os
 
 from app import create_app
 
-app = create_app(os.environ.get("APP_ENV", "development"))
+app = create_app(os.environ.get("APP_ENV", "development"), process_role="web")
 
-if __name__ == "__main__":
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Start the NOC web server and ensure its separate worker is running.")
+    parser.add_argument("--web-only", action="store_true", help="Serve HTTP only; use when another service manages the worker")
+    args = parser.parse_args(argv)
+    if not args.web_only:
+        from scripts.ensure_sync_worker import main as ensure_worker
+
+        result = ensure_worker()
+        if result:
+            return result
     if app.config["DEBUG"]:
         # threaded=True: Werkzeug's dev server otherwise handles exactly one
         # request at a time — with several NOC staff hitting the dashboard
@@ -34,3 +46,9 @@ if __name__ == "__main__":
             port=app.config["PORT"],
             threads=app.config["WAITRESS_THREADS"],
         )
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

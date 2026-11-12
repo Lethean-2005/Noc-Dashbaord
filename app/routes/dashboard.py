@@ -54,7 +54,7 @@ from app.services.ran.ran_tech_down_service import RanTechDownService
 from app.services.ran.ran_voltage_service import RanVoltageService
 from app.services.scheduler_utils import seconds_until_next_aligned_time
 from app.services.vip.vip_alarm_service import VipAlarmService
-from app.utils.datetime import format_short_date
+from app.utils.datetime import filter_calendar_dates, format_short_date
 from app.utils.logger import get_logger
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -946,24 +946,13 @@ _WO_CREATED_AT_FILTERABLE_SCOPES = {"INC-WO", "INC-WO Site Down"}
 
 
 def _filter_by_occurred_at(rows, date_from, date_to):
-    """Narrows `rows` to occurred_at within [date_from, date_to] (each
-    'YYYY-MM-DD', inclusive) — plain string comparison, since
-    occurred_at is stored ISO-sortable."""
-    if date_from:
-        rows = [r for r in rows if (r.get("occurred_at") or "")[:10] >= date_from]
-    if date_to:
-        rows = [r for r in rows if (r.get("occurred_at") or "")[:10] <= date_to]
-    return rows
+    """Include complete selected Cambodia days for incident rows."""
+    return filter_calendar_dates(rows, "occurred_at", date_from, date_to)
 
 
 def _filter_by_wo_created_at(rows, date_from, date_to):
-    """Same as _filter_by_occurred_at(), but for wo_created_at — the
-    date field incwo.html's rows carry instead of occurred_at."""
-    if date_from:
-        rows = [r for r in rows if (r.get("wo_created_at") or "")[:10] >= date_from]
-    if date_to:
-        rows = [r for r in rows if (r.get("wo_created_at") or "")[:10] <= date_to]
-    return rows
+    """Include complete selected Cambodia days for work orders."""
+    return filter_calendar_dates(rows, "wo_created_at", date_from, date_to)
 
 
 def _format_minutes(minutes):
@@ -2468,6 +2457,13 @@ def index():
         )
     )
 
+    lazy_performance = (
+        current_app.config.get("DASHBOARD_LAZY_PERFORMANCE", True)
+        and request.args.get("load_performance") != "1"
+    )
+    performance_context = (
+        _cross_card_filter_passthrough() if lazy_performance else _performance_cards_context()
+    )
     incident_status_rows = incident_service.get_incident_status_rows()
     return render_template(
         "dashboard/index.html",
@@ -2476,7 +2472,12 @@ def index():
         tct_counts=alarm_service.get_tct_counts(),
         incident_counts=incident_service.get_incident_counts(rows=incident_status_rows),
         **_graph_cards_context(incident_status_rows=incident_status_rows),
-        **_performance_cards_context(),
+        **performance_context,
+        lazy_performance=lazy_performance,
+        performance_fallback_url=url_for(
+            "dashboard.index",
+            **{**request.args.to_dict(flat=False), "load_performance": "1"},
+        ),
         incwo_counts=incwo_service.get_incwo_counts(),
         incwo_all_resolved_count=incwo_service.get_all_resolved_count(),
         vip_site_counts=vip_alarm_service.get_counts(),
@@ -2566,11 +2567,7 @@ def _fetch_rows(scope, alarm_type, date_from="", date_to="", congestion_week="")
     if alarm_type:
         wanted = {t.strip().upper() for t in alarm_type.split(",") if t.strip()}
         rows = [r for r in rows if (r.get("alarm") or "").strip().upper() in wanted]
-    if date_from:
-        rows = [r for r in rows if (r.get("down_time") or "")[:10] >= date_from]
-    if date_to:
-        rows = [r for r in rows if (r.get("down_time") or "")[:10] <= date_to]
-    return rows
+    return filter_calendar_dates(rows, "down_time", date_from, date_to)
 
 
 def _safe_filename(scope, alarm_type):
