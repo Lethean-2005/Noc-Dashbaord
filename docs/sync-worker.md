@@ -34,12 +34,44 @@ Heartbeat writes occur every 15 seconds to a small atomically replaced JSON file
 
 Worker file names use a `worker-` prefix in the configured log directory (for example `logs/worker-app.log`, `logs/worker-error.log`, and `logs/worker-telegram.log`). This prevents web and worker processes holding the same rotating log files open on Windows. Optional `WORKER_LOG_PATH`, `WORKER_LOG_ERROR_PATH`, and corresponding `WORKER_`-prefixed log settings override worker destinations without changing web settings. Existing Telegram, webhook and retry log categories remain available. No token, webhook URL or raw exception message is included in the public status file.
 
-If another worker or an older embedded scheduler owns the existing machine-wide lock, a second worker exits with code 2. It does not overwrite the first worker's heartbeat or start schedulers. Stop the older process deliberately; do not delete the database or reset the sending ledger to resolve a lock conflict.
+If another worker or an older embedded scheduler owns the existing machine-wide lock, a second worker exits with code 2. It does not overwrite the first worker's heartbeat or start schedulers. The standard dashboard launcher identifies a dedicated worker in an older folder and requests its graceful stop before starting this project. Direct worker.py execution still reports a conflict. Unrecognized processes and legacy embedded schedulers require manual stopping; no force-kill is used. Saved databases and sending ledgers are preserved.
 
 ## Stopping and updating
 
-Run `.venv\Scripts\python.exe worker.py --stop` for a hidden worker, or use Ctrl+C in a foreground worker. A stop request targets the current PID and startup session, so an old request does not stop a restarted worker. Graceful shutdown: waiting loops wake immediately, in-flight work is allowed to finish, and the worker retains its lock until all threads stop. A stopped worker leaves saved data intact. A web-only restart does not stop the worker. To change worker code, configuration or source credentials, restart the worker as well; replacing files under a running worker is not a safe worker-code deployment strategy.
+Run `.venv\Scripts\python.exe worker.py --stop` for a hidden worker, or use Ctrl+C in a foreground worker. A stop request targets the current PID and startup session, so an old request does not stop a restarted worker. Graceful shutdown: waiting loops wake immediately, in-flight work is allowed to finish, and the worker retains its lock until all threads stop. A stopped worker leaves saved data intact. An explicit --web-only restart does not stop the worker. The normal dashboard launcher passes --stop-worker-on-exit and requests graceful shutdown on Ctrl+C. To change worker code, configuration or source credentials, restart the worker as well; replacing files under a running worker is not a safe worker-code deployment strategy.
 
 Windows task termination or a VM shutdown may forcibly stop the process. SQLite transactions retain their normal atomicity, but an external webhook accepted just before a forced stop can still create an uncertain delivery outcome. The worker does not introduce exactly-once delivery guarantees. Power Automate HTTP acceptance still does not independently confirm downstream completion.
 
 No live alerts or production source writes should be used during automated verification. Use temporary instance directories and mocked source/sender calls.
+
+
+## Updating with desktop shortcuts
+
+The normal dashboard launcher starts the worker first and closes it gracefully after Ctrl+C stops the web server. Wait for the stopped message. If in-flight jobs exceed the shutdown wait, the console explicitly says the worker is still finishing and the old folder must be retained. Debug-reloader exits and HTTP bind failures do not stop an existing shared worker. Closing an old web console cannot stop a worker already handed off to a different project folder.
+
+Before removing an old installation, preserve .env and the complete instance directory. Restore them into the extracted update and install requirements in that folder's virtual environment. Run scripts/create_shortcuts.bat to refresh Noc Dashboard, Dashboard Settings and NOC_Worker links. NOC_Worker targets scripts/open_worker.bat and shows a status snapshot without starting HTTP. It does not require a second worker installation.
+
+Automatic cross-folder handoff uses the existing loopback lock to identify a Windows process, verifies the dashboard script path and matching heartbeat PID, and writes a session-specific stop request to the owning instance directory. It waits for the old lock to be released. Windows venv redirector children are recognized when validating a newly spawned worker. A named mutex serializes competing launchers. Missing or stale identities block automatic handoff rather than stopping an unrelated process. The existing job intervals, source queries and notification rules are unchanged.
+
+If the optional Windows logon task was installed, explicitly rerun scripts/install_sync_worker_task.ps1 from the new installation to update its target. Startup does not silently change scheduled tasks.
+
+
+## Local sync without notifications
+
+Set `NOTIFICATIONS_ENABLED=false` in the local `.env` and restart the local worker.
+Data sync and dashboard refreshes continue; scheduled and manual Teams/Telegram delivery is blocked,
+including Site Down restoration replies. Disabled delivery does not update notification sent records.
+Set `NOTIFICATIONS_ENABLED=true` on the VM responsible for sending notifications, then restart its worker.
+Existing installations default to true. Keep only one machine enabled; this switch does not provide
+cross-machine deduplication if two machines are both enabled. Existing duplicates are not removed.
+
+
+## Restoration readiness
+
+A restoration reply waits for the source-specific timestamp (Alarm: Cleared Alarm Received At;
+NOC/manual: Closed At), a valid start-to-restoration order, and a restoration time no later than now.
+Both Actual Root Cause and Resolution must contain non-whitespace text. Missing details leave the
+notification pending for the next scheduled check; suspected cause and comments are not substitutes.
+The message keeps the actual restoration time even when it is sent later after details are completed.
+Already recorded replies are not resent or amended automatically. A webhook acceptance still does
+not prove that all Power Automate actions completed; review failed flow runs before retrying.

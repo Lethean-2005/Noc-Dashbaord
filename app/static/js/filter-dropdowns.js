@@ -13,6 +13,7 @@
         const panel = panelFor(filter);
         if (!panel) return;
         panelSizes.delete(panel);
+        panel.querySelectorAll('.dp-popup').forEach(function (popup) { popup.hidden = true; });
         if (panel.hasAttribute('popover')) {
             if (panel.matches(':popover-open')) panel.hidePopover();
             panel.removeAttribute('popover');
@@ -110,6 +111,7 @@
     }
     document.addEventListener('input', invalidatePanelSize);
     document.addEventListener('change', invalidatePanelSize);
+    document.addEventListener('date-picker-toggle', invalidatePanelSize);
     if (document.fonts && document.fonts.ready) {
         document.fonts.ready.then(function () {
             panelSizes = new WeakMap();

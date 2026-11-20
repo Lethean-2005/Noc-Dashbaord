@@ -1,5 +1,7 @@
 """Help links, retained documentation, and configured refresh descriptions."""
 import pytest
+from app.help_features import FEATURE_GUIDES
+from app.help_reference import REFERENCE_GUIDES
 from app.help_guides import CARD_GUIDES
 from app.routes.help import HELP_ARTICLES, DOWNLOADABLE_DOCS
 
@@ -53,8 +55,6 @@ def test_unknown_topic_returns_not_found(client):
     assert client.get("/help/topics/not-a-topic").status_code == 404
 
 
-from app.help_features import FEATURE_GUIDES
-from app.help_reference import REFERENCE_GUIDES
 
 
 @pytest.mark.parametrize("slug", list(FEATURE_GUIDES))

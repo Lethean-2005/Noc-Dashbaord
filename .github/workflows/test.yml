@@ -6,7 +6,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Word automation and pywin32 target the Windows deployment environment.
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4

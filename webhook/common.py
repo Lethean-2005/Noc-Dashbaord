@@ -37,6 +37,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 load_dotenv(ROOT / ".env")
 
+# App imports require the direct-script path and environment bootstrap above.
+from app.services.notification_policy import notifications_enabled  # noqa: E402
+from app.utils.source_urls import source_url  # noqa: E402
+
 # Default Teams font (Segoe UI). Teams renders cards in its own system font
 # anyway, so this keeps the card clean and native.
 _FONT = "'Segoe UI',Arial,sans-serif"
@@ -49,7 +53,6 @@ _TEAMS_CARD_LIMIT = 24000
 # hardcodes for its Incident/INC-WO links (see e.g.
 # app/templates/drilldown/alarm_site_down.html) — reused here so a card's
 # Incident ID / INC-WO ID cells link straight to the same record.
-from app.utils.source_urls import source_url
 
 
 def _esc(text) -> str:
@@ -293,6 +296,8 @@ def _post_json(url: str, payload: dict, timeout: int = 30):
     """POST ``payload`` as JSON via the plain-TLS pool. Returns the urllib3
     HTTPResponse (``.status`` int, ``.data`` bytes); raises on network/TLS
     failure."""
+    if not notifications_enabled():
+        raise RuntimeError("notifications disabled")
     body = json.dumps(payload).encode("utf-8")
     return _pool().request(
         "POST",
@@ -331,6 +336,8 @@ def send(spec: "AlertSpec", max_rows=None) -> dict:
     which need `current_app`. The background scheduler (webhook/__init__.py's
     start()) already runs inside one; __main__.py pushes its own for the CLI.
     """
+    if not notifications_enabled():
+        return {"sent": False, "count": 0, "status": None, "reason": "notifications disabled"}
     if max_rows is not None:
         spec.max_rows = max_rows
     url = resolve_url(spec)

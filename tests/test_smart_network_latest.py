@@ -72,7 +72,7 @@ def test_latest_export_fills_both_new_tables_and_retains_legacy_outages():
     assert doc.tables[3].rows[1].cells[6].text=="Manual SLA"
     assert doc.tables[4].rows[1].cells[0].text=="OLD-RECORD"
     assert doc.tables[5].rows[2].cells[11].text=="Agreed value"
-    assert doc.tables[5].rows[-1].cells[11].text=="2700"
+    assert "Oct: 2700" in doc.tables[5].rows[-1].cells[0].text
 
 
 def test_all_twelve_months_save_reload_and_export(app):
@@ -102,7 +102,7 @@ def test_revision_two_template_and_layout_are_preserved():
     exported_bytes = build_docx({'smart_report_month': 'Jan-Dec 2027'})
     exported = Document(BytesIO(exported_bytes))
     assert [section._sectPr.xml for section in exported.sections] == [section._sectPr.xml for section in reference.sections]
-    for actual, original in zip(exported.tables, reference.tables):
+    for actual, original in zip(exported.tables[:5], reference.tables[:5]):
         assert actual._tbl.tblPr.xml == original._tbl.tblPr.xml
         assert actual._tbl.tblGrid.xml == original._tbl.tblGrid.xml
         for row_index in (0, 1, 2) if len(original.columns) > 9 else (0, 1):
@@ -146,3 +146,104 @@ def test_long_outage_notes_can_expand_without_clipping():
     row = document.tables[4].rows[1]
     assert row.cells[7].text == note
     assert row.height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
+
+
+def test_credit_grid_headers_and_merged_footer_stay_aligned():
+    from docx.oxml.ns import qn
+
+    report = {'smart_credit_note': [{'circuit': 'A'}, {'circuit': 'B'}],
+              'smart_credit_amounts': {'jan': '100', 'dec': '200'}}
+    table = Document(BytesIO(build_docx(report))).tables[5]
+    widths = [column.w // 635 for column in table._tbl.tblGrid.gridCol_lst]
+    for row in table.rows:
+        column = 0
+        for cell in row._tr.tc_lst:
+            span = cell.grid_span
+            assert int(cell.tcPr.tcW.w) == sum(widths[column:column + span])
+            column += span
+        assert column == 14
+    for column, label in ((0, 'No '), (1, 'Circuit')):
+        assert table.cell(0, column)._tc is not table.cell(1, column)._tc
+        assert table.cell(0, column).text == label
+    footer = table.rows[-1]
+    assert footer.cells[0]._tc is footer.cells[1]._tc
+    assert footer.cells[0].text == 'Credit amount (USD)   Jan: 100, Dec: 200'
+    assert len(footer._tr.tc_lst) == 1
+    assert footer.cells[0]._tc.grid_span == 14
+    assert footer.cells[0]._tc.tcPr.find(qn('w:tcBorders')) is None
+    assert footer.cells[0]._tc is footer.cells[13]._tc
+    assert 'Jan: 100' in footer.cells[0].text
+    assert 'Dec: 200' in footer.cells[0].text
+
+
+def test_credit_header_matches_reference_with_one_blank_before_months():
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    table = Document(BytesIO(build_docx({}))).tables[5]
+    reference = Document(Path('Smart Network Report_Sep-Oct 2026_v1 (2).docx')).tables[5]
+    assert table._tbl.tblGrid.xml == reference._tbl.tblGrid.xml
+    assert [cell.grid_span for cell in table.rows[0]._tr.tc_lst] == [1, 1, 12]
+    assert [cell.grid_span for cell in table.rows[1]._tr.tc_lst] == [2] + [1] * 12
+    assert all(cell.vMerge is None for row in list(table.rows)[:2] for cell in row._tr.tc_lst)
+    assert table.cell(1, 0)._tc is table.cell(1, 1)._tc
+    assert table.cell(1, 0).text == ''
+    assert [cell.text for cell in table.rows[1].cells[2:]] == [
+        f'{month}-' + table.rows[1].cells[2].text.rsplit('-', 1)[1] for month in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+    ]
+    label = table.rows[-1].cells[0]
+    assert label.text == 'Credit amount (USD)'
+    assert label.paragraphs[0].alignment == WD_ALIGN_PARAGRAPH.LEFT
+    assert label.paragraphs[0].runs[0].font.name == table.cell(0, 0).paragraphs[0].runs[0].font.name
+
+
+def test_long_credit_circuit_wraps_without_overlapping_month_values():
+    from docx.oxml.ns import qn
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+
+    table = Document(BytesIO(build_docx({'smart_credit_note': [{'circuit': 'CIRCUIT-A / CIRCUIT-B / CIRCUIT-C'}]}))).tables[5]
+    assert table.rows[2].height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
+    for cell in table.rows[2]._tr.tc_lst:
+        assert cell.tcPr.find(qn('w:noWrap')) is None
+
+
+def test_credit_header_body_and_footer_use_one_continuous_border():
+    from docx.oxml.ns import qn
+
+    table = Document(BytesIO(build_docx({}))).tables[5]
+    borders = table._tbl.tblPr.find(qn('w:tblBorders'))
+    for edge in ('left', 'right', 'top', 'bottom', 'insideH', 'insideV'):
+        border = borders.find(qn('w:' + edge))
+        assert border.get(qn('w:val')) == 'single'
+        assert border.get(qn('w:sz')) == '4'
+        assert border.get(qn('w:color')) == 'E36C0A'
+        assert border.get(qn('w:themeColor')) is None
+    for row in table.rows:
+        for cell in row._tr.tc_lst:
+            assert cell.tcPr.find(qn('w:tcBorders')) is None
+
+
+def test_credit_background_has_no_white_seams_but_keeps_body_white():
+    from docx.oxml.ns import qn
+
+    table = Document(BytesIO(build_docx({}))).tables[5]
+    assert table._tbl.tblPr.find(qn('w:shd')).get(qn('w:fill')) == 'E36C0A'
+    for index, row in enumerate(table.rows):
+        expected = 'E36C0A' if index in (0, len(table.rows) - 1) else 'FFFFFF'
+        for cell in row._tr.tc_lst:
+            assert cell.tcPr.find(qn('w:shd')).get(qn('w:fill')) == expected
+
+
+def test_credit_table_does_not_float_or_shift_shading_from_its_borders():
+    from docx.oxml.ns import qn
+    from docx.text.paragraph import Paragraph
+    from docx.shared import Twips
+
+    document = Document(BytesIO(build_docx({})))
+    table = document.tables[5]
+    reference = Document(Path('Smart Network Report_Sep-Oct 2026_v1 (2).docx')).tables[5]
+    position = reference._tbl.tblPr.find(qn('w:tblpPr'))
+    assert table._tbl.tblPr.find(qn('w:tblpPr')) is None
+    assert table._tbl.tblPr.find(qn('w:tblInd')).get(qn('w:w')) == position.get(qn('w:tblpX'))
+    paragraph = Paragraph(table._tbl.getprevious(), table._parent)
+    original = Paragraph(reference._tbl.getprevious(), reference._parent)
+    assert paragraph.paragraph_format.space_after == (original.paragraph_format.space_after or 0) + Twips(int(position.get(qn('w:tblpY'))))

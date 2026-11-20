@@ -7,6 +7,7 @@ from)."""
 import base64
 import json
 import uuid
+from itertools import zip_longest
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,6 +16,7 @@ from flask import current_app
 from app.repositories.incident_report.incident_report_repository import (
     IncidentReportRepository,
 )
+from app.services.incident_report.incident_report_october import LAYOUT as CURRENT_INCIDENT_LAYOUT
 from app.services.incident_report.incident_report_docx import build_docx
 from app.services.incident_report.incident_report_pdf import build_pdf
 from app.services.incident_report.smart_network_docx import build_docx as build_smart_network_docx
@@ -142,7 +144,7 @@ class IncidentReportService:
         self.repository = repository or IncidentReportRepository()
 
     def list_reports(self):
-        return self.repository.fetch_all()
+        return self.repository.fetch_summaries()
 
     def get_report(self, report_id):
         return self.repository.get(report_id)
@@ -165,6 +167,13 @@ class IncidentReportService:
         round-tripped through the form itself."""
         fields = {name: (form.get(name) or "").strip() for name in _TEXT_FIELDS}
         fields["report_type"] = "incident"
+        for name in ("incident_layout", "prepared_by", "service_type", "symptom", "time_issue", "response_time"):
+            fields[name] = (form.get(name) or "").strip()
+        fields["summary_remarks_json"] = json.dumps({
+            key: value.strip() for key, value in zip_longest(form.getlist("summary_remark_key"), form.getlist("summary_remark"), fillvalue="")
+            if key in {"prepared_by", "incident_number", "customers_impacted", "service_disruption", "service_type",
+                       "symptom", "time_of_complaint", "response_time", "time_issue", "restored_time", "duration_of_interruption"}
+        })
         fields["has_second_fault"] = (form.get("has_second_fault") or "").strip()
         fields.update({name: (form.get(name) or "").strip() for name in _SECOND_FAULT_TEXT_FIELDS})
 
@@ -174,12 +183,21 @@ class IncidentReportService:
         events = sorted(
             (
                 {"date": dt.strip(), "time": t.strip(), "description": d.strip()}
-                for dt, t, d in zip(dates, times, descriptions)
+                for dt, t, d in zip_longest(dates, times, descriptions, fillvalue="")
                 if dt.strip() or t.strip() or d.strip()
             ),
             key=_event_sort_key,
         )
         fields["chronology_events_json"] = json.dumps(events)
+        if fields.get("incident_layout") == CURRENT_INCIDENT_LAYOUT:
+            try:
+                start = datetime.strptime(fields["time_issue"], "%d-%b-%Y %H:%M")
+                finish = datetime.strptime(fields["restored_time"], "%d-%b-%Y %H:%M")
+                if finish >= start:
+                    minutes = int((finish - start).total_seconds() // 60)
+                    fields["duration_of_interruption"] = f"{minutes // 60:02d}hrs {minutes % 60:02d}mins"
+            except ValueError:
+                pass  # Drafts may contain incomplete dates; finalization validates them.
 
         items = [item.strip() for item in form.getlist("improvement_item") if item.strip()]
         fields["improvement_plan_json"] = json.dumps(items)
@@ -206,7 +224,7 @@ class IncidentReportService:
         circuit_ids = form.getlist("circuit_id")
         circuits = [
             {"customer_description": d.strip(), "service": s.strip(), "bandwidth": b.strip(), "circuit_id": c.strip()}
-            for d, s, b, c in zip(descriptions, services, bandwidths, circuit_ids)
+            for d, s, b, c in zip_longest(descriptions, services, bandwidths, circuit_ids, fillvalue="")
             if d.strip() or s.strip() or b.strip() or c.strip()
         ]
         fields["smart_active_circuits_json"] = json.dumps(circuits)
@@ -231,9 +249,9 @@ class IncidentReportService:
                 "date_finished": df.strip(), "service": sv.strip(), "issue_owner": io.strip(),
                 "interruption": it.strip(), "notes": nt.strip(),
             }
-            for tn, ci, ds, df, sv, io, it, nt in zip(
+            for tn, ci, ds, df, sv, io, it, nt in zip_longest(
                 ticket_nos, circuit_id_2, date_started, date_finished,
-                outage_services, issue_owners, interruptions, notes,
+                outage_services, issue_owners, interruptions, notes, fillvalue="",
             )
             if any((tn.strip(), ci.strip(), ds.strip(), df.strip(), sv.strip(), io.strip(), it.strip(), nt.strip()))
         ]
@@ -304,19 +322,23 @@ class IncidentReportService:
 
         new_pictures = []
         if files:
-            for f in files.getlist("picture_reference"):
-                if not f or not f.filename:
-                    continue
-                data = f.read()
-                if not data:
-                    continue
-                data, content_type = IncidentReportService._normalize_image(data, f.content_type)
-                new_pictures.append({
-                    "id": str(uuid.uuid4()),
-                    "filename": f.filename,
-                    "content_type": content_type,
-                    "data_base64": base64.b64encode(data).decode("ascii"),
-                })
+            for field, fault in (("picture_reference", None), ("picture_reference_1", "1"), ("picture_reference_2", "2")):
+                for f in files.getlist(field):
+                    if not f or not f.filename:
+                        continue
+                    data = f.read()
+                    if not data:
+                        continue
+                    data, content_type = IncidentReportService._normalize_image(data, f.content_type)
+                    picture = {
+                        "id": str(uuid.uuid4()),
+                        "filename": f.filename,
+                        "content_type": content_type,
+                        "data_base64": base64.b64encode(data).decode("ascii"),
+                    }
+                    if fault:
+                        picture["fault"] = fault
+                    new_pictures.append(picture)
         return kept + new_pictures
 
     @staticmethod
@@ -396,6 +418,26 @@ class IncidentReportService:
         actually there" logic as chronology events — a report with no
         second fault was never asked to fill these in, so it can't be
         blocked on them)."""
+        if fields.get("incident_layout") == CURRENT_INCIDENT_LAYOUT:
+            required = ("document_title", "file_name", "prepared_by", "incident_number", "customers_impacted",
+                        "service_disruption", "service_type", "symptom", "time_of_complaint", "response_time",
+                        "time_issue", "restored_time", "duration_of_interruption", "cause_of_outage", "resolution", "permanent_fixed")
+            if not all((fields.get(name) or "").strip() for name in required):
+                return False
+            events = json.loads(fields.get("chronology_events_json") or "[]")
+            if not events or not all(e.get("date") and e.get("time") and e.get("description") for e in events):
+                return False
+            try:
+                times = {name: datetime.strptime(fields[name], "%d-%b-%Y %H:%M")
+                         for name in ("time_issue", "restored_time", "time_of_complaint", "response_time")}
+                if times["restored_time"] < times["time_issue"]:
+                    return False
+                for event in events:
+                    datetime.strptime(event["date"] + " " + event["time"], "%d-%b-%Y %H:%M")
+            except (ValueError, TypeError):
+                return False
+            return not fields.get("has_second_fault") or all((fields.get(name) or "").strip()
+                for name in ("cause_of_outage_2", "resolution_2", "permanent_fixed_2"))
         if not all((fields.get(f) or "").strip() for f in _REQUIRED_FIELDS):
             return False
         events = json.loads(fields.get("chronology_events_json") or "[]")

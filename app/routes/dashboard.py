@@ -233,7 +233,7 @@ _CONGESTION_INTERFACE_SUMMARY_CSV_COLUMNS = [
     ("interface", "Interface"),
     ("province", "Province"),
     ("additional_info", "Additional Info"),
-    ("latest_occurred_at", "Latest Occurrence"),
+    ("latest_occurred_at", "Latest DownTime"),
     ("total_count", "Total"),
 ]
 
@@ -246,7 +246,7 @@ _CSV_COLUMNS_BY_SOURCE = {
         ("device_name", "Device"),
         ("ip_address", "IP"),
         ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"),
+        ("down_time", "DownTime"),
         ("outage_min", "Outage(min)"),
         ("interface", "Interface"),
         ("root_cause", "Root Cause"),
@@ -261,7 +261,7 @@ _CSV_COLUMNS_BY_SOURCE = {
         ("device_name", "Device"),
         ("ip_address", "IP"),
         ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"),
+        ("down_time", "DownTime"),
         ("outage_min", "Outage(min)"),
         ("interface", "Interface"),
         ("province", "Province"),
@@ -274,7 +274,7 @@ _CSV_COLUMNS_BY_SOURCE = {
         ("device_name", "Device"),
         ("ip_address", "IP"),
         ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"),
+        ("down_time", "DownTime"),
         ("outage_min", "Outage(min)"),
         ("interface", "Interface"),
         ("province", "Province"),
@@ -289,8 +289,8 @@ _CSV_COLUMNS_BY_SOURCE = {
         ("device_name", "Device"),
         ("ip_address", "IP"),
         ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"),
-        ("restored_time", "Restored Time"),
+        ("down_time", "DownTime"),
+        ("restored_time", "RestoreTime"),
         ("outage_min", "Outage(min)"),
         ("interface", "Interface"),
         ("province", "Province"),
@@ -303,7 +303,7 @@ _CSV_COLUMNS_BY_SOURCE = {
         ("device_name", "Device"),
         ("ip_address", "IP"),
         ("alarm_name", "Alarm Name"),
-        ("down_time", "Down Time"),
+        ("down_time", "DownTime"),
         ("outage_min", "Outage(min)"),
         ("interface", "Interface"),
         ("root_cause", "Root Cause"),
@@ -2496,7 +2496,7 @@ def congestion():
     requested for a fixed, bookmarkable URL (/congestion) that doesn't
     load the whole dashboard (ISP POP/EZE/TCT/Performance section/etc.)
     just to see this one card, e.g. for a dedicated wallboard display.
-    Same data/filter/auto-reload behavior as the card on dashboard/
+    Top 20 devices, with the same filter/auto-reload behavior as dashboard/
     index.html, just rendered on its own — see dashboard/congestion.html's
     own comment for the two small differences (filter form posts back to
     THIS route, and skips the cross-card hidden-field passthrough that
@@ -2510,13 +2510,14 @@ def congestion():
     return render_template(
         "dashboard/congestion.html",
         congestion_top_devices=alarm_service.get_congestion_top_devices(
+            limit=20,
             congestion_weeks=request.args.getlist("congestion_top_week")
         ),
         next_refresh_seconds=next_refresh_seconds,
     )
 
 
-def _fetch_rows(scope, alarm_type, date_from="", date_to="", congestion_week=""):
+def _fetch_rows(scope, alarm_type, date_from="", date_to="", congestion_week="", congestion_events=False):
     """Rows for `scope`, optionally narrowed to one badge's alarm type(s)
     (case-insensitive) and/or a Down Time date range. Both dates are ISO
     format, so a plain string comparison on the first 10 characters
@@ -2556,6 +2557,9 @@ def _fetch_rows(scope, alarm_type, date_from="", date_to="", congestion_week="")
     if scope == "Congestion History" and alarm_type:
         return alarm_service.get_congestion_device_interface_summary(alarm_type)
     if scope == "Congestion History" and congestion_week:
+        if congestion_events:
+            rows = alarm_service.get_congestion_week_details(congestion_week)
+            return filter_calendar_dates(rows, "down_time", date_from, date_to)
         return alarm_service.get_congestion_week_interface_summary(congestion_week)
     if scope == "Congestion History":
         return []
@@ -2693,31 +2697,32 @@ def drilldown():
         # None + none_is_404 falls through to the empty-state template.
 
     congestion_week_raw = request.args.get("congestion_week", "")
-    rows = _fetch_rows(scope, alarm_type, date_from, date_to, congestion_week=congestion_week_raw)
+    congestion_events = (
+        scope == "Congestion History" and bool(congestion_week_raw)
+        and not alarm_type and request.args.get("congestion_view") == "events"
+    )
+    rows = _fetch_rows(
+        scope, alarm_type, date_from, date_to,
+        congestion_week=congestion_week_raw, congestion_events=congestion_events,
+    )
     if rows is not None:
         row_cap_notice = None
         extra = {}
         if scope == "Congestion History":
-            # Both ways into this scope — a device bar's badge click
-            # (get_congestion_device_interface_summary()) or the card's
-            # own "Wk 37 · Wk 38 · ..." caption
-            # (get_congestion_week_interface_summary()) — already return
-            # one row per (Device, Interface) with their own real
-            # total_count (flap-episode count), already ranked highest
-            # first. A device has at most a few dozen interfaces (no cap
-            # needed), but the week view spans EVERY device — give it
-            # its own Top 10/20/All row-count filter (template only
-            # shows this control when alarm_type is empty).
+            # Weekly event view keeps every occurrence. Summary views retain
+            # interface-level counts and their optional Top 10/20 display filter.
             extra = {
-                "congestion_interface_summary": True,
+                "congestion_interface_summary": not congestion_events,
+                "congestion_events": congestion_events,
+                "congestion_view": "events" if congestion_events else "",
                 "congestion_week": congestion_week_raw,
             }
-            if not alarm_type:
+            if not alarm_type and not congestion_events:
                 row_limit_raw = request.args.get("row_limit", "")
                 row_limit = int(row_limit_raw) if row_limit_raw in ("10", "20") else None
                 if row_limit and len(rows) > row_limit:
                     row_cap_notice = (
-                        f"Showing the top {row_limit} of {len(rows)} interfaces by flap "
+                        f"Showing the top {row_limit} of {len(rows)} interfaces by alarm "
                         "count — use the row-count filter above to narrow it down."
                     )
                     rows = rows[:row_limit]
@@ -2777,13 +2782,24 @@ def drilldown_download():
             rows = _filter_by_wo_created_at(rows, date_from, date_to)
         return _csv_response(rows, handler["csv_columns"], _safe_filename(scope, alarm_type))
 
+    congestion_week = request.args.get("congestion_week", "")
+    congestion_events = (
+        scope == "Congestion History" and bool(congestion_week)
+        and not alarm_type and request.args.get("congestion_view") == "events"
+    )
     rows = _fetch_rows(
-        scope, alarm_type, date_from, date_to, congestion_week=request.args.get("congestion_week", "")
+        scope, alarm_type, date_from, date_to,
+        congestion_week=congestion_week, congestion_events=congestion_events,
     )
     if rows is None:
         return Response("Unknown or unavailable scope", status=404)
 
-    if scope == "Congestion History":
+    if congestion_events:
+        columns = [("id", "Alarm ID"), ("source_group", "Source")] + [
+            column for column in _CSV_COLUMNS_BY_SOURCE["congestion_history"]
+            if column[0] != "total_count"
+        ]
+    elif scope == "Congestion History":
         # Both ways into this scope already return one row per (Device,
         # Interface) with their own real total_count — see _fetch_rows()'s
         # own docstring.

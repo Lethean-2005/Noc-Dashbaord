@@ -75,19 +75,8 @@ def _get_word(win32, pythoncom):
     # just for one call.
     pythoncom.CoInitialize()
     word = win32.DispatchEx("Word.Application")
-    # Visible=True, not False — confirmed live on the VM that a manual,
-    # visible Word export of a blank doc succeeds while this app's own
-    # invisible, automated export of a real filled-in doc fails every
-    # time with a bare "Command failed" from BOTH ExportAsFixedFormat
-    # AND the legacy SaveAs fallback (same document, same account, same
-    # already-connected RDP session — only the Visible flag differs).
-    # That matches a known Windows Server limitation: some of Word's own
-    # export/rendering code paths need a real paintable window surface,
-    # which an invisible automation instance never gets allocated. The
-    # window briefly appearing on the SERVER's own screen (never seen by
-    # an actual dashboard user) is an acceptable tradeoff for the export
-    # actually working.
-    word.Visible = True
+    # Keep conversion in the background. Hidden conversion was verified on the VM.
+    word.Visible = False
     word.DisplayAlerts = 0
     try:
         # msoAutomationSecurityForceDisable (3) — on an unattended server
@@ -180,7 +169,7 @@ def _export_via_word(docx_bytes, win32, pythoncom, pywintypes, t_start, doc_labe
         doc = None
         t_doc_opened = t_exported = None
         try:
-            doc = word.Documents.Open(docx_path, ReadOnly=True)
+            doc = word.Documents.Open(docx_path, ReadOnly=True, Visible=False)
             t_doc_opened = time.monotonic()
             try:
                 # If a PREVIOUS run ever left a Word process hanging

@@ -30,6 +30,8 @@ import copy
 from io import BytesIO
 from pathlib import Path
 
+from app.services.incident_report.incident_report_october import LAYOUT as CURRENT_INCIDENT_LAYOUT, build_october_docx
+
 from docx import Document
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.oxml import OxmlElement
@@ -406,40 +408,7 @@ def _build_second_fault_section(document, report, fault_tbl, chronology_title_tb
     _set_cell_value(fault_tbl_2.rows[4].cells[1], report.get("resolution_2"))
     _set_cell_value(fault_tbl_2.rows[5].cells[1], report.get("permanent_fixed_2"))
 
-    # A blank paragraph between adjacent tables in the same cell — two
-    # <w:tbl> siblings with nothing between them render fused together
-    # with no gap at all, but the reference clearly shows Fault Analysis
-    # and Improvement Plan as two separate boxes with visible space
-    # between them.
-    cell.add_paragraph()
-
-    # Improvement and preventive plan gets an orange section header
-    # matching the rest of the document — cloning the existing 1x1
-    # "Root Cause Analysis – Chronology of Events" title table for this,
-    # since that's the only standalone (non-table-row) orange header
-    # already in the template; every other orange band here is a table
-    # row's own cell shading instead. Picture Reference, below, does NOT
-    # get this treatment — the reference renders it as plain bold text.
-    plan_header = Table(copy.deepcopy(chronology_title_tbl._tbl), document)
-    _append_to_cell(cell, plan_header._tbl)
-    _set_cell_value(plan_header.rows[0].cells[0], "Improvement and preventive plan")
-
-    # The plan's own body is a real bordered table too (one row per
-    # line), not free-floating text — matches every other section on
-    # this page, where a visible border always comes from a table, never
-    # a paragraph/shape border. Plain "1.Text" numbering, not a real Word
-    # numbered-list style — this template has no "List Number" style
-    # defined (a fresh add_paragraph(..., style=...) raises KeyError for
-    # one that isn't), and the reference itself uses plain manual
-    # numbering too.
-    plan_items = report.get("improvement_plan") or []
-    plan_table = _new_bordered_table(cell, document, rows=1 + len(plan_items))
-    _set_new_cell_text(plan_table.rows[0].cells[0], "TELCOTECH will take the following actions:")
-    for i, item in enumerate(plan_items, start=1):
-        _set_new_cell_text(plan_table.rows[i].cells[0], f"{i}.{item}")
-
-    # Same gap as above, between Improvement Plan's own table and
-    # Picture Reference below it.
+    # Keep pictures separate from the fault analysis. Saved plans remain in storage.
     cell.add_paragraph()
 
     _add_picture_reference_section(cell, report, with_top_border=True)
@@ -501,6 +470,9 @@ def _build_picture_only_section(document, report, container_template):
 def build_docx(report):
     """report: the dict shape IncidentReportRepository._to_dict() /
     IncidentReportService.parse_form() produce — returns .docx bytes."""
+    if report.get("incident_layout") == CURRENT_INCIDENT_LAYOUT:
+        return build_october_docx(report)
+
     document = Document(str(_TEMPLATE_PATH))
 
     # Document title (paragraph 0, "Wholesale Products & Service

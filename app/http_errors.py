@@ -34,6 +34,8 @@ def register_error_handlers(app):
             error.name, "This request could not be completed. Return to the dashboard or contact your administrator."
         ))
         if isinstance(error, CSRFError):
+            from app.utils.logger import get_logger
+            get_logger(__name__).warning("CSRF rejected %s %s: %s", request.method, request.path, error.description)
             title = "Please open the page again."
             message = ("Your form session is no longer available. Open the page again and retry. "
                        "This request was not processed.")

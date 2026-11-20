@@ -13,6 +13,7 @@
     function escapeText(value) {
         var span = document.createElement('span'); span.textContent = String(value == null ? '' : value); return span.innerHTML;
     }
+    var hideActiveTooltip = function () {};
     var NS = 'http://www.w3.org/2000/svg';
     function svgEl(tag, attrs) {
         var el = document.createElementNS(NS, tag);
@@ -52,15 +53,36 @@
     // working help buttons/donuts/spotlight (their listeners would
     // still point at the now-removed old elements).
     function initPerformanceCards() {
+        hideActiveTooltip();
         var tip = document.getElementById('perfTooltip');
         if (!tip) return;
+        var tooltipFrame = null;
+        var pendingTooltip = null;
+        var shownTooltipHtml = null;
         function showTip(evt, html) {
-            tip.innerHTML = html;
-            tip.classList.add('show');
-            tip.style.left = evt.clientX + 'px';
-            tip.style.top = (evt.clientY - 12) + 'px';
+            pendingTooltip = {x: evt.clientX, y: evt.clientY, html: html};
+            if (tooltipFrame !== null) return;
+            tooltipFrame = requestAnimationFrame(function () {
+                tooltipFrame = null;
+                if (!tip.isConnected || !pendingTooltip) return;
+                var next = pendingTooltip;
+                pendingTooltip = null;
+                if (shownTooltipHtml !== next.html) {
+                    tip.innerHTML = next.html;
+                    shownTooltipHtml = next.html;
+                }
+                tip.classList.add('show');
+                tip.style.left = next.x + 'px';
+                tip.style.top = (next.y - 12) + 'px';
+            });
         }
-        function hideTip() { tip.classList.remove('show'); }
+        function hideTip() {
+            if (tooltipFrame !== null) cancelAnimationFrame(tooltipFrame);
+            tooltipFrame = null;
+            pendingTooltip = null;
+            if (tip.classList.contains('show')) tip.classList.remove('show');
+        }
+        hideActiveTooltip = hideTip;
 
         initHelpModal('responseTime');
         initHelpModal('resolutionTime');
@@ -109,13 +131,10 @@
                     'stroke-dashoffset': (-offset).toFixed(2),
                     class: 'perf-donut-segment',
                 });
-                circle.addEventListener('mousemove', function (e) {
-                    tip.replaceChildren(document.createTextNode(label), document.createElement('br'));
-                    var count = document.createElement('b'); count.textContent = d.count;
-                    tip.append(count, document.createTextNode(' incidents ? ' + Math.round(frac * 100) + '%'));
-                    if (d.note) tip.append(document.createElement('br'), document.createTextNode(d.note));
-                    tip.classList.add('show'); tip.style.left = e.clientX + 'px'; tip.style.top = (e.clientY - 12) + 'px';
-                });
+                var tooltipHtml = escapeText(label) + '<br><b>' + escapeText(d.count) +
+                    '</b> incidents &middot; ' + Math.round(frac * 100) + '%';
+                if (d.note) tooltipHtml += '<br>' + escapeText(d.note);
+                circle.addEventListener('mousemove', function (e) { showTip(e, tooltipHtml); });
                 circle.addEventListener('mouseleave', hideTip);
                 svg.appendChild(circle);
                 offset += frac * circ;
@@ -196,18 +215,16 @@
                 durations = JSON.parse(bar.getAttribute('data-durations') || '[]');
             } catch (e) { durations = []; }
 
-            bar.addEventListener('mousemove', function (e) {
-                var siteLabel = siteCode + (siteName ? ' — ' + siteName : '');
-                var html = '<div class="perf-tooltip-title">' + siteLabel + '</div>' +
-                    '<table class="perf-tooltip-table"><tr><td>Total</td><td>' + total + '</td></tr>';
-                durations.forEach(function (d) {
-                    if (d.count > 0) {
-                        html += '<tr><td>' + escapeText(d.label) + '</td><td>' + d.count + '</td></tr>';
-                    }
-                });
-                html += '</table>';
-                showTip(e, html);
+            var siteLabel = siteCode + (siteName ? ' - ' + siteName : '');
+            var html = '<div class="perf-tooltip-title">' + escapeText(siteLabel) + '</div>' +
+                '<table class="perf-tooltip-table"><tr><td>Total</td><td>' + total + '</td></tr>';
+            durations.forEach(function (d) {
+                if (d.count > 0) {
+                    html += '<tr><td>' + escapeText(d.label) + '</td><td>' + escapeText(d.count) + '</td></tr>';
+                }
             });
+            html += '</table>';
+            bar.addEventListener('mousemove', function (e) { showTip(e, html); });
             bar.addEventListener('mouseleave', hideTip);
         });
 
@@ -234,18 +251,16 @@
             } catch (e) { incidents = []; }
             if (!incidents.length) return;
 
-            cell.addEventListener('mousemove', function (e) {
-                var first = incidents[0];
-                var html = '<div class="perf-tooltip-title">' + escapeText(first.response_display) + '</div>' +
-                    '<table class="perf-tooltip-table">' +
-                    '<tr><td>Incident ID</td><td>' + escapeText(first.incident_id) + '</td></tr>' +
-                    '<tr><td>Category</td><td>' + escapeText(first.category) + '</td></tr>' +
-                    '</table>';
-                if (incidents.length > 1) {
-                    html += '<div class="perf-tooltip-note">+' + (incidents.length - 1) + ' more incident(s) tied for this value</div>';
-                }
-                showTip(e, html);
-            });
+            var first = incidents[0];
+            var html = '<div class="perf-tooltip-title">' + escapeText(first.response_display) + '</div>' +
+                '<table class="perf-tooltip-table">' +
+                '<tr><td>Incident ID</td><td>' + escapeText(first.incident_id) + '</td></tr>' +
+                '<tr><td>Category</td><td>' + escapeText(first.category) + '</td></tr>' +
+                '</table>';
+            if (incidents.length > 1) {
+                html += '<div class="perf-tooltip-note">+' + (incidents.length - 1) + ' more incident(s) tied for this value</div>';
+            }
+            cell.addEventListener('mousemove', function (e) { showTip(e, html); });
             cell.addEventListener('mouseleave', hideTip);
         });
 
@@ -356,6 +371,8 @@
         }
     }
 
+    document.addEventListener('scroll', function () { hideActiveTooltip(); }, {capture: true, passive: true});
+    window.addEventListener('resize', function () { hideActiveTooltip(); }, {passive: true});
     initPerformanceCards();
     deferPerformanceSection();
 

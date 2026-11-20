@@ -15,6 +15,7 @@ start() runs clock-aligned, landing at the same instant as every other
 Telegram alert (all offsets 0), per explicit request.
 """
 
+from app.services.notification_policy import notifications_enabled
 import requests
 from flask import current_app
 
@@ -108,6 +109,8 @@ def _format_message(rows, threshold_min):
 def _send_telegram_document(token, chat_ids, photo_bytes):
     """Sends as a document, not sendPhoto — its own filename keeps it
     distinct from the other Telegram alerts."""
+    if not notifications_enabled():
+        return False
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -130,6 +133,8 @@ def send_inc_wo_category_power_alert(
     chunk if Pillow/the font isn't available. Returns {'sent': bool,
     'count': int}. Raises EnvironmentError if the bot token/chat ids
     aren't set."""
+    if not notifications_enabled():
+        return {"sent": False, "count": 0, "reason": "notifications disabled"}
     token = current_app.config["TELEGRAM_BOT_INC_WO_POWER_TOKEN"]
     chat_ids = _chat_ids(current_app.config["TELEGRAM_CHAT_IDS_INC_WO_POWER"])
     if not token or not chat_ids:

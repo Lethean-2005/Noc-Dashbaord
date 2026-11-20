@@ -87,7 +87,7 @@
 </div>
 {% endif %}
 
-<form method="post" action="{{ url_for('incident_report.save') }}" id="smartNetworkReportForm">
+<form method="post" action="{{ url_for('incident_report.save') }}" id="smartNetworkReportForm" data-csrf-url="{{ url_for('incident_report.refresh_form_token') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="report_id" value="{{ report_id or '' }}">
   <input type="hidden" name="report_type" value="smart_network">

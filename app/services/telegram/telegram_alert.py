@@ -14,6 +14,7 @@ clock boundary in TIMEZONE (e.g. 00:00, 04:00, ...) rather than "N hours
 after startup" — see seconds_until_next_aligned_time().
 """
 
+from app.services.notification_policy import notifications_enabled
 import io
 import os
 import re
@@ -30,6 +31,7 @@ from app.repositories.telegram.telegram_alert_cache_repository import TelegramAl
 from app.services.scheduler_utils import seconds_until_next_aligned_time, start_singleton_loop
 from app.utils.datetime import elapsed_minutes
 from app.utils.logger import get_logger
+from app.utils.source_urls import source_url
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -315,7 +317,6 @@ def _argb(hex_color):
 # Same incident/inc_wo record links the dashboard's own drilldown pages
 # build — every INC-WO cache table already carries
 # incident_numeric_id/wo_numeric_id.
-from app.utils.source_urls import source_url
 _EXCEL_LINK_ARGB = "FF0563C1"  # Excel's own default hyperlink blue
 
 
@@ -451,6 +452,8 @@ def _send_telegram_excel(token, chat_ids, excel_bytes, filename):
     """Sends the Excel attachment via the same sendDocument endpoint as the
     PNG table image — shared by all 4 Telegram alerts so "also send this
     alert's rows as .xlsx" behaves identically everywhere."""
+    if not notifications_enabled():
+        return False
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -467,6 +470,8 @@ def _send_telegram_excel(token, chat_ids, excel_bytes, filename):
 def _send_telegram_photo(token, chat_ids, photo_bytes):
     """Sends as a document (not sendPhoto) — Telegram recompresses photos,
     which blurs small table text; documents are delivered untouched."""
+    if not notifications_enabled():
+        return False
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -481,6 +486,8 @@ def _send_telegram_photo(token, chat_ids, photo_bytes):
 
 
 def _send_telegram_text(token, chat_ids, text):
+    if not notifications_enabled():
+        return False
     url = _TELEGRAM_SEND_MESSAGE_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -518,6 +525,8 @@ def send_site_down_alert(
     Raises EnvironmentError if TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_IDS aren't
     configured — callers decide whether that's fatal or just a skip.
     """
+    if not notifications_enabled():
+        return {"sent": False, "count": 0, "reason": "notifications disabled"}
     token = current_app.config["TELEGRAM_BOT_TOKEN"]
     chat_ids = _chat_ids(current_app.config["TELEGRAM_CHAT_IDS"])
     if not token or not chat_ids:

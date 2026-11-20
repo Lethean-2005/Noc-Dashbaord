@@ -12,6 +12,11 @@ from app.database.cache import get_cache_conn
 _COLUMNS = (
     "id",
     "report_type",
+    "incident_layout",
+    "prepared_by",
+    "service_type",
+    "symptom",
+    "summary_remarks_json",
     "document_title",
     "file_name",
     "incident_raised_by",
@@ -120,6 +125,19 @@ class IncidentReportRepository:
         finally:
             conn.close()
 
+    def fetch_summaries(self):
+        """Picker metadata only; do not load every report's photo or activity payloads."""
+        conn = get_cache_conn()
+        try:
+            rows = conn.execute(
+                "SELECT id, report_type, incident_layout, document_title, file_name, incident_number, "
+                "service_disruption, smart_customer_name, smart_report_month, status, created_at, updated_at "
+                "FROM incident_reports ORDER BY updated_at DESC"
+            ).fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
     def fetch_all(self):
         conn = get_cache_conn()
         try:
@@ -142,6 +160,7 @@ class IncidentReportRepository:
     @staticmethod
     def _to_dict(row):
         d = dict(row)
+        d["summary_remarks"] = json.loads(d.get("summary_remarks_json") or "{}")
         d["chronology_events"] = json.loads(d.get("chronology_events_json") or "[]")
         d["improvement_plan"] = json.loads(d.get("improvement_plan_json") or "[]")
         d["picture_references"] = json.loads(d.get("picture_references_json") or "[]")

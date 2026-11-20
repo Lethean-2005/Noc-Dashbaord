@@ -16,6 +16,19 @@
     function toISO(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}`; }
     function formatDisplay(y, m, d) { return `${d} ${MONTH_NAMES[m].slice(0, 3)} ${y}`; }
 
+    function notifySize(popup) {
+        popup.dispatchEvent(new CustomEvent('date-picker-toggle', { bubbles: true }));
+    }
+
+    function closePickers() {
+        document.querySelectorAll('.dp-popup').forEach(function (popup) {
+            if (!popup.hidden) {
+                popup.hidden = true;
+                notifySize(popup);
+            }
+        });
+    }
+
     function renderCalendar(popup, state, onPick, today) {
         popup.innerHTML = '';
 
@@ -86,6 +99,7 @@
             grid.appendChild(cell);
         }
         popup.appendChild(grid);
+        notifySize(popup);
     }
 
     function initField(field) {
@@ -113,6 +127,8 @@
             hidden.value = toISO(y, m, d);
             triggerText.textContent = formatDisplay(y, m, d);
             popup.hidden = true;
+            renderCalendar(popup, state, pick, today);
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         renderCalendar(popup, state, pick, today);
@@ -121,8 +137,9 @@
             e.stopPropagation();
             const willOpen = popup.hidden;
             // Close any other open picker before opening this one.
-            document.querySelectorAll('.dp-popup').forEach(function (p) { p.hidden = true; });
+            closePickers();
             popup.hidden = !willOpen;
+            notifySize(popup);
         });
 
         popup.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -134,7 +151,5 @@
 
     // One shared outside-click listener closes any open picker, regardless
     // of how many [data-date-picker] fields are on the page.
-    document.addEventListener('click', function () {
-        document.querySelectorAll('.dp-popup').forEach(function (p) { p.hidden = true; });
-    });
+    document.addEventListener('click', closePickers);
 })();

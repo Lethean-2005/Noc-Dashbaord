@@ -2788,48 +2788,45 @@ class IncidentService:
         return grouped
 
     def get_worklog_age_availability(self):
-        """Only identities are needed before a popup is opened."""
-        repo = self.worklog_cache_repository
-        rows = repo.fetch_columns("incident_worklog", ("incident_numeric_id",)) if hasattr(repo, "fetch_columns") else repo.fetch_all("incident_worklog")
-        ids = {r.get("incident_numeric_id") for r in rows}
-        return {bucket: any(r.get("incident_numeric_id") in ids for r in (self.get_details(bucket) or []))
-                for bucket in _AGE_BUCKET_BADGE_TYPES.values()}
+        """Show the popup for every age bucket containing incidents."""
+        return {
+            bucket: bool(self.get_details(bucket))
+            for bucket in _AGE_BUCKET_BADGE_TYPES.values()
+        }
 
     def get_worklog_by_age_bucket(self, badge_type=None):
-        """Every currently-open Site Down incident's worklog, grouped
-        by which "Incident Age – Open" bucket badge_type it's in right
-        now (_AGE_BUCKET_BADGE_TYPES) — behind that bar chart's own
-        worklog icon (next to the count — see graph_cards.html), which
-        pops up a list of incidents first, each expandable to its own
-        worklog, same accordion pattern as the "Incident Volume — Sun"
-        popup's own Category rows (.volume-category-row/.volume-
-        duration-panel — reused as-is here, no new JS needed). Reuses
-        get_details() per bucket rather than re-deriving the age
-        thresholds here, so _matches_age_bucket() stays the one place
-        that decides which bucket an incident falls into. Returns
-        {badge_type: [{"incident_numeric_id", "incident_id", "entries"}, ...]},
-        each incident's own entries newest first, incidents themselves
-        ordered by their own newest entry first."""
+        """List every incident in the bucket, attaching cached worklogs if available."""
         result = {}
         buckets = _AGE_BUCKET_BADGE_TYPES.values() if badge_type is None else [badge_type]
-        for badge_type in buckets:
-            if badge_type not in _AGE_BUCKET_BADGE_TYPES.values():
+        for bucket in buckets:
+            if bucket not in _AGE_BUCKET_BADGE_TYPES.values():
                 continue
-            bucket_rows = self.get_details(badge_type) or []
-            numeric_ids = {r.get("incident_numeric_id") for r in bucket_rows if r.get("incident_numeric_id")}
+            bucket_rows = self.get_details(bucket) or []
+            numeric_ids = {row.get("incident_numeric_id") for row in bucket_rows
+                           if row.get("incident_numeric_id")}
             worklog_by_id = self.get_worklog_by_incident_ids(numeric_ids)
             incidents = []
-            for numeric_id, entries in worklog_by_id.items():
-                entries = sorted(entries, key=lambda e: e.get("created_at") or "", reverse=True)
+            seen = set()
+            for row in bucket_rows:
+                numeric_id = row.get("incident_numeric_id")
+                identity = row.get("incident_id") or numeric_id
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                entries = sorted(
+                    worklog_by_id.get(numeric_id, []),
+                    key=lambda entry: entry.get("created_at") or "", reverse=True,
+                )
                 incidents.append({
                     "incident_numeric_id": numeric_id,
-                    "incident_id": entries[0]["incident_id"] if entries else "",
+                    "incident_id": row.get("incident_id") or (entries[0].get("incident_id") if entries else ""),
                     "entries": entries,
                 })
             incidents.sort(
-                key=lambda i: i["entries"][0]["created_at"] if i["entries"] else "", reverse=True
+                key=lambda incident: (incident["entries"][0].get("created_at") or "")
+                if incident["entries"] else "", reverse=True,
             )
-            result[badge_type] = incidents
+            result[bucket] = incidents
         return result
 
     def get_incident_site_down_counts(self):

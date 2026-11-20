@@ -1007,3 +1007,28 @@
 .ir-smart-month-table th:last-child:empty { width: 72px; }
 .ir-smart-month-table input { min-width: 0; }
 .ir-smart-month-table input[readonly] { color: var(--text-muted); }
+
+
+/* October customer incident reference: three-column summary and dated activity log. */
+.ir-reference-table { width:100%; border-collapse:collapse; table-layout:fixed; margin:0; }
+.ir-reference-table th, .ir-reference-table td { border:1px solid #555; padding:8px 10px; vertical-align:top; overflow-wrap:anywhere; }
+.ir-reference-table thead th { background:#e36c0a; color:white; text-align:center; font-weight:700; }
+.ir-reference-table tbody th { font-weight:500; text-align:left; }
+.ir-reference-label { width:14.5%; }
+.ir-reference-remark { width:29.1%; }
+.ir-october-document .ir-reference-table input, .ir-october-document .ir-reference-table textarea { width:100%; min-width:0; box-sizing:border-box; border:1px solid #d7dce2; border-radius:3px; padding:6px 8px; background:var(--bg-card,#fff); color:var(--text-primary); font:inherit; }
+.ir-october-document .ir-reference-table input:focus, .ir-october-document .ir-reference-table textarea:focus { outline:2px solid #4285f4; outline-offset:1px; }
+.ir-reference-fault th { width:14.5%; background:#e36c0a; color:#fff; }
+.ir-reference-activity-head { display:grid; grid-template-columns:25% 75%; border:1px solid #555; font-weight:600; }
+.ir-reference-activity-head span { padding:8px 10px; }
+.ir-reference-activity-head span+span { border-left:1px solid #555; }
+.ir-october-document h2 { margin:0; font-size:14px; }
+.ir-october-document .ir-document-head { gap:18px; }
+@media(max-width:700px) { .ir-reference-label { width:28%; } .ir-reference-remark { width:20%; } .ir-reference-table th,.ir-reference-table td { padding:5px; } }
+
+.ir-october-document .ir-reference-root-title { color:#000; background:#fff; text-align:center; border:0; padding:14px 8px 8px; }
+
+.ir-fault-pictures { padding:14px; border:1px solid var(--border-card,#ddd); border-top:0; }
+.ir-october-document .ir-fault-pictures h3 { margin:0 0 12px; font:600 13px var(--font-ui); color:var(--text-primary); }
+.ir-picture-filename { display:block; font-size:12px; overflow-wrap:anywhere; }
+.ir-retained-picture-note { margin:10px 0; font-size:12px; color:var(--text-muted); }

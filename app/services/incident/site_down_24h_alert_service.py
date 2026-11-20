@@ -1,28 +1,13 @@
-"""Site Down 24h Teams alert — two posts per incident, each sent at
-most once:
+"""Site Down 24h Teams alerts and source-specific restoration replies.
 
-  Stage 1 (down-alert): once a Site Down incident has been active for
-  SITE_DOWN_24H_ALERT_THRESHOLD_HOURS (default 24), post a card with
-  its details to Teams.
-
-  Stage 2 (restore-confirmation): once that SAME incident actually
-  resolves, post a second, separate card confirming it, worded to
-  refer back to the down-alert ("the incident report above") rather
-  than technically threaded — confirmed against the user's own real
-  Teams examples that this is how their existing "Workflows" bot alerts
-  already behave; a true threaded reply needs Graph API, which this
-  org's Azure admin has disabled app registration for.
-
-site_down_24h_alert_cache (SiteDown24hAlertCacheRepository) is this
-feature's own dedup ledger — unlike every alert in webhook/, which
-resends its full current list every cycle, each incident here gets
-each of these 2 posts exactly once, ever.
-
-Sending reuses webhook.common's own _post_json()/_pool() — same
-corporate-firewall-safe TLS handling already proven working for every
-other Teams webhook in this app, not a second copy of that logic.
+The persistent ledger records accepted webhook requests per incident. Restoration
+waits for its source-specific timestamp, Actual Root Cause, and Resolution.
+Power Automate routes replies to the original Teams thread. HTTP acceptance does
+not prove Teams delivery; keep the saved ledger and flow-side sent tracking when
+upgrading. Separate machines must not both enable notification delivery.
 """
 
+from app.services.notification_policy import notifications_enabled
 import base64
 from html import escape
 from datetime import datetime
@@ -462,6 +447,8 @@ def _send(html, incident_ref, *, restore=False, excel_bytes=None, excel_filename
     one POST body. The Flow itself still needs its own action added to
     actually create/attach that file in Teams — this only gets the data
     there; it can't configure the Flow on the Power Automate side."""
+    if not notifications_enabled():
+        return False, "notifications disabled"
     config_key = (
         "SITE_DOWN_24H_ALERT_RESTORE_WEBHOOK_URL" if restore else "SITE_DOWN_24H_ALERT_WEBHOOK_URL"
     )
@@ -486,6 +473,8 @@ def check_and_send_down_alerts():
     yet, post the alert (one per incident, every impacted site
     represented — see _group_by_incident()) and record it in the
     ledger. Returns how many were sent."""
+    if not notifications_enabled():
+        return 0
     threshold_hours = current_app.config["SITE_DOWN_24H_ALERT_THRESHOLD_HOURS"]
     ledger = SiteDown24hAlertCacheRepository()
     rows = IncidentSiteDownCacheRepository().fetch_all(_SITE_DOWN_TABLE)
@@ -546,6 +535,8 @@ def check_and_send_restore_alerts():
     restore-confirmed, check whether it's actually resolved now; if so,
     post the restore-confirmation (tagged with the SAME incident_ref
     Stage 1 used) and record it. Returns how many were sent."""
+    if not notifications_enabled():
+        return 0
     ledger = SiteDown24hAlertCacheRepository()
     pending = ledger.pending_restore()
     if not pending:
@@ -586,19 +577,30 @@ def check_and_send_restore_alerts():
         if not occurred or restored < occurred:
             logger.warning("Site Down 24h: invalid restore timestamps for %s; reply skipped", incident_id)
             continue
-        incident_ref = ref_by_id.get(incident_id) or incident_id
+        if restored > _now_local().replace(tzinfo=None):
+            logger.warning("Site Down 24h: future restore timestamp for %s; reply deferred", incident_id)
+            continue
+        actual_root_cause = str(row.get("Actual Root Cause") or "").strip()
+        resolution = str(row.get("Resolution") or "").strip()
+        if not actual_root_cause or not resolution:
+            logger.info("Site Down 24h: restoration details incomplete for %s; reply deferred", incident_id)
+            continue
+        if incident_id not in ref_by_id:
+            continue
+        incident_ref = ref_by_id[incident_id] or incident_id
         html = _build_restore_alert_html(
             incident_ref,
             occurred,
             restored,
-            row.get("Actual Root Cause") or "",
+            actual_root_cause,
             row.get("L1 NOC Investigation Result") or "",
-            row.get("Resolution") or "",
+            resolution,
             row.get("Last Comments") or "",
         )
         ok, reason = _send(html, incident_ref, restore=True)
         if ok:
             ledger.mark_restore_alerted(incident_id)
+            del ref_by_id[incident_id]
             sent += 1
             logger.info(f"Site Down 24h: restore-confirmation sent for {incident_id}")
         else:

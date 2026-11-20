@@ -1,6 +1,6 @@
 [project]
 name = "noc-dashboard"
-version = "19.3.8"
+version = "19.3.11"
 description = "NOC dashboard, reporting, and mentor tracking application"
 requires-python = ">=3.11"
 dependencies = [

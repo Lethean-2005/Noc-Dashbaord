@@ -86,6 +86,9 @@
       </div>
     </details>
     {% endif %}
+    {% if report_id and report.get('incident_layout') != current_incident_layout %}
+    <a class="btn-export" href="{{ url_for('incident_report.index', id=report_id, layout='current') }}">Use updated template</a>
+    {% endif %}
     <a class="btn-view btn-back" href="{{ url_for('dashboard.index') }}">Back</a>
   </div>
 </div>
@@ -98,10 +101,14 @@
 </div>
 {% endif %}
 
-<form method="post" action="{{ url_for('incident_report.save') }}" id="incidentReportForm" enctype="multipart/form-data">
+<form method="post" action="{{ url_for('incident_report.save') }}" id="incidentReportForm" data-csrf-url="{{ url_for('incident_report.refresh_form_token') }}" enctype="multipart/form-data">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="report_id" value="{{ report_id or '' }}">
 
+  {% if report.get('incident_layout') == current_incident_layout %}
+    {% include 'incident_report/_october_document.html' %}
+  <div>
+  {% else %}
   <div class="ir-document">
     <div class="ir-document-head">
       <div class="ir-document-title-wrap">
@@ -351,21 +358,9 @@
         </div>
       </div>
 
-      <div class="ir-section">
-        <div class="ir-section-title">Improvement and Preventive Plan</div>
-        <div class="ir-section-body">
-          <p style="margin:0 0 8px;font-size:11px;color:var(--text-muted);">One action per line — "TELCOTECH will take the following actions:" is added automatically in the exported document.</p>
-          <div id="irPlanItems">
-            {% for item in report.get('improvement_plan', []) %}
-            <div class="ir-plan-row">
-              <input type="text" name="improvement_item" value="{{ item }}" placeholder="e.g. Strengthen coordination and escalation with relevant network partners">
-              <button type="button" class="ir-event-remove" onclick="this.closest('.ir-plan-row').remove()"><i class="ti ti-x"></i></button>
-            </div>
-            {% endfor %}
-          </div>
-          <button type="button" class="btn-export" id="irAddPlanItem"><i class="ti ti-plus"></i> Add Item</button>
-        </div>
-      </div>
+      {% for item in report.get('improvement_plan') or [] %}
+      <input type="hidden" name="improvement_item" value="{{ item }}">
+      {% endfor %}
 
     </div>
 
@@ -400,6 +395,7 @@
       </div>
     </div>
 
+  {% endif %}
     <div class="ir-footer-actions">
       {% if report.get('status') == 'Final' %}
       <span class="ir-save-hint">This report is marked Final &mdash; use <b>Revert to Draft</b> in the Actions menu

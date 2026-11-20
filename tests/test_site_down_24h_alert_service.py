@@ -78,6 +78,8 @@ def test_restore_alert_converts_raw_postgres_utc_timestamps_to_local_time(
             "Incident ID": "INC1",
             "Occurred At": raw_occurred,
             "Restored At": raw_restored,
+            "Actual Root Cause": "Verified cause",
+            "Resolution": "Verified recovery",
             "L1 NOC Investigation Result": "suspected power",
             "Last Comments": "",
         }
@@ -561,3 +563,82 @@ def test_excel_columns_fit_long_single_line_records(app):
     assert sheet.auto_filter.ref is None
     assert not sheet["B2"].alignment.wrap_text
     assert not sheet["B1"].alignment.wrap_text
+
+
+@pytest.mark.parametrize("cause,recovery", [(None, "Recovery"), ("Cause", None), ("   ", "Recovery"), ("Cause", "\n "), ("", "")])
+def test_restore_waits_for_both_actual_details(app, monkeypatch, cause, recovery):
+    ledger = FakeLedger([("INC-TEST", "INC-TEST")])
+    row = {"Incident ID": "INC-TEST", "Occurred At": datetime(2026, 11, 1),
+           "Restored At": datetime(2026, 11, 2), "Actual Root Cause": cause,
+           "Resolution": recovery, "Last Comments": "Do not use this fallback",
+           "L1 NOC Investigation Result": "Do not use this fallback"}
+    monkeypatch.setattr(svc, "SiteDown24hAlertCacheRepository", lambda: ledger)
+    monkeypatch.setattr(svc, "IncidentSiteDownCacheRepository", FakeActiveCacheRepo)
+    monkeypatch.setattr(svc, "IncidentRepository", lambda: FakeIncidentRepo([row]))
+    monkeypatch.setattr(svc, "_send", lambda *a, **k: pytest.fail("Incomplete reply sent"))
+    with app.app_context():
+        assert svc.check_and_send_restore_alerts() == 0
+    assert ledger.marked == []
+
+
+@pytest.mark.parametrize("restored", [None, datetime(2026, 11, 1, 0, 0, 1)])
+def test_restore_never_sends_missing_or_future_time(app, monkeypatch, restored):
+    ledger = FakeLedger([("INC-TEST", "INC-TEST")])
+    row = {"Incident ID": "INC-TEST", "Occurred At": datetime(2026, 10, 31),
+           "Restored At": restored, "Actual Root Cause": "Cause", "Resolution": "Recovery"}
+    monkeypatch.setattr(svc, "_now_local", lambda: datetime(2026, 11, 1, 7))
+    monkeypatch.setattr(svc, "SiteDown24hAlertCacheRepository", lambda: ledger)
+    monkeypatch.setattr(svc, "IncidentSiteDownCacheRepository", FakeActiveCacheRepo)
+    monkeypatch.setattr(svc, "IncidentRepository", lambda: FakeIncidentRepo([row]))
+    monkeypatch.setattr(svc, "_send", lambda *a, **k: pytest.fail("Premature reply sent"))
+    with app.app_context():
+        assert svc.check_and_send_restore_alerts() == 0
+    assert ledger.marked == []
+
+
+def test_deferred_restore_sends_when_details_arrive_and_ignores_duplicate_rows(app, monkeypatch):
+    ledger = FakeLedger([("INC-TEST", "INC-TEST")])
+    row = {"Incident ID": "INC-TEST", "Occurred At": datetime(2026, 11, 1),
+           "Restored At": datetime(2026, 11, 2), "Actual Root Cause": "", "Resolution": ""}
+    monkeypatch.setattr(svc, "SiteDown24hAlertCacheRepository", lambda: ledger)
+    monkeypatch.setattr(svc, "IncidentSiteDownCacheRepository", FakeActiveCacheRepo)
+    monkeypatch.setattr(svc, "IncidentRepository", lambda: FakeIncidentRepo([row, row]))
+    posts = []
+    monkeypatch.setattr(svc, "_send", lambda *a, **k: (posts.append(a) or True, "HTTP 202"))
+    with app.app_context():
+        assert svc.check_and_send_restore_alerts() == 0
+        row.update({"Actual Root Cause": " Actual cause ", "Resolution": " Actual recovery "})
+        assert svc.check_and_send_restore_alerts() == 1
+    assert ledger.marked == ["INC-TEST"]
+    assert len(posts) == 1
+    assert "Root Cause: Actual cause" in posts[0][0]
+    assert "Action Recovery: Actual recovery" in posts[0][0]
+
+
+def test_restore_persistent_ledger_retries_failure_then_survives_new_repository(app, monkeypatch):
+    # The shared app fixture uses a temporary instance database, never real alert history.
+    from app.repositories.incident.site_down_24h_alert_cache_repository import SiteDown24hAlertCacheRepository
+    ledger = SiteDown24hAlertCacheRepository()
+    ledger.mark_down_alerted("INC-TEST", "TEST", "INC-TEST")
+    row = {"Incident ID": "INC-TEST", "Occurred At": datetime(2026, 11, 1),
+           "Restored At": datetime(2026, 11, 2), "Actual Root Cause": "", "Resolution": ""}
+    monkeypatch.setattr(svc, "IncidentSiteDownCacheRepository", FakeActiveCacheRepo)
+    monkeypatch.setattr(svc, "IncidentRepository", lambda: FakeIncidentRepo([row]))
+    posts = []
+    outcomes = iter([(False, "HTTP 503"), (True, "HTTP 202")])
+    def post(html, ref, **kwargs):
+        posts.append(html)
+        return next(outcomes)
+    monkeypatch.setattr(svc, "_send", post)
+    with app.app_context():
+        assert svc.check_and_send_restore_alerts() == 0
+        assert ledger.pending_restore() == [("INC-TEST", "INC-TEST")]
+        assert not posts
+        row.update({"Actual Root Cause": "Cause", "Resolution": "Recovery"})
+        assert svc.check_and_send_restore_alerts() == 0
+        assert ledger.pending_restore() == [("INC-TEST", "INC-TEST")]
+        assert svc.check_and_send_restore_alerts() == 1
+        assert SiteDown24hAlertCacheRepository().pending_restore() == []
+        assert svc.check_and_send_restore_alerts() == 0
+    assert len(posts) == 2
+    assert "Restored: 02-Nov-2026 07:00" in posts[1]

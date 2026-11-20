@@ -9,5 +9,5 @@ $action = New-ScheduledTaskAction -Execute $pythonPath -Argument ('"' + $workerP
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
 $settings = New-ScheduledTaskSettingsSet -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName 'NocDashboardSyncWorker' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'One dedicated NOC sync and alert worker; starts at user logon and restarts after failures.'
+Register-ScheduledTask -Force -TaskName 'NocDashboardSyncWorker' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'One dedicated NOC sync and alert worker; starts at user logon and restarts after failures.'
 Write-Output 'Worker task installed. Start it with Start-ScheduledTask -TaskName NocDashboardSyncWorker.'

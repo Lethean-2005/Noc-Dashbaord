@@ -286,6 +286,8 @@ class Config:
     # ── Teams webhook alerts (webhook/ package) ─────────────────────
     # Each card's on/off is really "is its TEAMS_WEBHOOK_* URL set" (see
     # webhook/common.py's resolve_url()), not a flag here.
+    NOTIFICATIONS_ENABLED = _bool(os.environ.get("NOTIFICATIONS_ENABLED"), default=True)
+
     TEAMS_ALERTS_ENABLED = os.environ.get("TEAMS_ALERTS_ENABLED", "true").strip().lower() == "true"
     TEAMS_ALERT_INTERVAL_SECONDS = int(os.environ.get("TEAMS_ALERT_INTERVAL_SECONDS", 900))
     # An alert with 0 active rows is skipped by default; true posts a
@@ -318,6 +320,8 @@ class DevelopmentConfig(Config):
 
 
 class TestingConfig(Config):
+    # Tests exercise enabled delivery with mocked transports, independently of local .env.
+    NOTIFICATIONS_ENABLED = True
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_ENGINE_OPTIONS = {}

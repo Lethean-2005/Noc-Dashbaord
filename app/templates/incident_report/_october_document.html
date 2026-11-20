@@ -1,0 +1,128 @@
+{% macro fault_pictures(fault, label, field) -%}
+<div class="ir-fault-pictures">
+  <h3>{{ label }}</h3>
+  <div id="irPictureList{{ fault }}">
+  {% for pic in report.get('picture_references') or [] %}
+    {% if (pic.get('fault') or 'general') == fault %}
+    <div class="ir-picture-item">
+      <input type="hidden" name="keep_picture_id" value="{{ pic.id }}">
+      <img src="data:{{ pic.content_type }};base64,{{ pic.data_base64 }}" alt="{{ pic.filename }}">
+      <span class="ir-picture-filename">{{ pic.filename }}</span>
+      <button type="button" class="ir-event-remove" aria-label="Remove picture" onclick="this.closest('.ir-picture-item').remove()"><i class="ti ti-x"></i></button>
+    </div>
+    {% endif %}
+  {% endfor %}
+  </div>
+  <button type="button" class="btn-export" id="irAddPicture{{ fault }}" data-ir-picture-add="irPictureList{{ fault }}" data-upload-name="{{ field }}"><i class="ti ti-plus"></i> Add Picture</button>
+</div>
+{%- endmacro %}
+{% macro text_input(name, value, required=false) -%}
+<input type="text" name="{{ name }}" value="{{ value or '' }}" {% if required %}required{% endif %}>
+{%- endmacro %}
+<div class="ir-document ir-october-document" data-incident-layout="{{ current_incident_layout }}">
+  <input type="hidden" name="incident_layout" value="{{ current_incident_layout }}">
+  <div class="ir-document-head">
+    <input class="ir-document-title-input" name="document_title" value="{{ report.get('document_title') or 'Official Incident Report' }}" required>
+    <img class="ir-document-logo" src="{{ versioned_static('img/telcotech_logo.png') }}" alt="Telcotech">
+  </div>
+  <div class="ir-field ir-filename-field"><label>Export File Name</label>
+    <input name="file_name" id="irFileName" value="{{ report.get('file_name') or '' }}" required>
+  </div>
+  <table class="ir-reference-table">
+    <colgroup><col class="ir-reference-label"><col><col class="ir-reference-remark"></colgroup>
+    <thead><tr><th>Items</th><th>Description</th><th>Remark</th></tr></thead>
+    <tbody>
+    {% set summary = [
+      ('Prepared By:', 'prepared_by', report.get('prepared_by') or 'TELCOTECH NOC'),
+      ('Trouble Ticket:', 'incident_number', report.get('incident_number') or 'TCT#'),
+      ('Customer:', 'customers_impacted', report.get('customers_impacted')),
+      ('Circuit ID:', 'service_disruption', report.get('service_disruption')),
+      ('Service Type:', 'service_type', report.get('service_type')),
+      ('Symptom:', 'symptom', report.get('symptom')),
+      ('Reported by Customer', 'time_of_complaint', report.get('time_of_complaint') or report.get('raise_time')),
+      ('Responded by Telcotech', 'response_time', report.get('response_time')),
+      ('Occurred:', 'time_issue', report.get('time_issue') or report.get('raise_time')),
+      ('Resolved:', 'restored_time', report.get('restored_time')),
+      ('Duration of Interruption:', 'duration_of_interruption', report.get('duration_of_interruption'))] %}
+    {% for label, name, value in summary %}
+      <tr><th scope="row">{{ label }}</th><td>
+        {% if name in ('time_of_complaint','response_time','time_issue','restored_time') %}
+        <div class="ir-date-field" data-datetime="1">
+          <input type="text" name="{{ name }}" value="{{ value or '' }}" class="ir-date-text" placeholder="19-Oct-2026 16:56" required>
+          <button type="button" class="ir-date-pick-btn" aria-label="Pick {{ label }}"><i class="ti ti-calendar"></i></button>
+        </div>
+        {% else %}{{ text_input(name, value, true) }}{% endif %}
+      </td><td><input type="hidden" name="summary_remark_key" value="{{ name }}">
+        <input name="summary_remark" aria-label="{{ label }} remark" value="{{ (report.get('summary_remarks') or {}).get(name, '') }}"></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="ir-section">
+    <h2 class="ir-section-title ir-reference-root-title">Description of the Root Cause</h2>
+    <div class="ir-reference-activity-head"><span>Date / Time</span><span>Detailed Activity</span></div>
+    <div class="ir-section-body">
+        <div id="irEventRows">
+          {% for event in report.get('chronology_events', []) %}
+          {% if event.header_date is defined and event.header_date %}
+          <p class="ir-fixed-line ir-chronology-header">Date and Time: <span class="ir-fixed-line-date">{{ event.header_date }}</span></p>
+          {% endif %}
+          <div class="ir-event-row">
+            <div class="ir-date-field">
+              <input type="text" name="event_date" value="{{ event.get('date', '') }}" placeholder="22-Sep-2026" class="ir-date-text" required>
+              <button type="button" class="ir-date-pick-btn" aria-label="Pick a date"><i class="ti ti-calendar"></i></button>
+            </div>
+            <div class="ir-time-field">
+              <input type="text" name="event_time" value="{{ event.time }}" placeholder="13:00" class="ir-time-only-text" required>
+              <button type="button" class="ir-date-pick-btn" aria-label="Pick a time"><i class="ti ti-clock"></i></button>
+            </div>
+            <input type="text" name="event_description" value="{{ event.description }}" placeholder="What happened at this time..." required>
+            <button type="button" class="ir-event-insert" aria-label="Insert event below this one"><i class="ti ti-plus"></i></button>
+            <button type="button" class="ir-event-remove" onclick="this.closest('.ir-event-row').remove()"><i class="ti ti-x"></i></button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn-export ir-add-event" id="irAddEvent"><i class="ti ti-plus"></i> Add Event</button>
+
+    </div>
+  </div>
+  <div class="ir-section" id="irFault1Body">
+    <table class="ir-reference-table ir-reference-fault"><tbody>
+    {% for label, name in [('Cause of Outage:', 'cause_of_outage'), ('Resolution:', 'resolution'), ('Remark', 'permanent_fixed')] %}
+      <tr><th scope="row">{% if name == "cause_of_outage" and report.get("has_second_fault") %}1st Fault<br>{% endif %}{{ label }}</th><td><textarea name="{{ name }}" rows="2" required>{{ report.get(name) or '' }}</textarea></td></tr>
+    {% endfor %}
+    </tbody></table>
+    {{ fault_pictures('1', '1st Fault - Picture Reference', 'picture_reference_1') }}
+  </div>
+  <div class="ir-section-body">
+    <input type="hidden" name="has_second_fault" id="irHasSecondFault" value="{{ report.get('has_second_fault') or '' }}">
+    <button type="button" class="btn-export" id="irAddSecondFault" {% if report.get('has_second_fault') %}hidden{% endif %}>Add Second Fault</button>
+    <button type="button" class="btn-export" id="irRemoveSecondFault" {% if not report.get('has_second_fault') %}hidden{% endif %}>Remove Second Fault</button>
+  </div>
+  <div id="irPage2" {% if not report.get('has_second_fault') %}hidden{% endif %}>
+    <table class="ir-reference-table ir-reference-fault"><tbody>
+    {% for label, name in [('Cause of Outage:', 'cause_of_outage_2'), ('Resolution:', 'resolution_2'), ('Remark', 'permanent_fixed_2')] %}
+      <tr><th scope="row">{% if name == "cause_of_outage_2" %}2nd Fault<br>{% endif %}{{ label }}</th><td><textarea name="{{ name }}" rows="2">{{ report.get(name) or '' }}</textarea></td></tr>
+    {% endfor %}
+    </tbody></table>
+    {{ fault_pictures('2', '2nd Fault - Picture Reference', 'picture_reference_2') }}
+  </div>
+  {% set retained_second_pictures = (report.get('picture_references') or []) | selectattr('fault', 'defined') | selectattr('fault', 'equalto', '2') | list %}
+  {% if not report.get('has_second_fault') and retained_second_pictures %}
+  <p class="ir-retained-picture-note">Saved second-fault pictures remain attached. Use Add Second Fault to view or edit them.</p>
+  {% endif %}
+  {# Retain legacy values on save without displaying them in the current template. #}
+  {% for name in ('incident_raised_by','incident_received_by','incident_category','issue_reported','actions_taken_summary','fault_gps_location','issued_time','fault_gps_location_2','issued_time_2') %}
+    <input type="hidden" name="{{ name }}" value="{{ report.get(name) or '' }}">
+  {% endfor %}
+    {% for name in ('reported_date','incident_date','report_time','raise_time','details_date_and_time') %}
+      <input type="hidden" name="{{ name }}" value="{{ report.get(name) or '' }}">
+    {% endfor %}
+  {# Preserve old plan values without showing a section or exporting them. #}
+  {% for item in report.get('improvement_plan') or [] %}
+    <input type="hidden" name="improvement_item" value="{{ item }}">
+  {% endfor %}
+  {% set general_pictures = (report.get('picture_references') or []) | rejectattr('fault') | list %}
+  {% if general_pictures %}
+    {{ fault_pictures('general', 'General Picture Reference', 'picture_reference') }}
+  {% endif %}
+</div>

@@ -2,8 +2,8 @@
 
 Six tables cover inventory, monthly availability, its mirrored summary,
 Failure to React, Services Outage Report, and Credit Note Summary.
-Only placeholder text/data rows are replaced; source styles, section
-orientations, logos, headers and footers remain in the actual template.
+Source styles, section orientations, logos, headers and footers are retained.
+The credit summary uses aligned header merges and an inline, full-width footer.
 """
 
 import copy
@@ -12,8 +12,13 @@ from pathlib import Path
 
 
 from docx import Document
+from docx.shared import Twips
+from docx.text.paragraph import Paragraph
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.table import _Cell
 from docx.enum.table import WD_ROW_HEIGHT_RULE
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from app.utils.smart_report import report_year_suffix
 
 _TEMPLATE_PATH = (
@@ -158,15 +163,108 @@ def _fill_reaction_table(table, reactions):
     ))
 
 
+def _align_credit_table(table):
+    """Use one column grid and merge labels without splitting the footer text."""
+    table.autofit = False
+    floating = table._tbl.tblPr.find(qn("w:tblpPr"))
+    if floating is not None:
+        # Word offsets shading from borders in floating tables. Keep the placement
+        # as an inline indent and paragraph spacing instead.
+        horizontal = int(floating.get(qn("w:tblpX"), "0"))
+        vertical = int(floating.get(qn("w:tblpY"), "0"))
+        indent = table._tbl.tblPr.find(qn("w:tblInd"))
+        if indent is None:
+            indent = OxmlElement("w:tblInd")
+            table._tbl.tblPr.append(indent)
+        indent.set(qn("w:w"), str(horizontal))
+        indent.set(qn("w:type"), "dxa")
+        previous = table._tbl.getprevious()
+        if previous is not None and previous.tag == qn("w:p") and vertical > 0:
+            paragraph = Paragraph(previous, table._parent)
+            paragraph.paragraph_format.space_after = (
+                (paragraph.paragraph_format.space_after or 0) + Twips(vertical)
+            )
+        table._tbl.tblPr.remove(floating)
+    spacing = table._tbl.tblPr.find(qn("w:tblCellSpacing"))
+    if spacing is not None:
+        table._tbl.tblPr.remove(spacing)
+    grid = table._tbl.tblGrid.gridCol_lst
+    widths = [column.w for column in grid]
+    for row_index, row in enumerate(table.rows):
+        if row_index >= 2:
+            row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+        column = 0
+        for cell in row._tr.tc_lst:
+            span = cell.grid_span
+            properties = cell.get_or_add_tcPr()
+            no_wrap = properties.find(qn("w:noWrap"))
+            if no_wrap is not None:
+                properties.remove(no_wrap)
+            properties.get_or_add_tcW().set(
+                qn("w:w"), str(sum(widths[column:column + span]) // 635),
+            )
+            column += span
+    # The reference has separate header rows and one blank cell before January.
+    blank = table.cell(1, 0).merge(table.cell(1, 1))
+    _set_cell_value(blank, "")
+    footer = table.rows[-1]
+    label = footer.cells[0]
+    if label._tc is not footer.cells[-1]._tc:
+        label = label.merge(footer.cells[-1])
+    _set_cell_value(label, "Credit amount (USD)")
+    label.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
+    header_runs = table.cell(0, 0).paragraphs[0].runs
+    if header_runs:
+        for run in label.paragraphs[0].runs:
+            run.font.name = header_runs[0].font.name
+    shading = label._tc.tcPr.find(qn("w:shd"))
+    fill = shading.get(qn("w:fill")) if shading is not None else "E36C0A"
+    # Fill the table background so Word cannot leave white seams at shaded edges.
+    table_shading = table._tbl.tblPr.find(qn("w:shd"))
+    if table_shading is None:
+        table_shading = OxmlElement("w:shd")
+        table._tbl.tblPr.append(table_shading)
+    table_shading.set(qn("w:val"), "clear")
+    table_shading.set(qn("w:fill"), fill)
+    for row_index, row in enumerate(table.rows):
+        for cell in row._tr.tc_lst:
+            cell_shading = cell.tcPr.find(qn("w:shd"))
+            if cell_shading is None:
+                cell_shading = OxmlElement("w:shd")
+                cell.tcPr.append(cell_shading)
+            cell_shading.set(qn("w:val"), "clear")
+            cell_shading.set(qn("w:fill"), fill if row_index in (0, len(table.rows) - 1) else "FFFFFF")
+    borders = table._tbl.tblPr.find(qn("w:tblBorders"))
+    if borders is None:
+        borders = OxmlElement("w:tblBorders")
+        table._tbl.tblPr.append(borders)
+    for child in list(borders):
+        borders.remove(child)
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        border = OxmlElement("w:" + edge)
+        for key, value in (("val", "single"), ("sz", "4"), ("space", "0"), ("color", fill)):
+            border.set(qn("w:" + key), value)
+        borders.append(border)
+    # Cell overrides produce seams against the shared table border in Word.
+    for row in table.rows:
+        for cell in row._tr.tc_lst:
+            override = cell.tcPr.find(qn("w:tcBorders"))
+            if override is not None:
+                cell.tcPr.remove(override)
+
+
 def _fill_credit_table(table, credits, amounts, year_suffix):
     footer = copy.deepcopy(table.rows[-1]._tr)
     table.rows[-1]._tr.getparent().remove(table.rows[-1]._tr)
     _fill_monthly_table(table, credits, year_suffix)
     table._tbl.append(footer)
-    row = table.rows[-1]
-    _set_cell_value(row.cells[0], "Credit amount (USD)")
-    for column, month in enumerate(_MONTH_KEYS, 2):
-        _set_cell_value(row.cells[column], amounts.get(month) or "")
+    _align_credit_table(table)
+    values = [f"{label}: {amounts[key]}" for key, label in zip(_MONTH_KEYS, _MONTH_LABELS)
+              if amounts.get(key) is not None and str(amounts[key]).strip()]
+    text = "Credit amount (USD)"
+    if values:
+        text += "   " + ", ".join(values)
+    _set_cell_value(table.rows[-1].cells[0], text)
 
 
 def build_docx(report):

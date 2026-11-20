@@ -221,3 +221,59 @@ Final release check after the Smart Report follow-up: all 826 Python tests passe
 The packaged DOCX template is a byte-for-byte copy of Smart Network Report_Sep-Oct 2026_v1 (2).docx. Its page margins, column grids, merged cells, fonts, logos, headers and footers are retained. Monthly values are mapped to physical cells so the revised summary grid cannot duplicate or shift months. The previous credit-table border/merge overrides were removed to retain the supplied reference formatting. Twenty-four affected report tests passed, including multi-row month mapping, persistence, reference layout properties, media and header/footer XML. A real Word export of a populated report succeeded as a three-page PDF. Original user documents and saved reports were preserved.
 
 Final reference verification: 26 affected report tests passed. Existing reference detail-row formatting is retained instead of cloning the first row for every record. Changed detail rows retain the reference height as a minimum and can grow for longer notes. Unchanged reference text retains its original runs and paragraphs. Word rendered both the reference copy and a generated document with identical sample content to three-page PDFs; all three pages matched in extracted text and rendered pixels at the same raster resolution. The original open user document was left untouched.
+
+
+## v19.3.9 release verification - 13 November 2026
+
+All 842 Python tests and 16 JavaScript regressions passed. Pyflakes, JavaScript syntax checks, embedded VM-launcher syntax/parity and git diff whitespace checks passed. The release includes all-incident age-worklog popups, explicit empty-worklog messages, reference-style credit headers, a full-width merged footer and inline credit-table placement. An actual Word PDF export verified a zero gap between the outer border and orange shading.
+
+Five representative report variants were exported locally in hidden and visible Word: standard incident, PNG/JPEG photos, second fault with photos and improvement plan, long multi-day chronology, and a populated Smart Network report. All ten conversions passed; corresponding rendered pages were identical. The user's VM result confirms the earlier single Smart sample passed in both modes; the expanded five-case VM test remains available through scripts/test_pdf_export.bat. Production PDF visibility remains unchanged.
+
+Noc_Dashboard_v19.3.9_261113.zip contains 411 files. Archive integrity and byte-for-byte source parity passed. It excludes saved databases, instance data, real environment files, logs, tests and virtual environments. Existing scripts and data were preserved. No commit or push was performed for this ZIP-only request.
+
+
+## v19.3.10 worker lifecycle release - 13 November 2026
+
+The normal dashboard launcher identifies the Windows process holding the scheduler lock. A verified older dedicated worker receives a session-specific graceful stop request in its actual instance directory; the launcher waits for in-progress work and lock release before starting the new worker. Healthy current workers are reused. A Windows named mutex serializes launchers. Python venv redirector children are recognized by process ancestry. Copied heartbeat files cannot by themselves claim startup success. Unknown or legacy embedded processes are left for explicit manual attention, and stalled shutdown is never force-killed. Early startup tracebacks are saved in logs/worker-startup.log.
+
+Ctrl+C in the normal dashboard launcher requests shutdown of its current project worker. Explicit web-only supervision remains available. Debug reload exits and bind failures do not stop a shared worker; an old web console cannot stop a worker already moved to another project folder. The shortcut creator now produces Noc Dashboard, Dashboard Settings and NOC_Worker. The worker icon starts or shows the same worker without opening HTTP. Shortcut targets were verified in a temporary directory without changing the real desktop.
+
+Verification: 865 Python tests and 16 JavaScript tests passed; Pyflakes and whitespace checks passed. The handoff test used an isolated real subprocess/socket, verified in-flight completion before reuse, and preserved a saved-data sentinel. Native Windows launcher serialization and virtual-environment process ancestry were exercised. No production worker or live alert sender was started or stopped by these tests.
+
+An update must preserve .env and the entire instance directory before any old folder is removed. Refresh desktop shortcuts from the new installation. The optional scheduled-task installer updates its target only when explicitly invoked. Default PDF visibility and all sync/alert schedules remain unchanged.
+
+
+## Performance interaction and query review - 18 November 2026
+
+Chart tooltips now prebuild their content, combine pointer movement into animation-frame
+updates, and reuse unchanged HTML. A burst of 100 mouse events produced one content write
+instead of 100. Scrolling or resizing cancels pending tooltip work and dismisses the tooltip.
+Tooltip text is escaped, and filter replacement cancels work attached to the previous section.
+
+Shared tables normalize blank cells once during initial setup, preserving icon buttons.
+Search now also initializes when a row-count notice sits between the header and table.
+All matching rows and full CSV exports remain available; pagination was not introduced.
+Alarm/congestion headings and exports use DownTime and RestoreTime as requested; underlying
+fields, source timestamps, notification behavior, and count definitions are unchanged by this pass.
+
+Congestion history has additive down_time and (device_name, down_time) indexes. Weekly
+reads changed from a full scan plus a temporary sort to an indexed range read; device reads
+also avoid the temporary sort. The live cache integrity check returned ok, and a checksum
+comparison confirmed all congestion fields and records survived index creation unchanged.
+
+Same-snapshot query timing (25 warm reads per case, temporary copy only):
+
+| Query | Before indexes | After indexes | Matching rows |
+|---|---:|---:|---:|
+| Weekly history | 5.942 ms | 2.098 ms | 686 |
+| Device history | 0.053 ms | 0.047 ms | 15 |
+
+The populated dashboard scroll check covered 119 frame intervals and 5,141 DOM elements:
+median 8.3 ms, p95 8.6 ms, no observed tasks over 50 ms during the scroll, and no JavaScript errors.
+Server medians varied with local workload: initial page 49.9-141.9 ms and historical section
+142.7-405.9 ms. These are local measurements, not a claimed server-render improvement or VM guarantee.
+Historical calculations remain cache-backed rather than adding live database waits to page loads.
+
+Validation: 927 broad regression tests, 16 focused migration/interaction checks, 16 JavaScript
+checks, Python static checks, and JavaScript syntax checks passed. Test records and profiling
+snapshots were isolated. No commit, push, VM deployment, or ZIP rebuild was performed.

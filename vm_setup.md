@@ -8,14 +8,15 @@ at the bottom if any step doesn't behave as described.
 
 ## Updating an existing VM installation
 
-1. Stop the old dashboard before copying files or its SQLite database.
+1. Press Ctrl+C in the old dashboard console and wait for its worker-stopped message. For versions before v19.3.10, also run worker.py --stop from the old folder and check worker.py --status until stopped. Stop the old worker before copying instance data.
 2. Extract the new ZIP into a new folder.
 3. Copy the old `.env` file and the entire old `instance/` folder into the new
    `Noc-Dashboard/` folder, next to `run.py`. Both are required; neither is in the ZIP.
 4. Create the virtual environment and install `requirements.txt` using the setup
    steps below. Virtual environments should be recreated when changing folders.
-5. Start only the new dashboard. Wait for its next successful cache sync and
-   refresh the browser with Ctrl+F5.
+5. Run scripts/create_shortcuts.bat from the new folder to refresh the desktop targets and add NOC_Worker.
+6. Double-click Noc Dashboard to start the worker and website. Wait for its next successful cache sync and refresh the browser with Ctrl+F5.
+7. Remove the old installation only after its worker has stopped and .env plus instance are safely preserved in the new folder or a backup.
 
 Keep the old folder as a backup. Do not run both versions together: both could
 send alerts. Existing saved data and alert history are retained through `instance/`;
@@ -298,3 +299,32 @@ To check the runner without sending: .venv\Scripts\python.exe
 scripts\send_telegram_test.py site-down --dry-run. Normal launchers send real
 alerts using the existing synced cache. Start the dashboard and complete its
 first sync before testing on a fresh VM.
+
+
+## v19.3.9 PDF validation
+
+The deployment includes scripts/test_pdf_export.bat. Double-click it after the project virtual environment is ready. It runs five sample reports (standard incident, photos, second fault with improvement plan, long multi-day chronology, and Smart Network Report) in hidden and visible Word. Each export has a 45-second timeout; allow a few minutes for the complete test. Word may appear during the visible comparison.
+
+Check hidden_all_passed and visible_all_passed in the final summary. The test uses temporary sample files, changes no export settings or saved reports, and does not send notifications. The production PDF exporter retains its current visible-Word mode. DOCX generation does not need Word.
+
+
+## Automatic worker handoff and Ctrl+C updates
+
+1. Press Ctrl+C in the old dashboard window. With this launcher version, wait for Dashboard and sync worker are now stopped. Older launcher versions may leave their worker running; use worker.py --stop from the old folder and wait for stopped status before copying instance data. The new launcher can also hand off gracefully from a verified older worker, but it does not copy data between folders.
+2. Back up the old .env and complete instance folder before deleting or replacing an installation. The ZIP contains neither.
+3. Extract the new application, restore .env and instance, create its virtual environment and install requirements.
+4. Run scripts/create_shortcuts.bat to update all desktop shortcuts to this new folder. It adds NOC_Worker as well as the dashboard and settings icons.
+5. Double-click Noc Dashboard. It prepares the worker, then starts the website. NOC_Worker is optional and shows or starts the same worker; it does not create a duplicate.
+
+If worker startup fails, the launcher shows its exit code and saves early tracebacks to logs/worker-startup.log. It does not remove databases, reset history or terminate unrelated Python programs. A timed-out shutdown means in-progress work is still running; retain the old installation and inspect worker.py --status.
+
+
+## v19.3.11 notification settings
+
+Preserve the VM .env and entire instance folder, including sent-message history. On the sending
+VM, set NOTIFICATIONS_ENABLED=true; on local development PCs, use false. Restart the relevant
+worker after changing the setting. Do not copy the local .env over the VM .env.
+Restoration checks still run every five minutes, but now wait for Actual Root Cause and Resolution.
+The original source-specific restoration time is displayed, rather than the message-send time.
+Previously sent replies are not automatically resent. The live Power Automate flow is separate
+from this ZIP and must keep its own RestoreSent flag to skip repeated requests.

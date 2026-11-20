@@ -1,6 +1,6 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}Top Congestion Devices{% endblock %}
+{% block title %}Top 20 Congestion Devices{% endblock %}
 
 {# Standalone page — just the Top Congestion Devices card, nothing else
    from the main dashboard. Requested for a fixed URL (/congestion) that
@@ -19,11 +19,26 @@
      is no "another card" here. #}
 {% block content %}
     <div class="dashboard-grid">
-      <div class="card card-graph card-wide" id="congestionHistoryCard">
+      <div class="card card-graph card-wide congestion-compact-card" id="congestionHistoryCard">
         <div class="card-header no-collapse">
-          <h3 class="card-title">Top Congestion Devices</h3>
+          <h3 class="card-title">Top 20 Congestion Devices</h3>
           <div class="graph-filters">
             <button type="button" class="btn-export" data-congestion-blacklist><i class="ti ti-list"></i> Blacklist</button>
+            {% if congestion_top_devices.weeks %}
+            <details class="date-filter congestion-week-drilldown">
+              <summary class="btn-export btn-icon-only" title="View weekly drilldown" aria-label="View weekly drilldown">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-chevrons-right" aria-hidden="true"><path d="m13 21 3-3-3-3"/><path d="M16 2v3"/><path d="m19 21 3-3-3-3"/><path d="M21 11.5V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="M3 9h18"/><path d="M8 2v3"/></svg>
+              </summary>
+              <div class="date-filter-form">
+                {% for w in congestion_top_devices.weeks %}
+                <a class="congestion-week-link" href="{{ url_for('dashboard.drilldown', title='Congestion History ' + w.label, label=w.label, value=0, scope='Congestion History', congestion_week=w.iso, congestion_view='events') }}">
+                  <span class="congestion-week-title">{{ w.label }}{% if w.label in ["This week", "Last week"] %} &middot; Week {{ w.week_number }}{% endif %}</span>
+                  <small>{{ w.range_label }}</small>
+                </a>
+                {% endfor %}
+              </div>
+            </details>
+            {% endif %}
             <details class="date-filter perf-week-filter">
               <summary class="btn-export btn-icon-only{{ ' is-active' if congestion_top_devices.selected_weeks else '' }}" title="Filter by Week">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
@@ -60,7 +75,7 @@
           <div class="sales-top-row">
             <p class="sales-subtitle">Last {{ config.CONGESTION_HISTORY_WEEKS }} weeks &middot; <b>{{ congestion_top_devices.total }}</b> total</p>
           </div>
-          <div class="expenses-rows">
+          <div class="expenses-rows" tabindex="0" role="region" aria-label="Top 20 congestion devices">
             {% for bar in congestion_top_devices.bars %}
             <div class="expenses-row badge-item">
               <span class="expenses-rank">{{ bar.rank }}.</span>
@@ -78,11 +93,7 @@
             {% with empty_message='No Congestion alarms in this window.' %}{% include "layouts/chart_empty_state.html" %}{% endwith %}
             {% endfor %}
           </div>
-          {% if congestion_top_devices.weeks %}
-          <p class="perf-card-sub congestion-weeks-caption">
-            {% for w in congestion_top_devices.weeks|reverse %}<a href="{{ url_for('dashboard.drilldown', title='Congestion History ' + w.label, label=w.label, value=0, scope='Congestion History', congestion_week=w.iso) }}" title="{{ w.label }} ({{ w.range_label }}) — every device">Wk {{ w.week_number }}</a>{% if not loop.last %} &middot; {% endif %}{% endfor %}
-          </p>
-          {% endif %}
+
         </div>
       </div>
     </div>

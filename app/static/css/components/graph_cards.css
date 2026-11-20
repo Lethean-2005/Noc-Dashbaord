@@ -1148,3 +1148,79 @@
 .chart-empty-state .table-empty-state { min-height:0; padding:20px 12px; gap:10px; }
 .chart-empty-state .table-empty-state-reference { width:130px; }
 .chart-empty-state .table-empty-state-message { font-size:12px; }
+
+/* Keep the Site Down worklog title visible while long incident lists scroll. */
+.incident-age-worklog-dialog {
+  width: 680px;
+  max-width: 90vw;
+  max-height: min(85vh, calc(100dvh - 32px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.incident-age-worklog-dialog .modal-header { flex: none; }
+.incident-age-worklog-dialog .modal-body,
+.incident-age-worklog-dialog [data-worklog-content] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.incident-age-worklog-dialog .incident-age-worklog-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.incident-age-worklog-dialog th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-modal);
+}
+.incident-age-worklog-dialog td { overflow-wrap: anywhere; }
+
+/* Keep the standalone Top 20 card compact; scroll only its ranked device list. */
+.congestion-compact-card .expenses-rows {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 4px 8px 4px 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.congestion-compact-card .expenses-row { flex-shrink: 0; min-height: 24px; }
+.congestion-compact-card .expenses-bar-track { min-width: 0; }
+@media (max-width: 600px) {
+  #congestionHistoryCard.congestion-compact-card .expenses-label.badge-label { width: 125px; }
+  .congestion-compact-card .expenses-row { gap: 8px; }
+}
+
+/* Weekly drilldowns use simple title-and-date rows. */
+.congestion-week-drilldown .date-filter-form {
+  width: 260px;
+  min-width: min(260px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 0;
+  gap: 0;
+  overflow: auto;
+}
+.congestion-week-link {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-card);
+  color: var(--text-primary);
+  text-decoration: none;
+  line-height: 1.4;
+}
+.congestion-week-link:last-child { border-bottom: 0; }
+.congestion-week-title { font-size: 12px; font-weight: 600; }
+.congestion-week-link small { color: var(--text-muted); font-size: 11px; font-weight: 400; }
+.congestion-week-link:hover,
+.congestion-week-link:focus-visible { background: color-mix(in srgb, var(--text-primary) 4%, transparent); }
+.congestion-week-link:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }

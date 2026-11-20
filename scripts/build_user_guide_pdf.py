@@ -1,3 +1,5 @@
+# Project imports follow the path bootstrap for direct script execution.
+# ruff: noqa: E402
 """Build the additional plain-language dashboard guide without live source queries."""
 from pathlib import Path
 import sys

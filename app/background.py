@@ -1,6 +1,8 @@
 """Background job registration for the dedicated worker process."""
 from importlib import import_module
 
+from app.services.notification_policy import notifications_enabled
+
 _SCHEDULER_OFFSET_MODULES = (
     "app.services.alarm.alarm_scheduler",
     "app.services.alarm.congestion_history_scheduler",
@@ -102,6 +104,9 @@ _ALERT_JOBS = (
 def configured_jobs(config):
     """Return enabled jobs without changing their existing intervals or gates."""
     jobs = list(_BACKGROUND_JOBS)
+    if not notifications_enabled(config):
+        return [(module, key) for module, key in jobs
+                if module != "app.services.incident.site_down_24h_alert_scheduler"]
     jobs.extend((module, key) for module, key, required in _ALERT_JOBS
                 if all(config.get(name) for name in required))
     return jobs

@@ -10,11 +10,17 @@
    here, badge showing 2 sites) — that's expected, not a bug. #}
 {% set display_count = rows|length %}
 <div class="alarm-header">
+    {% if congestion_events %}
+    <input class="alarm-search" type="search" placeholder="Search records..." aria-label="Search congestion records" autocomplete="off">
+    {% endif %}
     <button type="button" class="btn-export alarm-subtitle-btn">{{ label }} = {{ display_count }}</button>
     <div class="alarm-actions">
         <span class="alarm-row-count">{{ display_count }} records</span>
         {% if source in ('eze', 'tct', 'congestion_history') %}
         <button type="button" class="btn-export" data-congestion-blacklist><i class="ti ti-list"></i> Congestion Blacklist</button>
+        {% endif %}
+        {% if source == 'congestion_history' and congestion_week and not alarm_type %}
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, congestion_week=congestion_week, congestion_view='' if congestion_events else 'events') }}">{{ 'Interface summary' if congestion_events else 'All alarm events' }}</a>
         {% endif %}
         {% if not congestion_interface_summary %}
         <details class="date-filter">
@@ -36,7 +42,11 @@
                 <input type="hidden" name="label" value="{{ label }}">
                 <input type="hidden" name="scope" value="{{ scope }}">
                 <input type="hidden" name="type" value="{{ alarm_type }}">
-                <div class="date-filter-field-label">Filter by Down Time</div>
+                {% if congestion_events %}
+                <input type="hidden" name="congestion_week" value="{{ congestion_week }}">
+                <input type="hidden" name="congestion_view" value="events">
+                {% endif %}
+                <div class="date-filter-field-label">Filter by DownTime</div>
                 <div class="dp-field" data-date-picker>
                     <span class="dp-label">From</span>
                     <button type="button" class="dp-trigger">
@@ -72,7 +82,7 @@
                 <div class="date-filter-actions">
                     <button type="submit" class="btn-export">Apply</button>
                     {% if date_from or date_to %}
-                    <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=alarm_type) }}">Clear</a>
+                    <a class="btn-export" href="{{ url_for('dashboard.drilldown', title=title, label=label, scope=scope, type=alarm_type, congestion_week=congestion_week|default(''), congestion_view=congestion_view|default('')) }}">Clear</a>
                     {% endif %}
                 </div>
             </form>
@@ -113,7 +123,7 @@
             </form>
         </details>
         {% endif %}
-        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=alarm_type, from=date_from, to=date_to, congestion_week=congestion_week|default('')) }}"><i class="ti ti-download"></i> Export</a>
+        <a class="btn-export" href="{{ url_for('dashboard.drilldown_download', scope=scope, type=alarm_type, from=date_from, to=date_to, congestion_week=congestion_week|default(''), congestion_view=congestion_view|default('')) }}"><i class="ti ti-download"></i> Export</a>
     </div>
 </div>
 {% if row_cap_notice %}
@@ -131,7 +141,7 @@
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
-                <th>Down Time</th>
+                <th>DownTime</th>
                 <th>Outage(min)</th>
                 <th>Interface</th>
                 <th>Province</th>
@@ -144,13 +154,17 @@
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
-                <th>Down Time</th>
+                <th>DownTime</th>
                 <th>Outage(min)</th>
                 <th>Interface</th>
                 <th>Province</th>
                 <th>Additional Info</th>
                 <th>Note</th>
                 <th>Action</th>
+                {% elif source == 'congestion_history' and congestion_events %}
+                <th>POP Name</th><th>POP Code</th><th>Owner</th><th>Device</th><th>IP</th>
+                <th>Interface</th><th>Alarm Name</th><th>DownTime</th><th>RestoreTime</th>
+                <th>Outage(min)</th><th>Province</th><th>Additional Info</th><th>Source</th><th>Note</th><th>Action</th>
                 {% elif source == 'congestion_history' %}
                 <th>POP Name</th>
                 <th>POP Code</th>
@@ -160,7 +174,7 @@
                 <th>Interface</th>
                 <th>Province</th>
                 <th>Additional Info</th>
-                <th>Latest Occurrence</th>
+                <th>Latest DownTime</th>
                 <th class="right">Total</th>
                 <th>Action</th>
                 {% elif source == 'it_node' %}
@@ -168,7 +182,7 @@
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
-                <th>Down Time</th>
+                <th>DownTime</th>
                 <th>Outage(min)</th>
                 <th>Interface</th>
                 <th>Root Cause</th>
@@ -184,7 +198,7 @@
                 <th>Device</th>
                 <th>IP</th>
                 <th>Alarm Name</th>
-                <th>Down Time</th>
+                <th>DownTime</th>
                 <th>Outage(min)</th>
                 <th>Interface</th>
                 <th>Root Cause</th>
@@ -224,6 +238,14 @@
                 <td>{{ row.province }}</td>
                 <td class="ellipsis">{{ row.additional_info }}</td>
                 <td class="ellipsis">{{ row.note }}</td>
+                <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
+                {% elif source == 'congestion_history' and congestion_events %}
+                <td>{{ row.pop_name }}</td><td>{{ row.pop_code }}</td>
+                <td>{% include "drilldown/_pop_owner_cell.html" %}</td>
+                <td>{{ row.device_name }}</td><td>{{ row.ip_address }}</td><td class="ellipsis">{{ row.interface }}</td>
+                <td>{{ row.alarm_name }}</td><td>{{ row.down_time }}</td><td>{{ row.restored_time or '—' }}</td>
+                <td class="right">{{ row.outage_min }}</td><td>{{ row.province }}</td>
+                <td class="ellipsis">{{ row.additional_info }}</td><td>{{ row.source_group }}</td><td class="ellipsis">{{ row.note }}</td>
                 <td class="ack-cell">{% include "drilldown/_alarm_action_menu.html" %}</td>
                 {% elif source == 'congestion_history' %}
                 <td>{{ row.pop_name }}</td>
@@ -268,8 +290,8 @@
                 {% endif %}
             </tr>
             {% else %}
-            {% set _colspan_by_source = {'eze': 13, 'tct': 13, 'congestion_history': 11, 'it_node': 12} %}
-            <tr class="empty-row"><td colspan="{{ _colspan_by_source.get(source, 14) }}">{% with %}{% set empty_message %}No active alarms for {{ scope }}{% endset %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
+            {% set _colspan_by_source = {'eze': 13, 'tct': 13, 'congestion_history': 15 if congestion_events else 11, 'it_node': 12} %}
+            <tr class="empty-row"><td colspan="{{ _colspan_by_source.get(source, 14) }}">{% with %}{% set empty_message %}{% if source == 'congestion_history' %}No matching congestion records for this view.{% else %}No active alarms for {{ scope }}{% endif %}{% endset %}{% include "layouts/table_empty_state.html" %}{% endwith %}</td></tr>
             {% endfor %}
         </tbody>
     </table>

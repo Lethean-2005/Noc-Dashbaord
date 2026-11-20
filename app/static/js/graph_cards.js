@@ -109,18 +109,8 @@
         }
     });
 
-    // "Incident Age – Open"'s own worklog popups — one modal per age
-    // bucket (incidentAgeWorklogModal_<badge_type>, see graph_cards.html
-    // and IncidentService.get_worklog_by_age_bucket()), opened by
-    // clicking that bucket's BAR specifically — app.js's own document
-    // click handler bails out early for .incident-age-bar so clicking
-    // it doesn't ALSO navigate to the drilldown table the way the
-    // count next to it still does. Fully server-rendered (no fetch —
-    // unlike the per-weekday popups above, every bucket's worklog is
-    // small enough to ship inline), so opening is just a display swap.
-    // The X close button is handled generically by performance.js's
-    // own .duration-popup-close delegation; only the "click the
-    // backdrop to close" case needs its own id-scoped check here.
+    // Fetch a bucket's incident/worklog list when its log button is opened.
+    // Failed loads can be retried by closing and reopening the popup.
     document.addEventListener('click', function (e) {
         const trigger = e.target.closest('[data-age-worklog-modal]');
         if (trigger) {

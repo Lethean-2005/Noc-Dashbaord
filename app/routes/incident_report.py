@@ -11,8 +11,11 @@ import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from flask import Blueprint, abort, current_app, redirect, render_template, request, send_file, url_for
+from flask_wtf.csrf import generate_csrf
 
+from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, send_file, url_for
+
+from app.services.incident_report.incident_report_october import LAYOUT as CURRENT_INCIDENT_LAYOUT
 from app.services.incident_report.incident_report_service import (
     IncidentReportService,
     annotate_chronology_events_with_headers,
@@ -63,6 +66,8 @@ def _export_filename(report, report_id, extension):
 def index():
     report_id = request.args.get("id")
     report = incident_report_service.get_report(report_id) if report_id else None
+    if report_id and report is None:
+        abort(404)
     report = dict(report) if report else {}
     # An existing report's own saved report_type always wins (its type
     # never changes once created — see document.html's own type
@@ -106,6 +111,9 @@ def index():
             reports=smart_reports,
             current_year_suffix=report_year_suffix(report.get("smart_report_month")),
         )
+    if not report.get("id") or request.args.get("layout") == "current":
+        report["incident_layout"] = CURRENT_INCIDENT_LAYOUT
+        report.setdefault("prepared_by", "TELCOTECH NOC")
     # Groups chronology_events by their own date, same "Date and Time:
     # <date>" header-per-day grouping the DOCX/PDF export has always
     # used — see annotate_chronology_events_with_headers()'s own
@@ -116,11 +124,20 @@ def index():
     )
     return render_template(
         "incident_report/document.html",
+        current_incident_layout=CURRENT_INCIDENT_LAYOUT,
         report=report,
         report_id=report.get("id"),
         report_type=report_type,
         reports=[r for r in reports if (r.get("report_type") or "incident") == "incident"],
     )
+
+
+@incident_report_bp.get("/csrf")
+def refresh_form_token():
+    """Renew the current browser form token without reading or changing a report."""
+    response = jsonify(csrf_token=generate_csrf())
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @incident_report_bp.route("/save", methods=["POST"])
@@ -134,6 +151,15 @@ def save():
     report_id = request.form.get("report_id") or None
     intent = request.form.get("intent")
     existing = incident_report_service.get_report(report_id) if report_id else None
+    if report_id and existing is None:
+        abort(404)
+    if existing and existing.get("status") == "Final":
+        abort(409, description="Revert this report to Draft before editing it.")
+    submitted_layout = (request.form.get("incident_layout") or "").strip()
+    if submitted_layout and submitted_layout != CURRENT_INCIDENT_LAYOUT:
+        abort(400, description="Unsupported incident report template. Reload the report before saving.")
+    if existing and existing.get("incident_layout") == CURRENT_INCIDENT_LAYOUT and submitted_layout != CURRENT_INCIDENT_LAYOUT:
+        abort(409, description="The report template changed in another window. Reload before saving.")
     # An existing report's own type always wins (see index()'s own
     # note); a brand-new report reads report_type from its own hidden
     # form field, set by whichever blank template rendered it.
@@ -157,11 +183,14 @@ def save():
         )
         is_complete_fn = incident_report_service.is_complete
 
-    if report_id and incident_report_service.update_report(report_id, fields):
-        pass
+    if report_id:
+        if not incident_report_service.update_report(report_id, fields):
+            abort(404)
     else:
         report_id = incident_report_service.create_report(fields)
-    if intent == "final" and is_complete_fn(fields):
+    if intent == "final":
+        if not is_complete_fn(fields):
+            return redirect(url_for("incident_report.index", id=report_id, finalize_error=1))
         incident_report_service.set_status(report_id, "Final")
     return redirect(url_for("incident_report.index", id=report_id))
 

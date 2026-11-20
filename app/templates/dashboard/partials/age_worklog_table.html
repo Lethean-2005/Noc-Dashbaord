@@ -1,4 +1,4 @@
-                <div class="volume-category-table-wrap" style="overflow-x:auto;">
+                <div class="volume-category-table-wrap incident-age-worklog-table-wrap" tabindex="0" role="region" aria-label="Site down incident worklogs">
                 <table class="alarm-table volume-category-table" style="width:100%;">
                     <thead>
                         <tr>
@@ -24,8 +24,14 @@
                                 <div style="color:var(--text-primary);font-size:13px;">{{ entry.entry_text }}</div>
                             </td>
                         </tr>
+                        {% else %}
+                        <tr class="volume-duration-row">
+                            <td colspan="2" style="color:var(--text-muted);font-size:13px;">No worklog available for this incident.</td>
+                        </tr>
                         {% endfor %}
                     </tbody>
+                    {% else %}
+                    <tbody><tr><td colspan="2">No incidents in this age group.</td></tr></tbody>
                     {% endfor %}
                 </table>
                 </div>

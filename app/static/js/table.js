@@ -11,16 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Fill blank cells in every table with an em-dash so nothing reads empty
-  // — but only truly empty cells (no element children at all). A cell
-  // holding an icon-only button (e.g. the Mentor Site table's delete
-  // button) has empty textContent too since SVGs render graphically, not
-  // as text; without the children.length check, td.textContent = '—'
-  // would wipe out that button entirely and replace it with a plain dash.
-  document.querySelectorAll('.alarm-table tbody td').forEach(td => {
-    if (!td.classList.contains('empty-row') && td.children.length === 0 && td.textContent.trim() === '') {
-      td.textContent = '—';
-    }
+  function fillBlankCells(table) {
+    table.querySelectorAll('tbody td').forEach(td => {
+      if (!td.closest('.empty-row') && td.children.length === 0 && !td.textContent.trim()) {
+        td.textContent = '\u2014';
+      }
+    });
+  }
+  const initiallyFilledTables = new WeakSet();
+  document.querySelectorAll('.alarm-table').forEach(table => {
+    fillBlankCells(table);
+    initiallyFilledTables.add(table);
   });
 
   // Drilldown/table row search — filters .alarm-table rows by substring
@@ -35,12 +36,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // belonged to.
   function initTableSearch(wrap) {
     const table = wrap.querySelector('.alarm-table');
-    const header = wrap.previousElementSibling;
-    if (!table || !header || !header.classList.contains('alarm-header')) return;
+    if (!table) return;
+    if (initiallyFilledTables.has(table)) initiallyFilledTables.delete(table);
+    else fillBlankCells(table);
+    let header = wrap.previousElementSibling;
+    while (header && header.classList.contains('row-cap-notice')) header = header.previousElementSibling;
+    if (!header || !header.classList.contains('alarm-header')) return;
     const countEl = header.querySelector('.alarm-row-count');
-    table.querySelectorAll('tbody td').forEach(td => {
-      if (!td.children.length && !td.textContent.trim() && !td.closest('.empty-row')) td.textContent = '?';
-    });
 
     const rows = Array.from(table.querySelectorAll('tbody tr')).filter(r => !r.classList.contains('empty-row') && !r.querySelector('td.empty-row'));
     const existingSearch = header.querySelector('input.alarm-search');

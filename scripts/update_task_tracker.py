@@ -94,7 +94,8 @@ def main():
         values=[task["phase"],task_id,task["name"],"S. Lethean","Egineer",
                 task.get("date"),None,task.get("dependency","-"),task["priority"],
                 1 if task["status"]=="Completed" else 0,task["status"],"-",task["remarks"]]
-        for column,value in enumerate(values,1):sheet.cell(row,column,value)
+        for column, value in enumerate(values, 1):
+            sheet.cell(row, column, value)
         sheet.cell(row,10).number_format="0%"
         sheet.cell(row,6).comment=Comment("Actual start date was not supplied. Left blank rather than inventing a schedule. Logged in the 11-Nov-2026 tracker review.","Tracker update")
         sheet.cell(row,7).comment=Comment("Actual duration was not supplied; no estimate has been represented as actual effort.","Tracker update")
@@ -102,7 +103,8 @@ def main():
         added_tasks.append((task_id,row,task))
         if phase_ranges and phase_ranges[-1][0]==task["phase"]:
             phase_ranges[-1][2]=row
-        else:phase_ranges.append([task["phase"],row,row])
+        else:
+            phase_ranges.append([task["phase"], row, row])
     # Link only concrete implementation dependencies, not a fabricated sequential chain.
     names_to_ids={sheet.cell(row,3).value:sheet.cell(row,2).value for row in range(2,sheet.max_row+1)}
     dependencies={
@@ -117,23 +119,27 @@ def main():
         "Nine real-interface screenshot demonstrations":"Practical action and feature usage guides",
     }
     for task_id,row,task in added_tasks:
-        if task["name"] in dependencies:sheet.cell(row,8,names_to_ids[dependencies[task["name"]]])
+        if task["name"] in dependencies:
+            sheet.cell(row, 8, names_to_ids[dependencies[task["name"]]])
     for phase,start,end in phase_ranges:
-        if end>start:sheet.merge_cells(start_row=start,start_column=1,end_row=end,end_column=1)
+        if end > start:
+            sheet.merge_cells(start_row=start, start_column=1, end_row=end, end_column=1)
         sheet.cell(start,1).alignment=Alignment(vertical="center",horizontal="left",wrap_text=True)
 
     issue_names={str(issue_sheet.cell(row,2).value) for row in range(2,issue_sheet.max_row+1)}
     next_issue=max(int(str(issue_sheet.cell(row,1).value).split("-")[-1]) for row in range(2,issue_sheet.max_row+1))+1
     added_issues=[]
     for issue in issues:
-        if issue["name"] in issue_names:continue
+        if issue["name"] in issue_names:
+            continue
         row=issue_sheet.max_row+1
         clone_row(issue_sheet,27,row,9)
         issue_id=f"ISSUE-{next_issue:03d}"
         next_issue+=1
         values=[issue_id,issue["name"],"Enginering",None,None,issue["priority"],
                 1 if issue["status"]=="Completed" else 0,issue["remark"],issue["status"]]
-        for column,value in enumerate(values,1):issue_sheet.cell(row,column,value)
+        for column, value in enumerate(values, 1):
+            issue_sheet.cell(row, column, value)
         issue_sheet.cell(row,7).number_format="0%"
         issue_names.add(issue["name"])
         added_issues.append((issue_id,row,issue))
@@ -175,7 +181,8 @@ def main():
         ]
         notes.cell(1,1,"Field")
         notes.cell(1,2,"Update notes")
-        for row in note_rows:notes.append(list(row))
+        for row in note_rows:
+            notes.append(list(row))
         for cell in notes[1]:
             cell.font=Font(name="Huawei Sans",size=9,bold=True,color="FFFFFF")
             cell.fill=PatternFill("solid",fgColor="1B3A6B")
@@ -197,11 +204,13 @@ def main():
     assert original_merges.issubset(set(map(str,sheet.merged_cells.ranges)))
     temp=WORKBOOK.with_name(WORKBOOK.stem+".updating.xlsx")
     workbook.save(temp)
-    with zipfile.ZipFile(temp) as archive:assert archive.testzip() is None
+    with zipfile.ZipFile(temp) as archive:
+        assert archive.testzip() is None
     check=load_workbook(temp)
     assert check.sheetnames==workbook.sheetnames
     for title,cells in original.items():
-        for (row,column),value in cells.items():assert check[title].cell(row,column).value==value
+        for (row, column), value in cells.items():
+            assert check[title].cell(row, column).value == value
     for current,id_col in ((check["Noc Dashbord"],2),(check["Issue Lists"],1)):
         ids=[current.cell(row,id_col).value for row in range(2,current.max_row+1)]
         assert len(ids)==len(set(ids))
@@ -213,4 +222,5 @@ def main():
     print("Backup:",backup)
 
 
-if __name__=="__main__":main()
+if __name__ == "__main__":
+    main()

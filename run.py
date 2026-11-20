@@ -8,6 +8,7 @@ determines the database connection, debug mode, and host/port.
 
 import argparse
 import os
+from pathlib import Path
 
 from app import create_app
 
@@ -16,6 +17,7 @@ app = create_app(os.environ.get("APP_ENV", "development"), process_role="web")
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Start the NOC web server and ensure its separate worker is running.")
     parser.add_argument("--web-only", action="store_true", help="Serve HTTP only; use when another service manages the worker")
+    parser.add_argument("--stop-worker-on-exit", action="store_true", help="Stop this project worker when the web server exits")
     args = parser.parse_args(argv)
     if not args.web_only:
         from scripts.ensure_sync_worker import main as ensure_worker
@@ -23,29 +25,22 @@ def main(argv=None):
         result = ensure_worker()
         if result:
             return result
-    if app.config["DEBUG"]:
-        # threaded=True: Werkzeug's dev server otherwise handles exactly one
-        # request at a time — with several NOC staff hitting the dashboard
-        # around the same moment, requests would queue up behind each other
-        # instead of running concurrently. Kept for local development only,
-        # since it still gives the Werkzeug auto-reloader/debugger that
-        # waitress doesn't have.
-        app.run(host=app.config["HOST"], port=app.config["PORT"], debug=True, threaded=True)
-    else:
-        # waitress: a real WSGI server (runs on Windows, unlike gunicorn) —
-        # handles multiple requests concurrently properly, unlike the
-        # Werkzeug dev server outside of its debug/threaded mode above.
-        # Use this for anything beyond local dev. threads defaults to 8
-        # (waitress's own default is 4 — see app/config.py's
-        # WAITRESS_THREADS for why that's too few here).
-        from waitress import serve
+    try:
+        if app.config["DEBUG"]:
+            app.run(host=app.config["HOST"], port=app.config["PORT"], debug=True, threaded=True)
+        else:
+            from waitress import serve
 
-        serve(
-            app,
-            host=app.config["HOST"],
-            port=app.config["PORT"],
-            threads=app.config["WAITRESS_THREADS"],
-        )
+            serve(app, host=app.config["HOST"], port=app.config["PORT"],
+                  threads=app.config["WAITRESS_THREADS"])
+    except KeyboardInterrupt:
+        pass
+    # Reload exits and bind failures propagate without stopping a shared worker.
+    if not args.web_only or args.stop_worker_on_exit:
+        from app.services.worker_handoff import stop_current_worker
+
+        if not stop_current_worker(Path(__file__).resolve().parent):
+            return 1
 
     return 0
 

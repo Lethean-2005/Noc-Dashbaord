@@ -33,8 +33,8 @@ function parseSmartReportDateTime(value) {
         if (event.target.closest('.ir-event-remove, .ir-event-insert, .ir-smart-row-remove, .ir-smart-row-insert, [id^="irAdd"], #irRemoveSecondFault')) isDirty = true;
     }, true);
     // Saving or changing report status clears the navigation warning.
-    document.addEventListener('submit', function () {
-        isDirty = false;
+    document.addEventListener('submit', function (event) {
+        if (!event.defaultPrevented) isDirty = false;
     });
     window.addEventListener('beforeunload', function (e) {
         if (!isDirty) return;
@@ -223,16 +223,7 @@ function parseSmartReportDateTime(value) {
     });
 })();
 
-// "Add Second Fault" — reveals page 2 (2nd Fault Analysis & Resolution,
-// Improvement and Preventive Plan, Picture Reference; see
-// Incident_Report_PCCW-MX1052-MX1054.pdf, the reference this mirrors —
-// a real incident whose root cause was misdiagnosed once, then found to
-// actually be something else entirely). Prefixes the ORIGINAL Fault
-// Analysis section's own labels with "1st " while a second fault is
-// showing, matching the reference's own numbering once there are two —
-// "Remove Second Fault" reverses all of it (hides page 2, clears the
-// flag, drops the "1st " prefix again) rather than just hiding the
-// section and leaving stale has_second_fault/label state behind.
+// Toggle the second fault and keep fault labels consistent with its saved state.
 (function () {
     var addBtn = document.getElementById('irAddSecondFault');
     var removeBtn = document.getElementById('irRemoveSecondFault');
@@ -278,74 +269,59 @@ function parseSmartReportDateTime(value) {
     if (flagInput.value.trim()) setLabelsPrefixed(true);
 })();
 
-// Improvement and Preventive Plan — one text line per action, same
-// add/remove pattern as "Add Event" above, just without the date/time
-// columns it doesn't need.
-(function () {
-    var addBtn = document.getElementById('irAddPlanItem');
-    var rows = document.getElementById('irPlanItems');
-    if (!addBtn || !rows) return;
-
-    addBtn.addEventListener('click', function () {
-        var row = document.createElement('div');
-        row.className = 'ir-plan-row';
-        row.innerHTML =
-            '<input type="text" name="improvement_item" placeholder="e.g. Strengthen coordination and escalation with relevant network partners">' +
-            '<button type="button" class="ir-event-remove"><i class="ti ti-x"></i></button>';
-        row.querySelector('.ir-event-remove').addEventListener('click', function () {
-            row.remove();
-        });
-        rows.appendChild(row);
-        row.querySelector('input').focus();
-    });
-})();
-
 // Picture Reference — each click on "Add Picture" creates its own
 // single-file input (see document.html's own note on why: a shared
 // multiple-file input's FileList is read-only, so there's no clean way
 // to remove just ONE already-picked file from it) with a live preview
 // via URL.createObjectURL, same add/remove shell as Chronology/
-// Improvement Plan above. Already-saved photos (rendered server-side
+// the activity list. Already-saved photos (rendered server-side
 // straight from their own base64 — see document.html) use the exact
 // same .ir-picture-item markup and remove the same way, just with a
 // keep_picture_id hidden input instead of a file input.
 (function () {
-    var addBtn = document.getElementById('irAddPicture');
-    var list = document.getElementById('irPictureList');
-    if (!addBtn || !list) return;
-
-    addBtn.addEventListener('click', function () {
-        var input = document.createElement('input');
-        input.type = 'file';
-        input.name = 'picture_reference';
-        input.accept = 'image/*';
-        input.hidden = true;
-
-        var item = document.createElement('div');
-        item.className = 'ir-picture-item';
-        item.appendChild(input);
-
-        var removeBtn = document.createElement('button');
-        removeBtn.type = 'button';
-        removeBtn.className = 'ir-event-remove';
-        removeBtn.innerHTML = '<i class="ti ti-x"></i>';
-        removeBtn.addEventListener('click', function () {
-            item.remove();
-        });
-
-        input.addEventListener('change', function () {
-            if (!input.files || !input.files[0]) {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-ir-picture-add]'));
+    var legacyButton = document.getElementById('irAddPicture');
+    if (legacyButton) buttons.push(legacyButton);
+    buttons.forEach(function (button) {
+        var list = document.getElementById(button.dataset.irPictureAdd || 'irPictureList');
+        if (!list) return;
+        button.addEventListener('click', function () {
+            var input = document.createElement('input');
+            input.type = 'file';
+            input.name = button.dataset.uploadName || 'picture_reference';
+            input.accept = 'image/*';
+            input.hidden = true;
+            var item = document.createElement('div');
+            item.className = 'ir-picture-item';
+            item.appendChild(input);
+            var previewUrl = null;
+            function removeItem() {
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
                 item.remove();
-                return;
             }
-            var img = document.createElement('img');
-            img.src = URL.createObjectURL(input.files[0]);
-            item.insertBefore(img, removeBtn);
+            var removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'ir-event-remove';
+            removeBtn.setAttribute('aria-label', 'Remove picture');
+            removeBtn.innerHTML = '<i class="ti ti-x"></i>';
+            removeBtn.addEventListener('click', removeItem);
+            input.addEventListener('cancel', removeItem);
+            input.addEventListener('change', function () {
+                if (!input.files || !input.files[0]) { removeItem(); return; }
+                var img = document.createElement('img');
+                previewUrl = URL.createObjectURL(input.files[0]);
+                img.src = previewUrl;
+                img.alt = input.files[0].name;
+                item.insertBefore(img, removeBtn);
+                var caption = document.createElement('span');
+                caption.className = 'ir-picture-filename';
+                caption.textContent = input.files[0].name;
+                item.insertBefore(caption, removeBtn);
+            });
+            item.appendChild(removeBtn);
+            list.appendChild(item);
+            input.click();
         });
-
-        item.appendChild(removeBtn);
-        list.appendChild(item);
-        input.click();
     });
 })();
 
@@ -613,7 +589,7 @@ function parseSmartReportDateTime(value) {
 // trip instead of hanging the page.
 (function () {
     var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    var reportTimeInput = document.querySelector('input[name="raise_time"]');
+    var reportTimeInput = document.querySelector('input[name="time_issue"]') || document.querySelector('input[name="raise_time"]');
     var restoredTimeInput = document.querySelector('input[name="restored_time"]');
     var durationInput = document.querySelector('input[name="duration_of_interruption"]');
     var durationMirror = document.getElementById('irDescDuration');
@@ -1589,4 +1565,69 @@ function parseSmartReportDateTime(value) {
         if (event.target.matches('[name="react_failure_to_react"]')) delete event.target.dataset.calculated;
     });
     body.querySelectorAll('tr').forEach(function (row) { calculate(row, true); });
+})();
+
+
+// The October layout calculates interruption from Occurred, separately from the complaint time.
+(function () {
+    var documentEl = document.querySelector('[data-incident-layout]');
+    if (!documentEl) return;
+    var occurred = documentEl.querySelector('input[name="time_issue"]');
+    var complaint = documentEl.querySelector('input[name="time_of_complaint"]');
+    function updateDate(source, name) {
+        var target = documentEl.querySelector('input[name="' + name + '"]');
+        var match = /^(\d{1,2}-[A-Za-z]{3}-\d{4})/.exec(source.value.trim());
+        if (target && match && target.value !== match[1]) {
+            target.value = match[1];
+            target.dispatchEvent(new Event('input', {bubbles:true}));
+        }
+    }
+    occurred.addEventListener('input', function () { updateDate(occurred, 'incident_date'); });
+    complaint.addEventListener('input', function () { updateDate(complaint, 'reported_date'); });
+})();
+
+
+// Refresh the session token before native submission, retaining files and the clicked save intent.
+(function () {
+    var form = document.querySelector('form[data-csrf-url]');
+    if (!form || !form.requestSubmit) return;
+    var pending = false;
+    var ready = false;
+    var errorBox = null;
+    window.addEventListener('pageshow', function () { pending = false; ready = false; });
+    form.addEventListener('submit', async function (event) {
+        if (ready) { ready = false; return; }
+        event.preventDefault();
+        if (pending) return;
+        pending = true;
+        var submitter = event.submitter;
+        if (errorBox) errorBox.hidden = true;
+        try {
+            var response = await fetch(form.dataset.csrfUrl, {
+                credentials: 'same-origin', cache: 'no-store', headers: {'Accept':'application/json'}
+            });
+            if (!response.ok) throw new Error('Token refresh failed');
+            var data = await response.json();
+            if (!data.csrf_token) throw new Error('Token unavailable');
+            var token = form.querySelector('input[name="csrf_token"]');
+            if (!token) throw new Error('Token input unavailable');
+            token.value = data.csrf_token;
+            ready = true;
+            if (submitter) form.requestSubmit(submitter);
+            else form.requestSubmit();
+            // A failed validity check emits no submit event; allow the next attempt.
+            if (ready) { ready = false; pending = false; }
+        } catch (error) {
+            pending = false;
+            ready = false;
+            if (!errorBox) {
+                errorBox = document.createElement('div');
+                errorBox.className = 'ir-finalize-error';
+                errorBox.setAttribute('role', 'alert');
+                form.prepend(errorBox);
+            }
+            errorBox.textContent = 'Unable to prepare the save. Your edits are still here. Please try saving again.';
+            errorBox.hidden = false;
+        }
+    });
 })();

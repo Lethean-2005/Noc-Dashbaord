@@ -108,8 +108,7 @@ def test_single_fault_with_pictures_gets_picture_only_page_2(app):
     assert len(fault_tbl.rows) == 5
     assert fault_tbl.rows[1].cells[0].text == "Cause of Outage:"
 
-    # 3 original top-level tables + 1 new page-2 bordering container —
-    # no nested 2nd fault/plan tables inside it at all this time.
+    # The second fault remains nested in its page container; photos are inline.
     assert len(d.tables) == 4
     page2_container = d.tables[3].rows[0].cells[0]
     assert len(page2_container.tables) == 0
@@ -161,7 +160,7 @@ def test_second_fault_adds_page_break_and_prefixes_first_fault_labels(app):
     # table[2]) — pictures are plain inline images, not their own table.
     assert len(d.tables) == 4
     page2_container = d.tables[3].rows[0].cells[0]
-    fault_tbl_2, plan_header, plan_table = page2_container.tables
+    fault_tbl_2, = page2_container.tables
 
     assert fault_tbl_2.rows[0].cells[0].text == "Fault Analysis & Resolution"
     assert fault_tbl_2.rows[1].cells[0].text == "2nd Cause of Outage:"
@@ -172,13 +171,8 @@ def test_second_fault_adds_page_break_and_prefixes_first_fault_labels(app):
     assert label_runs_2[1].text == "nd"
     assert label_runs_2[1].font.superscript is True
 
-    assert plan_header.rows[0].cells[0].text == "Improvement and preventive plan"
-
-    # Improvement Plan's own body is a real bordered table (one row per
-    # line), not free-floating text.
-    assert plan_table.rows[0].cells[0].text == "TELCOTECH will take the following actions:"
-    assert plan_table.rows[1].cells[0].text == "1.Enhance customer communication."
-    assert plan_table.rows[2].cells[0].text == "2.Review the affected route."
+    assert "Improvement and preventive plan" not in page2_container.text
+    assert "Enhance customer communication." not in page2_container.text
 
     page2_paragraphs = [p.text for p in page2_container.paragraphs]
     assert "Picture Reference" in page2_paragraphs

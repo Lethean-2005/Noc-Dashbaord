@@ -168,23 +168,12 @@
       </div>
     </div>
 
-    {# One worklog popup per age bucket, triggered by that bucket's own
-       worklog icon (not its count — see the .incident-age-worklog-icon
-       comment above). Lists every open incident currently in that
-       bucket first (IncidentService.get_worklog_by_age_bucket()); each
-       incident row expands to its own worklog underneath, same
-       accordion pattern as the "Incident Volume — Sun" popup's own
-       Category rows — .volume-category-row/.volume-duration-panel and
-       their existing JS (graph_cards.js) are reused completely as-is,
-       no new JS needed for the expand/collapse itself. Only rendered
-       for buckets that actually have an incident with cached worklog
-       (see the icon's own {% if %} above), so this is never reachable
-       empty. #}
+    {# Load every incident in the selected bucket on demand, including those without worklogs. #}
     {% for seg in incident_age_chart.segments %}
     {% set incidents = incident_age_worklog_by_bucket.get(seg.badge_type, False) %}
     {% if incidents %}
     <div class="modal" id="incidentAgeWorklogModal_{{ seg.badge_type }}">
-        <div class="modal-content" style="width:680px;max-width:90vw;">
+        <div class="modal-content incident-age-worklog-dialog">
             <div class="modal-header">
                 <div class="modal-header-left">
                     <h2>Worklog — Site Down {{ seg.label }}</h2>

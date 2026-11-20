@@ -1,3 +1,5 @@
+# Project imports follow the path bootstrap for direct script execution.
+# ruff: noqa: E402
 """Capture real UI using isolated sample fixtures. All non-GET requests are blocked."""
 from pathlib import Path
 import sys
@@ -94,14 +96,17 @@ def capture():
             page.locator("#clearModalOverlay .modal-content").screenshot(path=str(OUT/"clear-alarm.png"))
             page.evaluate("closeClearModal()")
             search=page.locator(".table-search-input, #tableSearchInput, input[placeholder*='Search']").first
-            if search.count():search.fill("0/0/22")
+            if search.count():
+                search.fill("0/0/22")
             page.locator("main.content").screenshot(path=str(OUT/"table-search.png"))
             page.goto("http://demo.test/_help_demo_mentor",wait_until="networkidle")
             page.locator("main.content").screenshot(path=str(OUT/"mentor-sites.png"))
             page.unroute_all(behavior="wait")
             browser.close()
-            if errors:raise AssertionError(errors)
+            if errors:
+                raise AssertionError(errors)
     print("Captured 9 real-UI demo screenshots. No POST requests, live source queries, or alert sends.")
 
 
-if __name__=="__main__":capture()
+if __name__ == "__main__":
+    capture()

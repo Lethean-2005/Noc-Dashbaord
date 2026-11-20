@@ -17,6 +17,7 @@ offsets 0, landing at the same instant as every other Telegram alert,
 per explicit request (not staggered).
 """
 
+from app.services.notification_policy import notifications_enabled
 import io
 import os
 from datetime import datetime
@@ -319,6 +320,8 @@ def _send_telegram_document(token, chat_ids, photo_bytes):
     """Sends as a document, not sendPhoto (avoids Telegram's photo
     recompression blurring small table text) — its own filename so this
     alert's file isn't indistinguishable from telegram_alert.py's."""
+    if not notifications_enabled():
+        return False
     url = _TELEGRAM_SEND_DOCUMENT_URL.format(token=token)
     sent = True
     for chat_id in chat_ids:
@@ -342,6 +345,8 @@ def send_inc_wo_site_down_alert(
     'count': int}. Raises EnvironmentError if
     TELEGRAM_BOT_INC_WO_TOKEN/TELEGRAM_CHAT_IDS_INC_WO aren't configured —
     callers decide whether that's fatal or just a skip."""
+    if not notifications_enabled():
+        return {"sent": False, "count": 0, "reason": "notifications disabled"}
     token = current_app.config["TELEGRAM_BOT_INC_WO_TOKEN"]
     chat_ids = _chat_ids(current_app.config["TELEGRAM_CHAT_IDS_INC_WO"])
     if not token or not chat_ids:

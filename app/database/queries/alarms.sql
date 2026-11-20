@@ -78,7 +78,9 @@ WHERE p.AlarmName LIKE 'TCT%' AND (p.Status = 1 OR p.RestoredTime IS NULL);
 -- its own bind placeholder; one turning up in a comment here once
 -- caused a real "more placeholders in sql than params available"
 -- failure.)
-SELECT p.ID, p.AlarmName, LOWER(SUBSTRING(p.AlarmName, 5, 200)) AS alarm_type,
+-- Duplicate ISP/POP mapping rows can multiply the same source alarm.
+-- Keep one copy of identical alarm/enrichment rows without dropping unmapped alarms.
+SELECT DISTINCT p.ID, p.AlarmName, LOWER(SUBSTRING(p.AlarmName, 5, 200)) AS alarm_type,
        p.DeviceName, p.IPAddress, p.DownTime, p.RestoredTime, p.Status,
        p.PROBLEM_DETAILS, p.NOTE, p.INTERFACE, p.RTID, p.SourceGroup, p.ADD_INFO,
        p.ACK, p.AB, p.MB, p.MD,

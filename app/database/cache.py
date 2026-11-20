@@ -1370,6 +1370,15 @@ def init_cache_db() -> None:
                     conn.execute(
                         f"CREATE INDEX IF NOT EXISTS idx_{table}_device_name ON {table}(device_name)"
                     )
+        # History reads filter and order by time; keep weekly and device lookups indexed.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_congestion_history_cache_down_time "
+            "ON congestion_history_cache(down_time DESC)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_congestion_history_cache_device_down_time "
+            "ON congestion_history_cache(device_name, down_time DESC)"
+        )
         # Indexed keys used by Mentor and site/POP drilldowns.
         for table, column in [("site_cache", "standard_code"), ("ape_alarm", "site_code"),
                               ("incident_by_status", "site_code"), ("pop_cache", "ncode"),
@@ -1427,6 +1436,9 @@ def init_cache_db() -> None:
         # COLUMN is the only way to add a new field here without losing
         # every report already saved.
         existing_report_cols = {r[1] for r in conn.execute("PRAGMA table_info(incident_reports)").fetchall()}
+        for column in ("incident_layout", "prepared_by", "service_type", "symptom", "summary_remarks_json"):
+            if column not in existing_report_cols:
+                conn.execute(f"ALTER TABLE incident_reports ADD COLUMN {column} TEXT")
         if "document_title" not in existing_report_cols:
             conn.execute("ALTER TABLE incident_reports ADD COLUMN document_title TEXT")
         # "Add Second Fault" — most reports have exactly one Fault
