@@ -1,5 +1,6 @@
 """October reference mapping, saved-report compatibility, and real editor behavior."""
 from io import BytesIO
+from hashlib import sha256
 import json
 from pathlib import Path
 
@@ -28,8 +29,8 @@ def report():
 
 
 def test_packaged_template_is_the_supplied_reference():
-    reference = Path(__file__).parents[1] / "IR_SMART-MX1453-MX1454_19-Oct-2026.docx"
-    assert TEMPLATE.read_bytes() == reference.read_bytes()
+    # Pin the supplied reference without depending on an untracked local upload.
+    assert sha256(TEMPLATE.read_bytes()).hexdigest() == "4fefabcc6db4ad40d364f5c2d6d0b46798b22ad89bd47b86e65075cdb03e8030"
 
 
 def test_reference_export_maps_distinct_times_and_both_faults_without_sample_leaks():

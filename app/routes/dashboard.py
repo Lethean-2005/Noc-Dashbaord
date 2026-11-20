@@ -5,7 +5,8 @@ import getpass
 import io
 import math
 import re
-from flask import Blueprint, Response, abort, current_app, g, redirect, render_template, request, url_for
+from flask import Blueprint, Response, abort, current_app, g, has_request_context, redirect, render_template, request, url_for
+from werkzeug.datastructures import ImmutableMultiDict
 
 from app.repositories.alarm.alarm_cache_repository import AlarmCacheRepository
 from app.repositories.ape_alarm.ape_alarm_cache_repository import ApeAlarmCacheRepository
@@ -1479,8 +1480,9 @@ def _resolve_duration_selection(badge_type, bucket_tokens_map, bucket_labels):
     Returns (set of matched bucket indices, iso_week), or (None, None)
     if neither the checkboxes nor badge_type yield anything usable/
     well-formed."""
-    duration_buckets = request.args.getlist("duration_bucket")
-    week = request.args.get("week")
+    args = request.args if has_request_context() else ImmutableMultiDict()
+    duration_buckets = args.getlist("duration_bucket")
+    week = args.get("week")
     if duration_buckets and week:
         indices = {bucket_labels.index(label) for label in duration_buckets if label in bucket_labels}
         return (indices, week) if indices else (None, None)
@@ -1703,6 +1705,7 @@ def _response_time_duration_details(badge_type=None, categories=None):
     selection at all — a bare "show everything" request. Sorted
     fastest-first so the incident actually driving a MIN sits at the
     top."""
+    args = request.args if has_request_context() else ImmutableMultiDict()
     rows = _cached_fetch_all(_response_time_details_cache_repository, _RESPONSE_TIME_DETAILS_TABLE)
     rows = _filter_rows_by_categories(rows, categories)
 
@@ -1722,7 +1725,7 @@ def _response_time_duration_details(badge_type=None, categories=None):
         out.sort(key=lambda r: r.get("response_minutes") or 0)
         return out
 
-    if not badge_type and not request.args.getlist("duration_bucket"):
+    if not badge_type and not args.getlist("duration_bucket"):
         return _with_display(rows)
 
     bucket_indices, iso_week = _resolve_duration_selection(
@@ -1932,6 +1935,7 @@ def _resolution_time_duration_details(badge_type=None, categories=None):
     selection at all — a bare "show everything" request. Sorted
     fastest-first so the incident actually driving a MIN sits at the
     top."""
+    args = request.args if has_request_context() else ImmutableMultiDict()
     rows = _cached_fetch_all(_resolution_time_details_cache_repository, _RESOLUTION_TIME_DETAILS_TABLE)
     rows = _filter_rows_by_categories(rows, categories)
 
@@ -1951,7 +1955,7 @@ def _resolution_time_duration_details(badge_type=None, categories=None):
         out.sort(key=lambda r: r.get("resolution_minutes") or 0)
         return out
 
-    if not badge_type and not request.args.getlist("duration_bucket"):
+    if not badge_type and not args.getlist("duration_bucket"):
         return _with_display(rows)
 
     bucket_indices, iso_week = _resolve_duration_selection(
@@ -2081,6 +2085,7 @@ def _sla_compliance_details(badge_type=None):
     metric one of _SLA_COMPLIANCE_METRICS' keys). Every synced row if
     there's no badge_type at all — a bare "show everything" request,
     same convention as _response_time_duration_details()."""
+    args = request.args if has_request_context() else ImmutableMultiDict()
     rows = _sla_compliance_details_cache_repository.fetch_all(_SLA_COMPLIANCE_DETAILS_TABLE)
     by_priority, by_site_grade = _sla_target_lookup()
 
@@ -2113,11 +2118,11 @@ def _sla_compliance_details(badge_type=None):
     if metric_fn is None:
         return None
 
-    category = request.args.get("category")
-    priority = request.args.get("priority")
-    root_cause = request.args.get("root_cause")
+    category = args.get("category")
+    priority = args.get("priority")
+    root_cause = args.get("root_cause")
     if metric.startswith("root_cause"):
-        rows = _filter_rows_by_categories(rows, request.args.getlist("sla_compliance_category"))
+        rows = _filter_rows_by_categories(rows, args.getlist("sla_compliance_category"))
     week_column = _SLA_COMPLIANCE_METRIC_WEEK_COLUMN.get(metric, "iso_week")
     matched = [
         r for r in rows
